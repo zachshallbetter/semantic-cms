@@ -148,6 +148,12 @@ Classification: **[C]** confirms design · **[B]** better mechanism · **[N]** n
 4. **imagetracer's license contradiction** (public-domain manifest vs proprietary rebrand commit) blocks its own reuse.
 5. Inert declarations and drifted duplicates in titan-node (manifest port-map fork, dead `install_runtime_services.sh`, `.new` files older than their originals, runtime counts disagreeing three ways) — the P27 gate applied to titan-node itself would catch all of these.
 
+### 6.1 Addendum — post-review remediation (2026-08-28, later the same day)
+
+A separate fix session closed the **shell-injection exposure in titan-observatory's log endpoint**. Verified against the working tree: `remote_log_tail` now applies `shlex.quote()` to both the remote root and the log path and clamps the line count (`max(10, min(lines, 400))`) before embedding them in the SSH command — layered *on top of* the pre-existing `validate_log_path` allowlist (flat file under `results/titan_logs/`, conservative charset, no `..`/`-`/`.` prefixes). Two independent defenses now stand where the review observed one.
+
+Housekeeping item 3 **stands, sharpened**: titan-observatory remains outside version control, so this security fix itself exists only as unversioned working-tree state — one errant `rm` or disk fault reverts it silently, and no record proves when it landed. Recommended follow-up (upstream, per the doctrine): `git init` + initial commit in titan-observatory, capturing the fix as its first recorded revision.
+
 ## 7. Maturity caveats
 
 ACP is "a tested operational MVP" by its own accounting — production-grade contracts, a thin reference runtime (628 lines), with the Railway gateway as the one battle-complete component. open-knowledge is mature upstream OSS, but our copy is an unversioned clone standing ahead of its published packages. titan-node's observation machinery is battle-derived while its declaration machinery has outrun enforcement (its own README says so). Roughly half the Tools projects have no license and several are stubs or scaffolds; per-tool verdicts in §4 are the operative guidance. This review is a single `observed` pass.
