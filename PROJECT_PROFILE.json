@@ -1,0 +1,52 @@
+{
+  "projectId": "scms",
+  "projectName": "Semantic CMS",
+  "profileVersion": "0.5.0",
+  "profileStatus": "provisional",
+  "intentRef": "PROJECT_INTENT.md",
+  "authorityRef": "docs/AUTHORITY_MODEL.md",
+  "bindingsRef": "bindings/PROJECT_BINDINGS.yaml",
+  "contextSourcesRef": "CONTEXT_SOURCES.json",
+  "designRef": "DESIGN.md",
+  "operatingMode": "existing",
+  "executionProvider": {
+    "name": "local-files",
+    "workGraph": "work/ directory: GRAPH.md register plus one markdown issue contract per item (SCMS-NNN.md)",
+    "repository": "local filesystem at this directory; version control recommended but not yet initialized",
+    "dispatch": "interactive agent session under owner direction",
+    "verification": "scripts/validate-bootstrap.py --check-context; per-item evidence in records/evidence.jsonl",
+    "protection": "append-only records/*.jsonl convention plus declared protected effects; store-level grant enforcement arrives with the Canon plane",
+    "observability": null
+  },
+  "serviceOperations": [],
+  "authorityBindings": {
+    "projectMutation": "agent-under-owner-direction",
+    "qualification": "project.owner",
+    "promotion": "project.owner",
+    "productionOperation": "project.owner",
+    "deviation": "project.owner"
+  },
+  "protectedActions": [
+    "external-publication",
+    "production-deployment",
+    "spending",
+    "destructive-migration",
+    "credential-or-iam-change",
+    "authoritative-intent-change",
+    "external-communication"
+  ],
+  "autonomy": {
+    "frontierReselection": true,
+    "continueOnLocalizedBlocker": true,
+    "maxConcurrentMutationClaims": 2,
+    "humanEscalation": "decision-boundaries-only"
+  },
+  "contextPolicy": {
+    "compiledContextRequired": true,
+    "generatedContextNormative": false,
+    "requireContextLock": true,
+    "refreshOnMaterialSourceChange": true
+  },
+  "profiles": [],
+  "formalResourceManifest": "FORMAL_RESOURCE_MANIFEST.json"
+}
