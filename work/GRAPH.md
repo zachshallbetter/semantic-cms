@@ -1,5 +1,12 @@
 # Work Graph — scms
 
+**Board of record (owner directive, 2026-08-28):** work items are handled as GitHub
+issues on https://github.com/zachshallbetter/semantic-cms (workable via the
+agent-control-plane in Railway). This file remains the local projection of the graph;
+states are reconciled to the board, and a conflict between the two is repaired at the
+board, then re-projected here. Mapping: SCMS-001/002/003 verification → #2/#3/#4 ·
+SCMS-002 P1–P16 disposition → #1 · SCMS-004 → #5 · epics E1–E7 → #6–#12.
+
 States follow docs/WORK_GRAPH.md: `Backlog → Ready → In progress → In review → Done → Verified`.
 No item may be marked Ready until it satisfies the full Ready predicate (scope, exclusions,
 dependencies, acceptance, evidence requirements, permissions/effect class, target, budget,
