@@ -3,7 +3,8 @@
 **Intent ref:** PROJECT_INTENT.md
 **Assigned by:** project.owner, 2026-08-28 ("Let's dig into these in the same way")
 **Effect class:** E0 (read-only review of external repositories) + E1 (landing the review document and records)
-**State:** In progress
+**State:** Done — review landed; proposals P17–P28, the consumability ledger, and housekeeping findings await owner disposition
+**Evidence:** records/evidence.jsonl · scms-evidence-004 · gates re-passed at context digest 2f94a3eb
 
 ## Objective
 
