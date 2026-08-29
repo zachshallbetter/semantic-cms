@@ -196,6 +196,17 @@ Candidates for FORMAL_RESOURCE_MANIFEST.json, all as `kind: reference` (informin
 - Infinite-Verse: the 26-gap iPub implementation register is scrupulous — no `work` table, manifests not served, `manifestHash` not yet a hash, locators not yet `ipub://`; "members of twenty-two implemented conformantly end-to-end: still none." Treat it as a well-argued contract corpus with partial implementation; borrow on the strength of the reasoning, not on scale evidence.
 - This review is a single pass (`observed`); nothing here has been adversarially verified against the sources.
 
+## 9.1 Addendum — adversarial verification (2026-08-28, SCMS-005)
+
+An independent adversarial pass verified this review's ten most load-bearing claims against the sources: **6 CONFIRMED, 4 PARTIAL, 0 REFUTED.** The four corrections, which supersede the corresponding passages above:
+
+1. **Doc 19 (`computed_from` / refresh policies) is unratified.** Its own status line marks it "supporting material" with "implementation rides later issues," and its hooks into the normative specs are explicitly "recommendations only" until ratified. §3.4's presentation as settled overstated it. P4 stands as a *design adoption*; its source is a well-argued proposal, not enforced contract.
+2. **The entitlement model is a 0.1.0-draft "Proposed architecture contract."** Its own §0.1: "nothing here is claimed to be Implemented in a running service, Tested against one, or Empirically Validated." The fixture-replay script runs and does what §3.7 says — but is "standalone by design… NOT wired into check-all-gates.py," so calling it a gate overstated it. (§7 carried the correct reference-not-normative label; §3.7 should have too.)
+3. **GRP's timestamp exclusion has an exception.** The primary generation path excludes timestamps and model output from identity hashes as claimed — but the *operational fallback path* includes a minute-truncated timestamp in its hash input (`orchestrator.ts` ~82–87). "Deliberately excluding timestamps" is true of the design intent, false as an unqualified statement about the code.
+4. **Snack's `last_event_id` replay is plan-only.** The outbox, LISTEN/NOTIFY fanout, and backfill endpoint are genuinely shipped code (`PIPELINE_PLAN.md`: "✅ DONE, P.1–P.10") — but the shipped WebSocket handler accepts **no client resume token**; reconnect catch-up is a separate REST call with an RFC3339 *timestamp* cursor, not an event-ID cursor. P10's transport design stands; its shipped-evidence citation was partially wrong.
+
+**Systemic caveat the verifier surfaced:** this review cited proposed contracts and enforced code with equal evidentiary confidence. Where maturity matters to a disposition, the per-claim verdicts in records/evidence.jsonl (scms-evidence-005) are the authority.
+
 ## 10. Review traceability
 
 Findings synthesized from four bounded exploration passes executed 2026-08-28: (1) Titan doctrine + Systems via `Systems/llms-full-tsys.txt` + code fallbacks; (2) Titan Products/Research/Experiments/Business via `Products/llms-full-tprod.txt` + direct reads (Research/Experiments corpora were empty stubs); (3) Infinite-Verse doctrine + iPub + Platform via `.agents/llms-full-iv.txt` + migrations/broker sources; (4) Infinite-Verse Apps/UI/promotion via direct reads (canvases and attestations absent from the corpus). File references throughout are to the reviewed repositories at their 2026-08-28 state.

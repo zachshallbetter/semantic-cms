@@ -154,6 +154,12 @@ A separate fix session closed the **shell-injection exposure in titan-observator
 
 Housekeeping item 3 **stands, sharpened**: titan-observatory remains outside version control, so this security fix itself exists only as unversioned working-tree state — one errant `rm` or disk fault reverts it silently, and no record proves when it landed. Recommended follow-up (upstream, per the doctrine): `git init` + initial commit in titan-observatory, capturing the fix as its first recorded revision.
 
+### 6.2 Addendum — adversarial verification (2026-08-28, SCMS-005)
+
+An independent adversarial pass verified this review's ten most load-bearing claims against the sources: **10 CONFIRMED, 0 REFUTED** — including exact counts (the committed secret appears at exactly 8 bridge-profile sites plus both manifests, and additionally in `runtime_template_lib.sh`, which §6 did not list).
+
+One defect the review missed, now superseding §3.1's implicit working-code framing: **imagetracer's `payload_hash` is provably a constant.** `_compute_hash()` reads only `outer`/`holes` keys; the contract-subset dict passed at the payload call site has neither, so the "contract hash" reduces to a hardcoded hash of `{"outer": [], "holes": []}` regardless of contract content. The two-tier identity *design* (P20) is sound and stands; its reference implementation does not compute what it claims. Adopt the design, not the code. Registered as upstream debt **UD-11**.
+
 ## 7. Maturity caveats
 
 ACP is "a tested operational MVP" by its own accounting — production-grade contracts, a thin reference runtime (628 lines), with the Railway gateway as the one battle-complete component. open-knowledge is mature upstream OSS, but our copy is an unversioned clone standing ahead of its published packages. titan-node's observation machinery is battle-derived while its declaration machinery has outrun enforcement (its own README says so). Roughly half the Tools projects have no license and several are stubs or scaffolds; per-tool verdicts in §4 are the operative guidance. This review is a single `observed` pass.
