@@ -268,3 +268,148 @@ test("composite invariant: no hidden subject appears anywhere in the whole run",
   // The gate can fail: the same assertion over a subject that IS visible finds it.
   assert.ok(everythingVisible.includes("art-2"), "control: a visible subject does appear");
 });
+
+// ---------------------------------------------------------------------------
+// SCMS-027: the composed proof extended to the full landed surface.
+// ---------------------------------------------------------------------------
+import { mergeBounded } from "../../merge/src/bounded.ts";
+import type { CompositionState } from "../../merge/src/bounded.ts";
+import { HOME_COMPOSITION } from "../../schema/src/schema.ts";
+import { CONTENT_UNPUBLISH, unpublishHandler } from "../../qualification/src/unpublish.ts";
+import { fanOut } from "../../notify/src/fanout.ts";
+import type { Subscription } from "../../notify/src/fanout.ts";
+
+const homeBase: CompositionState = {
+  compositionId: "home",
+  sockets: { hero: [{ block: "article-card", ref: "art-1" }], rail: [{ block: "note-card", ref: "n1" }] },
+};
+
+test("seam 11: a valid bounded merge lands through the governed write path", () => {
+  const { journal, registry } = runSpine();
+  // Land the composition in Canon so the merge result has somewhere to go.
+  const seeded = journal.append({
+    ...envelope("home-1", "public", {}),
+    body: { kind: "Content", contentKind: "composition", state: homeBase },
+  }, "editor-1");
+
+  const a: CompositionState = { compositionId: "home", sockets: { ...homeBase.sockets, rail: [{ block: "note-card", ref: "n1" }, { block: "note-card", ref: "n2" }] } };
+  const b: CompositionState = { compositionId: "home", sockets: { ...homeBase.sockets, rail: [{ block: "note-card", ref: "n1" }, { block: "note-card", ref: "n3" }] } };
+  const merged = mergeBounded(homeBase, a, b, HOME_COMPOSITION);
+  assert.equal(merged.outcome, "merged");
+  if (merged.outcome !== "merged") return;
+
+  // The merged value must still cross the contract — merging grants no write.
+  const r = registry.execute(journal, {
+    contract: "icp:interaction/content.revise@1.0.0", requestId: "req_merge", actor: ACTOR,
+    input: { subjectId: "home-1", expectedRevision: seeded.envelope.revision, changes: { state: merged.result } },
+  }, { ...CTX, instanceId: "int_merge" });
+
+  assert.equal(r.outcome, "completed");
+  const landed = journal.current().find((e) => e.envelope.subjectId === "home-1")!;
+  const rail = (landed.envelope.body as { state: CompositionState }).state.sockets.rail;
+  assert.deepEqual(rail.map((o) => o.ref), ["n1", "n2", "n3"]);
+  assert.equal(journal.verifyChain().valid, true);
+});
+
+test("seam 11b: a bounded merge that violates an invariant lands nothing", () => {
+  const { journal } = runSpine();
+  const before = journal.all().length;
+  const a: CompositionState = { compositionId: "home", sockets: { ...homeBase.sockets, hero: [{ block: "note-card", ref: "wrong" }] } };
+  const merged = mergeBounded(homeBase, a, homeBase, HOME_COMPOSITION);
+  assert.equal(merged.outcome, "conflicted");
+  // There is no merged value to land, so nothing can be written.
+  assert.ok(!("result" in merged));
+  assert.equal(journal.all().length, before);
+});
+
+test("seam 12: promote → unpublish → re-promote composes with the chain intact", () => {
+  const { journal, registry, revised } = runSpine();
+  registry.register(CONTENT_UNPUBLISH, unpublishHandler);
+  const ev = (o: string): EvidenceRecord => ({
+    id: `ev_${o}`, obligation: o, result: "PASS", validity: "VALID",
+    candidateRevision: revised, actor: "checker", independentEvaluator: true,
+  });
+  const att = qualify(revised, NOTE_PROFILE, [ev("ob/schema-valid"), ev("ob/access-declared")], "checker", CTX.occurredAt);
+  const promoted = registry.execute(journal, {
+    contract: "icp:interaction/content.promote@1.0.0", requestId: "req_p", actor: ACTOR,
+    input: { subjectId: "art-1", candidateRevision: revised, attestation: att, profile: NOTE_PROFILE,
+      verificationPerformed: "reauthenticate", promotionAuthority: "project.owner" },
+  }, CTX);
+  assert.equal(promoted.outcome, "completed");
+
+  const un = registry.execute(journal, {
+    contract: "icp:interaction/content.unpublish@1.0.0", requestId: "req_u", actor: ACTOR,
+    input: { subjectId: "art-1", promotedRevision: promoted.receipt!.afterVersion,
+      verificationPerformed: "confirm", authority: "project.owner" },
+  }, { ...CTX, instanceId: "int_un" });
+  assert.equal(un.outcome, "compensated");
+  assert.equal(journal.current().find((e) => e.envelope.subjectId === "art-1")!.envelope.state.publicationState, "unpublished");
+  assert.equal(journal.verifyChain().valid, true);
+  // Nothing was erased: promoted and unpublished revisions both remain.
+  const history = journal.all().filter((e) => e.envelope.subjectId === "art-1").map((e) => e.envelope.state.publicationState);
+  assert.deepEqual(history, ["unpublished", "unpublished", "promoted", "unpublished"]);
+});
+
+test("seam 13: fan-out over the composed world tells only what each subscriber may know", () => {
+  const { journal } = runSpine();
+  const request: SurfaceRequest = {
+    profile: "focus", purpose: "understand", subject: "art-1", access: "member",
+    lens: { traversal: { radius: 1 } },
+  };
+  const memberSurface = resolveSurface(freeze(journal, "wave-0") as never, request) as ResolvedSurface;
+  const ownerSurface = resolveSurface(freeze(journal, "wave-0") as never, { ...request, access: "owner" }) as ResolvedSurface;
+
+  const subs: Subscription[] = [
+    { id: "sub-member", access: "member", dependencies: memberSurface.dependencies.map((d) => d.subject) },
+    { id: "sub-owner", access: "owner", dependencies: ownerSurface.dependencies.map((d) => d.subject) },
+  ];
+
+  // A visible change reaches both.
+  assert.deepEqual(fanOut(subs, ["art-2"]).map((i) => i.subscriptionId), ["sub-member", "sub-owner"]);
+  // The admin-only change reaches nobody — silence, byte-identical to no wave.
+  assert.deepEqual(fanOut(subs, ["sec-1"]), fanOut(subs, []));
+  assert.equal(fanOut(subs, ["sec-1"]).length, 0);
+});
+
+test("composite invariant, extended: no hidden subject in any artefact of the full run", () => {
+  const { journal, registry, revised } = runSpine();
+  registry.register(CONTENT_UNPUBLISH, unpublishHandler);
+  const ev = (o: string): EvidenceRecord => ({
+    id: `ev_${o}`, obligation: o, result: "PASS", validity: "VALID",
+    candidateRevision: revised, actor: "checker", independentEvaluator: true,
+  });
+  const att = qualify(revised, NOTE_PROFILE, [ev("ob/schema-valid"), ev("ob/access-declared")], "checker", CTX.occurredAt);
+  const promoted = registry.execute(journal, {
+    contract: "icp:interaction/content.promote@1.0.0", requestId: "req_x", actor: ACTOR,
+    input: { subjectId: "art-1", candidateRevision: revised, attestation: att, profile: NOTE_PROFILE,
+      verificationPerformed: "reauthenticate", promotionAuthority: "project.owner" },
+  }, CTX);
+  const un = registry.execute(journal, {
+    contract: "icp:interaction/content.unpublish@1.0.0", requestId: "req_y", actor: ACTOR,
+    input: { subjectId: "art-1", promotedRevision: promoted.receipt!.afterVersion,
+      verificationPerformed: "confirm", authority: "project.owner" },
+  }, { ...CTX, instanceId: "int_z" });
+
+  const request: SurfaceRequest = {
+    profile: "focus", purpose: "understand", subject: "art-1", access: "member",
+    lens: { traversal: { radius: 1 } }, operations: [{ id: "open-article", exposure: "available" }],
+  };
+  const cache = new ProjectionCache();
+  const entry = cache.get(freeze(journal, "wave-1") as never, request, "focus:art-1");
+  const merged = mergeBounded(homeBase, homeBase, homeBase, HOME_COMPOSITION);
+  const subs: Subscription[] = [{ id: "sub-member", access: "member", dependencies: entry.dependencies }];
+
+  const everythingVisible = JSON.stringify({
+    surface: entry.surface, expressions: [expressStructural(entry.surface), expressLinear(entry.surface)],
+    attestation: att, promoteReceipt: promoted.receipt, compensationReceipt: un.receipt,
+    merge: merged, fanOutVisible: fanOut(subs, ["art-2"]), fanOutHidden: fanOut(subs, ["sec-1"]),
+    consistency: consistencyState({
+      subjectId: "art-1", atRevision: revised, hasLocalEdits: false,
+      baselineEstablished: true, observedCanonEntries: 99,
+    }, journal),
+  });
+
+  assert.ok(!everythingVisible.includes("sec-1"), "no hidden subject in any artefact");
+  assert.ok(!everythingVisible.includes("Secret"), "nor its content");
+  assert.ok(everythingVisible.includes("art-2"), "control: a visible subject does appear");
+});

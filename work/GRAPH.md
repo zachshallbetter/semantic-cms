@@ -41,6 +41,7 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-024 | Wire-protocol schema + golden canonicalization vectors (closes SH-12) | E1 | Done — awaiting owner verification | records/evidence.jsonl · scms-evidence-024 |
 | SCMS-025 | Reconcile the claim register to the evidence | E1 | Done — awaiting owner verification | records/evidence.jsonl · scms-evidence-025 |
 | SCMS-026 | Subscription fan-out: who is told, and who must not be | E1 | Done — awaiting owner verification | records/evidence.jsonl · scms-evidence-026 |
+| SCMS-027 | Extend the composed proof to the full landed surface | E1 | Done — awaiting owner verification | records/evidence.jsonl · scms-evidence-027 |
 | SCMS-018 | R1 live co-authoring — **free lane only** (convergent merge) | E1 | **Blocked** — awaiting disposition of P7/P22 on PR #28 | records/blockers · scms-blocker-001 |
 | SCMS-010 | S4 cross-domain portability: a materially unrelated project (outside this repository, per owner doctrine 2026-08-28) consumes @semantic-systems/surface unmodified | external | Backlog — executes outside scms; scms records the conformance result | — |
 

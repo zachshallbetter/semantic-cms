@@ -9,14 +9,14 @@
     "repositories": [
       {
         "path": ".",
-        "commit": "9e892d2f8dc119dbd31318ee8b32ccaf345eed7c",
+        "commit": "7ba420982fe06f1cbf749b5d7d4ec7e5974dad84",
         "branch": "main",
         "dirty": true,
         "remote": "https://github.com/zachshallbetter/semantic-cms.git"
       }
     ]
   },
-  "aggregateSourceDigest": "e2b2fad7666f8002e32c3f282df64239b6d858cb3946fd0e3d87dad52d980c12",
+  "aggregateSourceDigest": "675b52e7834b6bf3587fe8ee6b338e84fbbac4580119672bb0f8429878158840",
   "sources": [
     {
       "path": ".agents/skills/compile-context/SKILL.md",
@@ -260,8 +260,8 @@
     },
     {
       "path": "impl/e2e/test/spine.test.ts",
-      "bytes": 14758,
-      "sha256": "1c820b9cb1a712fccf212cd3504333bd58ba2df074f419df3c412fb769333310"
+      "bytes": 23072,
+      "sha256": "8affb2250381eafb508d4919062539a011986fafde2af1ebe422197a87243e64"
     },
     {
       "path": "impl/merge/package.json",
@@ -505,8 +505,8 @@
     },
     {
       "path": "work/GRAPH.md",
-      "bytes": 7380,
-      "sha256": "fae21a1c0423a670ebb5a43497a60460d053682325449e97a59ca152ae9d459e"
+      "bytes": 7538,
+      "sha256": "f727bddeb513fc2646090e7d4c24279e01dfcef9ba58bec2eab0c9b2a91b7792"
     },
     {
       "path": "work/SCMS-001.md",
@@ -627,6 +627,11 @@
       "path": "work/SCMS-026.md",
       "bytes": 2879,
       "sha256": "d5d7b6daa473c7ba132d3535b2d4e6ddbd8c147345a07d60b4e118f87b0422b0"
+    },
+    {
+      "path": "work/SCMS-027.md",
+      "bytes": 2436,
+      "sha256": "5f76b88af0e3522db6dfc60ec37fb471ed6126a8da55a776d08f093e5c5a4edb"
     }
   ]
 }
