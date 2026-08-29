@@ -3,7 +3,8 @@
 **Intent ref:** PROJECT_INTENT.md
 **Assigned by:** project.owner, 2026-08-28 ("resolve all of these items, excluding the build (for the moment)")
 **Effect class:** E1 (this repository) + E0 (verification reads of external repos) + board/PR operations
-**State:** In progress → items land incrementally this session
+**State:** Done — all six gap resolutions landed (main 13dd20f1472e, PR #28); awaiting owner rulings on #26 and #28
+**Evidence:** records/evidence.jsonl · scms-evidence-005
 
 ## Objective
 
