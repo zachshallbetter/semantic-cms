@@ -9,7 +9,7 @@
     "repositories": [
       {
         "path": ".",
-        "commit": "62e8faeac48cbafba58b90d22bfc388b28503d79",
+        "commit": "684bdc21b6b0275ec5db376b22d20a2fa6c7c7fa",
         "branch": "main",
         "dirty": true,
         "remote": "https://github.com/zachshallbetter/semantic-cms.git"
