@@ -1,6 +1,6 @@
 # PROJECT COMPILED CONTEXT
 Generator: 0.5.0
-Source digest: c55171e94421d85ae8d3f09df55295924836420dd12fa7169b83ac3624f88136
+Source digest: 4f7fcd58ec121a66d685fa3c3b59a4842bda56a7b8b91b318c73d6cb40a90a8f
 
 > Generated projection. Canonical sources remain authoritative.
 
@@ -1450,6 +1450,7 @@ decision record) — never by deletion.
 | SH-10 | THIN | Backup & recovery | No RPO/RTO; no operational promises exist yet, so the promise register (P15) has nothing to check. | Declare with the E1 slice: nightly logical backup, RPO 24h → 1h post-MVP, RTO 4h; each promise entered in the register with its verifying artifact. |
 | SH-11 | CAVEAT | GPL boundary | open-knowledge consumed as a service (P25) — process-boundary isolation believed sufficient; not yet reviewed by counsel. | Keep strict service boundary (no linking, no vendoring); counsel review before any distribution of a combined work. |
 | SH-13 | **GAP — security** | Attestation provenance | Attestations are caller-supplied: `disposition: QUALIFIED` is trusted because it was passed in, and nothing binds an attestation to an evaluator. The evidence gate accepts evidence from the party being gated. Anonymous exploitation is closed by SCMS-031's authority gate; owner self-certification is not. | Options recorded in scms-blocker-003 — signed attestations bound to a named evaluator, or attestations read from Canon by revision and never accepted from input. Needs owner disposition. |
+| SH-14 | **GAP — read path** | Derived observations are unreachable | `freeze()` projects only `Content` and `Relation` bodies into the snapshot, so `Observation` bodies never become snapshot subjects at any access level. SCMS-028's derived Semantic Article Field lands in Canon and is then invisible to every surface, including the owner's. Found incidentally by the NR-scms-007 adversarial pass. | Either project observations into the snapshot with their own access, or state explicitly that observations reach surfaces through the Field plane rather than through resolution — currently neither is true. |
 | ~~SH-12~~ | **RESOLVED** | Wire protocol concretes | *Closed by SCMS-024:* `schemas/scms/envelope.schema.json` (closed, hash-pattern-typed, freshness rule encoded conditionally) and `schemas/scms/golden/canonicalization.json` (4 positive vectors + 1 negative proving the check can fail). Residual limitation, recorded not hidden: no JSON-Schema library is available under the zero-dependency policy, so the schema document is not meta-validated and schema/runtime agreement is asserted case-wise. |
 
 ## Claim register
@@ -1467,7 +1468,7 @@ above its rung.
 | Surface resolution is access-safe | **Implemented + Tested** | SCMS-008/014: hidden state never enters a dependency set, and cannot move an output, trace, or invalidation (byte-identical results) | Adversarial review of the access boundary by an independent party |
 | One surface can be expressed two materially different ways | **S3 conformance (narrow path)** | SCMS-009: 10 vectors, six preserved properties, morphology provably differing | S4 — and S4 must run **outside** this repository (SCMS-010) |
 | Publishing is qualification **plus** promotion, never a boolean | **Implemented + Tested — with one claim corrected and one gap open** | SCMS-013/020: promotion refuses non-qualified, under-verified, and mismatched candidates; compensation exists and round-trips. **This row previously also claimed 'unauthorised'. That was false** — NR-scms-005 showed no handler authorized anything, and an anonymous caller could promote an owner-private draft. Authorization now exists (SCMS-031) and is tested by reason, not just by outcome | Attestations that a caller cannot write for themselves (scms-blocker-003 / SH-13) |
-| No persistent mutation outside a registered contract | **Implemented + Tested (source-level), and authorized as of SCMS-031** | SCMS-012 write path; SCMS-023 boundary gate with a self-test proving it can fail; SCMS-031 adds the authority gate the write path had been missing entirely (NR-scms-005) | Runtime capability enforcement, not just source-level |
+| No persistent mutation outside a registered contract | **Implemented + Tested (source-level), and authorized as of SCMS-031** | SCMS-012 write path; SCMS-023 boundary gate with a self-test proving it can fail; SCMS-031 adds the authority gate the write path had been missing entirely (NR-scms-005), and NR-scms-006 corrects that gate after an adversarial pass found it failing OPEN on prototype-chain keys | Runtime capability enforcement, not just source-level |
 | Declared content types are enforced | **Implemented + Tested (where declared)** | SCMS-022: the governed write consults the declared type; opt-in, because types that do not exist are not pretended to exist | A declared type for every content kind in use |
 | R1 live co-authoring | **Partially established** | `required` lane proven (SCMS-012), `bounded` lane proven (SCMS-021); **free lane NOT built** — blocked on P7/P22 | Owner disposition of P7/P22, then the free lane |
 | R2 live propagation | **NOT established** | Nothing built: transport is P10-pending. Consistency *state* is determined (SCMS-017) but nothing moves it | Disposition of P10, then outbox + fan-out + replay |
@@ -9240,6 +9241,30 @@ import type { AccessLevel } from "../../surface-resolver/src/types.ts";
  */
 const ACCESS_RANK: Record<AccessLevel, number> = { public: 0, member: 1, owner: 2, admin: 3 };
 
+/**
+ * Resolve an authority string to its rank, or `null` if it is not one of the
+ * four declared levels.
+ *
+ * This exists because the obvious spelling of the check was wrong in a way that
+ * failed OPEN (NR-scms-006). `level in ACCESS_RANK` walks the prototype chain,
+ * so `"constructor"` and `"toString"` passed as authorities; the lookup then
+ * yielded a *function*, and `function < number` is `NaN < number`, which is
+ * `false` — so the guard concluded "not less than required" and allowed the
+ * write. A caller claiming authority `"constructor"` executed owner-gated
+ * contracts exactly as the owner.
+ *
+ * Two independent defences, because one was demonstrably not enough:
+ * `Object.hasOwn` refuses inherited keys, and the numeric check refuses
+ * anything that did not resolve to a real number. A malformed authority now
+ * produces `null`, and every caller of this function treats `null` as refusal.
+ */
+function rankOf(level: unknown): number | null {
+  if (typeof level !== "string") return null;
+  if (!Object.hasOwn(ACCESS_RANK, level)) return null;
+  const rank = ACCESS_RANK[level as AccessLevel];
+  return typeof rank === "number" && Number.isFinite(rank) ? rank : null;
+}
+
 export interface ContractDefinition {
   /** ICP identity grammar: stable id + semver. */
   id: string;
@@ -9328,7 +9353,7 @@ export class ContractRegistry {
   register(def: ContractDefinition, handler: Handler): void {
     // Types are stripped, not checked, at runtime — so the requirement is
     // enforced here or not at all.
-    if (!(def.minAuthority in ACCESS_RANK)) {
+    if (rankOf(def.minAuthority) === null) {
       throw new Error(
         `contract '${def.id}' must declare a valid minAuthority before it can be registered`,
       );
@@ -9353,15 +9378,17 @@ export class ContractRegistry {
     }
     // AUTHORIZE — one gate, before any handler runs. A handler cannot forget
     // this check, because a handler never gets the chance to make it.
-    if (!(ctx.authority in ACCESS_RANK)) {
+    const held = rankOf(ctx.authority);
+    const required = rankOf(entry.def.minAuthority);
+    if (held === null || required === null) {
       return {
         instanceId: ctx.instanceId, outcome: "blocked", states: [...states, "blocked"],
         verification: "none",
         recovery: [{ action: "reauthenticate", data: { need: "a proven authority" } }],
-        detail: "execution context carries no proven authority; refusing rather than assuming one",
+        detail: "execution context carries no valid proven authority; refusing rather than assuming one",
       };
     }
-    if (ACCESS_RANK[ctx.authority] < ACCESS_RANK[entry.def.minAuthority]) {
+    if (held < required) {
       return {
         instanceId: ctx.instanceId, outcome: "blocked", states: [...states, "blocked"],
         verification: "none",
@@ -9735,8 +9762,79 @@ test("a context with no proven authority fails closed", () => {
     requestId: "r-noauth", actor: { id: "x", role: "x" }, input: {} as never,
   }, { occurredAt: "2026-08-29T00:00:00Z", instanceId: "int_noauth" } as never);
   assert.equal(res.outcome, "blocked");
-  assert.match(res.detail ?? "", /no proven authority/);
+  assert.match(res.detail ?? "", /no valid proven authority/);
   assert.equal(j.all().length, before);
+});
+
+// ── The fail-open the gate itself had (NR-scms-006) ─────────────────────────
+// Found by an adversarial pass over the SCMS-031 gate. `level in ACCESS_RANK`
+// walked the prototype chain, so inherited property names passed as
+// authorities; the lookup then returned a function, and `function < number` is
+// `NaN < number` → false, so the guard concluded "not less than required".
+// The guard against unauthorized writes failed OPEN.
+
+const PROTOTYPE_KEYS = [
+  "constructor", "toString", "__proto__", "hasOwnProperty",
+  "valueOf", "isPrototypeOf", "propertyIsEnumerable",
+];
+
+test("an inherited property name is not an authority", () => {
+  // Each request below is otherwise VALID — real subject, real current revision,
+  // well-formed changes — so the only thing that can refuse it is the authority
+  // gate. Refusing a malformed request would prove nothing.
+  for (const authority of PROTOTYPE_KEYS) {
+    const { journal: j, registry, seed } = setup();
+    const before = j.all().length;
+    const res = registry.execute(j, {
+      contract: "icp:interaction/content.revise@1.0.0",
+      requestId: `r-${authority}`, actor: { id: "attacker", role: "anonymous" },
+      input: { subjectId: "art-1", expectedRevision: seed.envelope.revision!,
+               changes: { slots: { title: [{ kind: "text", value: "PWNED" }] } } },
+    }, { ...ctx, instanceId: `int-${authority}`, authority: authority as never });
+
+    assert.equal(res.outcome, "blocked", `authority '${authority}' was accepted`);
+    assert.equal(j.all().length, before, `authority '${authority}' landed a write`);
+  }
+});
+
+test("an inherited property name is not a declarable minAuthority", () => {
+  for (const key of PROTOTYPE_KEYS) {
+    const r = new ContractRegistry();
+    assert.throws(
+      () => r.register({ ...CONTENT_REVISE, minAuthority: key } as never, reviseHandler),
+      /must declare a valid minAuthority/,
+      `minAuthority '${key}' was accepted`);
+  }
+});
+
+test("a non-string authority is refused rather than coerced", () => {
+  for (const authority of [null, undefined, 0, 2, true, {}, []]) {
+    const { journal: j, registry, seed } = setup();
+    const before = j.all().length;
+    const res = registry.execute(j, {
+      contract: "icp:interaction/content.revise@1.0.0",
+      requestId: "r-nonstring", actor: { id: "x", role: "x" },
+      input: { subjectId: "art-1", expectedRevision: seed.envelope.revision!,
+               changes: { slots: { title: [{ kind: "text", value: "X" }] } } },
+    }, { ...ctx, instanceId: "int-nonstring", authority: authority as never });
+    assert.equal(res.outcome, "blocked", `authority ${JSON.stringify(authority)} was accepted`);
+    assert.equal(j.all().length, before);
+  }
+  // Note `2` in that list: it is the numeric rank of "owner". A guard that
+  // compared ranks without checking the input was a declared level would have
+  // let it through.
+});
+
+test("the legitimate owner path still works — the gate is not refusing everything", () => {
+  const { journal: j, registry, seed } = setup();
+  const res = registry.execute(j, {
+    contract: "icp:interaction/content.revise@1.0.0",
+    requestId: "r-ok", actor: { id: "owner", role: "owner" },
+    input: { subjectId: "art-1", expectedRevision: seed.envelope.revision!,
+             changes: { slots: { title: [{ kind: "text", value: "Revised" }] } } },
+  }, { ...ctx, instanceId: "int-ok", authority: "owner" });
+  assert.equal(res.outcome, "completed");
+  assert.equal(j.all().length, 2);
 });
 
 
@@ -11819,6 +11917,7 @@ import { receiptDigest } from "../../contracts/src/runtime.ts";
 import type { ChangeReceipt, InstanceState } from "../../contracts/src/icp.ts";
 import type { Attestation } from "./qualify.ts";
 import type { ConsequenceProfile } from "./eqp.ts";
+import { PROFILES } from "./eqp.ts";
 
 export const CONTENT_PROMOTE: ContractDefinition = {
   id: "icp:interaction/content.promote",
@@ -11848,7 +11947,25 @@ export function promoteHandler(
 ): ExecutionResult {
   const states: InstanceState[] = ["declared", "ready", "started", "validating"];
   const input = req.input as unknown as PromoteInput;
-  const required = input?.profile?.promotionVerification ?? "reauthenticate";
+
+  // GATE 0 — resolve the consequence profile from the CANONICAL table by id.
+  //
+  // The profile decides how strong the verification must be, so reading it from
+  // caller input let the caller decide how hard to gate themselves: a forged
+  // `{...COMMITMENT_PROFILE, promotionVerification: "none"}` promoted a
+  // `prove`-tier commitment with zero verification, using entirely legitimate
+  // owner authority and no trickery (NR-scms-006). Only the id is taken from
+  // input; every gating field comes from PROFILES.
+  const profile = PROFILES[input?.profile?.id as ConsequenceProfile["id"]];
+  if (!profile) {
+    return {
+      instanceId: ctx.instanceId, outcome: "invalid_input", states: [...states, "failed"],
+      verification: "prove",   // refuse at the strongest level, never the weakest
+      recovery: [{ action: "focus_field", data: { field: "profile.id", known: Object.keys(PROFILES).join(",") } }],
+      detail: `unknown consequence profile '${String(input?.profile?.id)}'; profiles are canonical, not supplied`,
+    };
+  }
+  const required = profile.promotionVerification;
 
   // GATE 1 — qualification. A candidate that is not QUALIFIED cannot promote,
   // and BLOCKED (coverage gap) is reported as needing evidence, not as a
@@ -11886,7 +12003,7 @@ export function promoteHandler(
       instanceId: ctx.instanceId, outcome: "verification_required",
       states: [...states, "verification_required"], verification: required,
       recovery: [{ action: "reauthenticate", data: { required, performed } }],
-      detail: `profile '${input.profile.id}' requires ${required} verification`,
+      detail: `profile '${profile.id}' requires ${required} verification`,
     };
   }
   if (!input.promotionAuthority) {
@@ -12502,6 +12619,40 @@ test("round trip: promote → unpublish → promote, with all three landings in 
   assert.equal(journal.verifyChain().valid, true);
   const publicationHistory = journal.all().map((e) => e.envelope.state.publicationState);
   assert.deepEqual(publicationHistory, ["unpublished", "promoted", "unpublished", "promoted"]);
+});
+
+// ── Consequence profiles are canonical, not supplied (NR-scms-006) ──────────
+
+test("a forged consequence profile cannot weaken its own gate", () => {
+  // COMMITMENT_PROFILE demands `prove`. The caller submits a profile object
+  // that is byte-identical except for the one field that decides how hard the
+  // gate is. Legitimate owner authority — no prototype trick, no stolen access.
+  const { journal, registry, rev: seed } = setup();
+  const res = registry.execute(journal, promoteReq({
+      subjectId: "note-1", candidateRevision: seed,
+      attestation: { disposition: "QUALIFIED", candidateRevision: seed, outcomes: [] },
+      profile: { ...COMMITMENT_PROFILE, promotionVerification: "none" },
+      verificationPerformed: "none", promotionAuthority: "self",
+  }), { ...ctx, instanceId: "int-forge" });
+
+  assert.equal(res.outcome, "verification_required",
+    "the forged 'none' must not decide the gate");
+  assert.equal(res.verification, "prove",
+    "the canonical profile decides, and it says prove");
+  assert.equal(journal.current()[0].envelope.state.publicationState, "unpublished");
+});
+
+test("an unknown profile id is refused at the strongest level, not the weakest", () => {
+  const { journal, registry, rev: seed } = setup();
+  const res = registry.execute(journal, promoteReq({
+      subjectId: "note-1", candidateRevision: seed,
+      attestation: { disposition: "QUALIFIED", candidateRevision: seed, outcomes: [] },
+      profile: { id: "made-up", promotionVerification: "none" },
+      verificationPerformed: "none", promotionAuthority: "self",
+  }), { ...ctx, instanceId: "int-unknown" });
+  assert.equal(res.outcome, "invalid_input");
+  assert.equal(res.verification, "prove", "an unrecognised profile refuses at prove, never at none");
+  assert.equal(journal.current()[0].envelope.state.publicationState, "unpublished");
 });
 
 

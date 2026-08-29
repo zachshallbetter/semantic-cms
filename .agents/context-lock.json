@@ -9,14 +9,14 @@
     "repositories": [
       {
         "path": ".",
-        "commit": "7837601e69cdddd076ae0353bc641f61046c96d5",
+        "commit": "421e1de1519a6064fc027efc679c8a086bbb4b12",
         "branch": "main",
         "dirty": true,
         "remote": "https://github.com/zachshallbetter/semantic-cms.git"
       }
     ]
   },
-  "aggregateSourceDigest": "c55171e94421d85ae8d3f09df55295924836420dd12fa7169b83ac3624f88136",
+  "aggregateSourceDigest": "4f7fcd58ec121a66d685fa3c3b59a4842bda56a7b8b91b318c73d6cb40a90a8f",
   "sources": [
     {
       "path": ".agents/skills/compile-context/SKILL.md",
@@ -100,8 +100,8 @@
     },
     {
       "path": "SPEC_HEALTH.md",
-      "bytes": 11865,
-      "sha256": "f657742006349f9e388d81468cf1e19310b4175cc0f662e5d072c8dc8291a07f"
+      "bytes": 12586,
+      "sha256": "aa4bb927c20a42f5ae55e678e6d02cb6524669c451b2de4b5bcfde59fbb77874"
     },
     {
       "path": "VERSION",
@@ -265,13 +265,13 @@
     },
     {
       "path": "impl/contracts/src/runtime.ts",
-      "bytes": 11526,
-      "sha256": "a4c7a6af43e14b78ee8e13206723efde8c298f786e38980c9d9e16e63b462cfa"
+      "bytes": 12777,
+      "sha256": "819cb715b954d6a8efb839146cd9832b5af308fd82bec75f8275bacf84355903"
     },
     {
       "path": "impl/contracts/test/contracts.test.ts",
-      "bytes": 12312,
-      "sha256": "6a19dcbc32fd8e236a4f6d6ccda3689ff97fbc9ed228cb186a9bce4664633509"
+      "bytes": 15875,
+      "sha256": "7a6a1b33d5eb8d3fec761e0034bece5dac7e08b45a57c9c7180eeaef78447e02"
     },
     {
       "path": "impl/e2e/package.json",
@@ -370,8 +370,8 @@
     },
     {
       "path": "impl/qualification/src/promote.ts",
-      "bytes": 6159,
-      "sha256": "5be011b9f33a76b05b8104866a760b050425ca9d41d009b97b8d8c4c55e34423"
+      "bytes": 7212,
+      "sha256": "f2169922de417efd9847a92481a6a5eaca855b01a6c64f5bf3190faf04365655"
     },
     {
       "path": "impl/qualification/src/qualify.ts",
@@ -385,8 +385,8 @@
     },
     {
       "path": "impl/qualification/test/qualification.test.ts",
-      "bytes": 15596,
-      "sha256": "f79a20c8daf1fada226a9ef4befa3d86c641c016b1a78df8f3d94f97b05063c0"
+      "bytes": 17481,
+      "sha256": "b356865f2efa70dda2b6010db87df8d8f9b0d96014060279fdee4d322615051d"
     },
     {
       "path": "impl/reader/package.json",

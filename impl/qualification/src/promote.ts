@@ -17,6 +17,7 @@ import { receiptDigest } from "../../contracts/src/runtime.ts";
 import type { ChangeReceipt, InstanceState } from "../../contracts/src/icp.ts";
 import type { Attestation } from "./qualify.ts";
 import type { ConsequenceProfile } from "./eqp.ts";
+import { PROFILES } from "./eqp.ts";
 
 export const CONTENT_PROMOTE: ContractDefinition = {
   id: "icp:interaction/content.promote",
@@ -46,7 +47,25 @@ export function promoteHandler(
 ): ExecutionResult {
   const states: InstanceState[] = ["declared", "ready", "started", "validating"];
   const input = req.input as unknown as PromoteInput;
-  const required = input?.profile?.promotionVerification ?? "reauthenticate";
+
+  // GATE 0 — resolve the consequence profile from the CANONICAL table by id.
+  //
+  // The profile decides how strong the verification must be, so reading it from
+  // caller input let the caller decide how hard to gate themselves: a forged
+  // `{...COMMITMENT_PROFILE, promotionVerification: "none"}` promoted a
+  // `prove`-tier commitment with zero verification, using entirely legitimate
+  // owner authority and no trickery (NR-scms-006). Only the id is taken from
+  // input; every gating field comes from PROFILES.
+  const profile = PROFILES[input?.profile?.id as ConsequenceProfile["id"]];
+  if (!profile) {
+    return {
+      instanceId: ctx.instanceId, outcome: "invalid_input", states: [...states, "failed"],
+      verification: "prove",   // refuse at the strongest level, never the weakest
+      recovery: [{ action: "focus_field", data: { field: "profile.id", known: Object.keys(PROFILES).join(",") } }],
+      detail: `unknown consequence profile '${String(input?.profile?.id)}'; profiles are canonical, not supplied`,
+    };
+  }
+  const required = profile.promotionVerification;
 
   // GATE 1 — qualification. A candidate that is not QUALIFIED cannot promote,
   // and BLOCKED (coverage gap) is reported as needing evidence, not as a
@@ -84,7 +103,7 @@ export function promoteHandler(
       instanceId: ctx.instanceId, outcome: "verification_required",
       states: [...states, "verification_required"], verification: required,
       recovery: [{ action: "reauthenticate", data: { required, performed } }],
-      detail: `profile '${input.profile.id}' requires ${required} verification`,
+      detail: `profile '${profile.id}' requires ${required} verification`,
     };
   }
   if (!input.promotionAuthority) {

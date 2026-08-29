@@ -241,6 +241,77 @@ test("a context with no proven authority fails closed", () => {
     requestId: "r-noauth", actor: { id: "x", role: "x" }, input: {} as never,
   }, { occurredAt: "2026-08-29T00:00:00Z", instanceId: "int_noauth" } as never);
   assert.equal(res.outcome, "blocked");
-  assert.match(res.detail ?? "", /no proven authority/);
+  assert.match(res.detail ?? "", /no valid proven authority/);
   assert.equal(j.all().length, before);
+});
+
+// ── The fail-open the gate itself had (NR-scms-006) ─────────────────────────
+// Found by an adversarial pass over the SCMS-031 gate. `level in ACCESS_RANK`
+// walked the prototype chain, so inherited property names passed as
+// authorities; the lookup then returned a function, and `function < number` is
+// `NaN < number` → false, so the guard concluded "not less than required".
+// The guard against unauthorized writes failed OPEN.
+
+const PROTOTYPE_KEYS = [
+  "constructor", "toString", "__proto__", "hasOwnProperty",
+  "valueOf", "isPrototypeOf", "propertyIsEnumerable",
+];
+
+test("an inherited property name is not an authority", () => {
+  // Each request below is otherwise VALID — real subject, real current revision,
+  // well-formed changes — so the only thing that can refuse it is the authority
+  // gate. Refusing a malformed request would prove nothing.
+  for (const authority of PROTOTYPE_KEYS) {
+    const { journal: j, registry, seed } = setup();
+    const before = j.all().length;
+    const res = registry.execute(j, {
+      contract: "icp:interaction/content.revise@1.0.0",
+      requestId: `r-${authority}`, actor: { id: "attacker", role: "anonymous" },
+      input: { subjectId: "art-1", expectedRevision: seed.envelope.revision!,
+               changes: { slots: { title: [{ kind: "text", value: "PWNED" }] } } },
+    }, { ...ctx, instanceId: `int-${authority}`, authority: authority as never });
+
+    assert.equal(res.outcome, "blocked", `authority '${authority}' was accepted`);
+    assert.equal(j.all().length, before, `authority '${authority}' landed a write`);
+  }
+});
+
+test("an inherited property name is not a declarable minAuthority", () => {
+  for (const key of PROTOTYPE_KEYS) {
+    const r = new ContractRegistry();
+    assert.throws(
+      () => r.register({ ...CONTENT_REVISE, minAuthority: key } as never, reviseHandler),
+      /must declare a valid minAuthority/,
+      `minAuthority '${key}' was accepted`);
+  }
+});
+
+test("a non-string authority is refused rather than coerced", () => {
+  for (const authority of [null, undefined, 0, 2, true, {}, []]) {
+    const { journal: j, registry, seed } = setup();
+    const before = j.all().length;
+    const res = registry.execute(j, {
+      contract: "icp:interaction/content.revise@1.0.0",
+      requestId: "r-nonstring", actor: { id: "x", role: "x" },
+      input: { subjectId: "art-1", expectedRevision: seed.envelope.revision!,
+               changes: { slots: { title: [{ kind: "text", value: "X" }] } } },
+    }, { ...ctx, instanceId: "int-nonstring", authority: authority as never });
+    assert.equal(res.outcome, "blocked", `authority ${JSON.stringify(authority)} was accepted`);
+    assert.equal(j.all().length, before);
+  }
+  // Note `2` in that list: it is the numeric rank of "owner". A guard that
+  // compared ranks without checking the input was a declared level would have
+  // let it through.
+});
+
+test("the legitimate owner path still works — the gate is not refusing everything", () => {
+  const { journal: j, registry, seed } = setup();
+  const res = registry.execute(j, {
+    contract: "icp:interaction/content.revise@1.0.0",
+    requestId: "r-ok", actor: { id: "owner", role: "owner" },
+    input: { subjectId: "art-1", expectedRevision: seed.envelope.revision!,
+             changes: { slots: { title: [{ kind: "text", value: "Revised" }] } } },
+  }, { ...ctx, instanceId: "int-ok", authority: "owner" });
+  assert.equal(res.outcome, "completed");
+  assert.equal(j.all().length, 2);
 });

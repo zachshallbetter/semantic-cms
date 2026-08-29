@@ -28,6 +28,30 @@ import type { AccessLevel } from "../../surface-resolver/src/types.ts";
  */
 const ACCESS_RANK: Record<AccessLevel, number> = { public: 0, member: 1, owner: 2, admin: 3 };
 
+/**
+ * Resolve an authority string to its rank, or `null` if it is not one of the
+ * four declared levels.
+ *
+ * This exists because the obvious spelling of the check was wrong in a way that
+ * failed OPEN (NR-scms-006). `level in ACCESS_RANK` walks the prototype chain,
+ * so `"constructor"` and `"toString"` passed as authorities; the lookup then
+ * yielded a *function*, and `function < number` is `NaN < number`, which is
+ * `false` — so the guard concluded "not less than required" and allowed the
+ * write. A caller claiming authority `"constructor"` executed owner-gated
+ * contracts exactly as the owner.
+ *
+ * Two independent defences, because one was demonstrably not enough:
+ * `Object.hasOwn` refuses inherited keys, and the numeric check refuses
+ * anything that did not resolve to a real number. A malformed authority now
+ * produces `null`, and every caller of this function treats `null` as refusal.
+ */
+function rankOf(level: unknown): number | null {
+  if (typeof level !== "string") return null;
+  if (!Object.hasOwn(ACCESS_RANK, level)) return null;
+  const rank = ACCESS_RANK[level as AccessLevel];
+  return typeof rank === "number" && Number.isFinite(rank) ? rank : null;
+}
+
 export interface ContractDefinition {
   /** ICP identity grammar: stable id + semver. */
   id: string;
@@ -116,7 +140,7 @@ export class ContractRegistry {
   register(def: ContractDefinition, handler: Handler): void {
     // Types are stripped, not checked, at runtime — so the requirement is
     // enforced here or not at all.
-    if (!(def.minAuthority in ACCESS_RANK)) {
+    if (rankOf(def.minAuthority) === null) {
       throw new Error(
         `contract '${def.id}' must declare a valid minAuthority before it can be registered`,
       );
@@ -141,15 +165,17 @@ export class ContractRegistry {
     }
     // AUTHORIZE — one gate, before any handler runs. A handler cannot forget
     // this check, because a handler never gets the chance to make it.
-    if (!(ctx.authority in ACCESS_RANK)) {
+    const held = rankOf(ctx.authority);
+    const required = rankOf(entry.def.minAuthority);
+    if (held === null || required === null) {
       return {
         instanceId: ctx.instanceId, outcome: "blocked", states: [...states, "blocked"],
         verification: "none",
         recovery: [{ action: "reauthenticate", data: { need: "a proven authority" } }],
-        detail: "execution context carries no proven authority; refusing rather than assuming one",
+        detail: "execution context carries no valid proven authority; refusing rather than assuming one",
       };
     }
-    if (ACCESS_RANK[ctx.authority] < ACCESS_RANK[entry.def.minAuthority]) {
+    if (held < required) {
       return {
         instanceId: ctx.instanceId, outcome: "blocked", states: [...states, "blocked"],
         verification: "none",

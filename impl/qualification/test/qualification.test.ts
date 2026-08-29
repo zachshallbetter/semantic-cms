@@ -294,3 +294,37 @@ test("round trip: promote → unpublish → promote, with all three landings in 
   const publicationHistory = journal.all().map((e) => e.envelope.state.publicationState);
   assert.deepEqual(publicationHistory, ["unpublished", "promoted", "unpublished", "promoted"]);
 });
+
+// ── Consequence profiles are canonical, not supplied (NR-scms-006) ──────────
+
+test("a forged consequence profile cannot weaken its own gate", () => {
+  // COMMITMENT_PROFILE demands `prove`. The caller submits a profile object
+  // that is byte-identical except for the one field that decides how hard the
+  // gate is. Legitimate owner authority — no prototype trick, no stolen access.
+  const { journal, registry, rev: seed } = setup();
+  const res = registry.execute(journal, promoteReq({
+      subjectId: "note-1", candidateRevision: seed,
+      attestation: { disposition: "QUALIFIED", candidateRevision: seed, outcomes: [] },
+      profile: { ...COMMITMENT_PROFILE, promotionVerification: "none" },
+      verificationPerformed: "none", promotionAuthority: "self",
+  }), { ...ctx, instanceId: "int-forge" });
+
+  assert.equal(res.outcome, "verification_required",
+    "the forged 'none' must not decide the gate");
+  assert.equal(res.verification, "prove",
+    "the canonical profile decides, and it says prove");
+  assert.equal(journal.current()[0].envelope.state.publicationState, "unpublished");
+});
+
+test("an unknown profile id is refused at the strongest level, not the weakest", () => {
+  const { journal, registry, rev: seed } = setup();
+  const res = registry.execute(journal, promoteReq({
+      subjectId: "note-1", candidateRevision: seed,
+      attestation: { disposition: "QUALIFIED", candidateRevision: seed, outcomes: [] },
+      profile: { id: "made-up", promotionVerification: "none" },
+      verificationPerformed: "none", promotionAuthority: "self",
+  }), { ...ctx, instanceId: "int-unknown" });
+  assert.equal(res.outcome, "invalid_input");
+  assert.equal(res.verification, "prove", "an unrecognised profile refuses at prove, never at none");
+  assert.equal(journal.current()[0].envelope.state.publicationState, "unpublished");
+});
