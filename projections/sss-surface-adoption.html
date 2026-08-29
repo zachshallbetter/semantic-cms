@@ -1,0 +1,433 @@
+<title>The Surface Seam</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --paper: #f6f5f1; --surface: #eeece5; --ink: #212939; --ink-strong: #141c2b;
+    --muted: #5d6579; --line: #d8d5ca; --line-soft: #e3e0d6;
+    --accent: #b8391c; --accent-ink: #9c2f16; --accent-tint: #f1e2da;
+    --live: #2c7a4f; --live-tint: #e2ede4; --drift: #92661a; --drift-tint: #f0e9d6;
+    --conflict: #9c2f56; --conflict-tint: #f0e0e7; --dormant: #6b7280; --code-bg: #edebe2;
+    --serif: "Spectral", Georgia, "Times New Roman", serif;
+    --sans: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+    --mono: "IBM Plex Mono", "SF Mono", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #141926; --surface: #1b2232; --ink: #dfdccf; --ink-strong: #f3f0e5;
+      --muted: #979fb4; --line: #323c53; --line-soft: #283044;
+      --accent: #e05933; --accent-ink: #ea7350; --accent-tint: #3b2418;
+      --live: #55b283; --live-tint: #1d3229; --drift: #c99b45; --drift-tint: #362d17;
+      --conflict: #cf7099; --conflict-tint: #38202b; --dormant: #8b93a5; --code-bg: #1a2130;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #141926; --surface: #1b2232; --ink: #dfdccf; --ink-strong: #f3f0e5;
+    --muted: #979fb4; --line: #323c53; --line-soft: #283044;
+    --accent: #e05933; --accent-ink: #ea7350; --accent-tint: #3b2418;
+    --live: #55b283; --live-tint: #1d3229; --drift: #c99b45; --drift-tint: #362d17;
+    --conflict: #cf7099; --conflict-tint: #38202b; --dormant: #8b93a5; --code-bg: #1a2130;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--sans); font-size: 16px; line-height: 1.65; -webkit-font-smoothing: antialiased; }
+  .shell { max-width: 1020px; margin: 0 auto; padding: 0 28px 96px; }
+  a { color: var(--accent-ink); text-decoration: none; border-bottom: 1px solid transparent; }
+  a:hover, a:focus-visible { border-bottom-color: var(--accent-ink); }
+  a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .masthead { padding: 64px 0 0; }
+  .eyebrow { font-size: 11px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent-ink); }
+  h1 { font-family: var(--serif); font-weight: 600; color: var(--ink-strong); font-size: clamp(38px, 5.5vw, 56px); line-height: 1.06; margin: 10px 0 14px; letter-spacing: -0.01em; text-wrap: balance; }
+  .standfirst { font-size: 17.5px; color: var(--muted); max-width: 66ch; margin: 0 0 36px; text-wrap: pretty; }
+  .standfirst strong { color: var(--ink); font-weight: 500; }
+  .envelope { border: 1px solid var(--line); background: var(--surface); border-radius: 6px; overflow: hidden; margin: 0 0 12px; }
+  .envelope-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--line); font-family: var(--mono); font-size: 12px; color: var(--muted); }
+  .envelope-head .seal { color: var(--accent-ink); font-weight: 500; }
+  .envelope-body { padding: 14px 16px 16px; overflow-x: auto; }
+  .envelope table { border-collapse: collapse; font-family: var(--mono); font-size: 12.5px; }
+  .envelope td { padding: 3px 0; vertical-align: top; }
+  .envelope td.k { color: var(--muted); padding-right: 28px; white-space: nowrap; }
+  .envelope td.v { color: var(--ink); }
+  .envelope-note { font-size: 13px; color: var(--muted); margin: 0 0 52px; }
+  .envelope-note em { font-style: normal; color: var(--ink); }
+  section { margin: 0 0 68px; }
+  .sec-head { display: flex; align-items: baseline; gap: 16px; border-top: 2px solid var(--ink-strong); padding-top: 14px; margin-bottom: 20px; }
+  .sec-num { font-family: var(--serif); font-weight: 600; font-size: 25px; color: var(--accent-ink); font-variant-numeric: tabular-nums; }
+  h2 { font-family: var(--serif); font-weight: 600; font-size: 27px; line-height: 1.15; color: var(--ink-strong); margin: 0; text-wrap: balance; }
+  h3 { font-family: var(--sans); font-weight: 600; font-size: 16.5px; color: var(--ink-strong); margin: 32px 0 10px; }
+  p { max-width: 76ch; margin: 0 0 14px; }
+  ul { max-width: 76ch; padding-left: 1.3em; margin: 0 0 14px; }
+  li { margin: 5px 0; }
+  strong { color: var(--ink-strong); font-weight: 600; }
+  code, .mono { font-family: var(--mono); font-size: 0.92em; }
+  p code, li code, td code { background: var(--code-bg); border: 1px solid var(--line-soft); padding: 0.5px 5px; border-radius: 4px; font-size: 0.86em; white-space: nowrap; }
+  pre { background: var(--code-bg); border: 1px solid var(--line); border-radius: 6px; padding: 14px 16px; overflow-x: auto; font-family: var(--mono); font-size: 12.5px; line-height: 1.55; margin: 16px 0; color: var(--ink); }
+  .law { border-left: 3px solid var(--accent); background: var(--accent-tint); padding: 14px 20px; margin: 22px 0; max-width: 76ch; border-radius: 0 6px 6px 0; }
+  .law p { margin: 0; color: var(--ink-strong); font-family: var(--serif); font-size: 17px; line-height: 1.5; }
+  .law .who { display: block; margin-top: 8px; font-family: var(--sans); font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent-ink); font-weight: 600; }
+  .tablewrap { overflow-x: auto; margin: 18px 0; }
+  table.ledger { border-collapse: collapse; width: 100%; font-size: 14px; line-height: 1.5; }
+  table.ledger th { text-align: left; font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); border-bottom: 2px solid var(--ink-strong); padding: 8px 18px 8px 0; }
+  table.ledger td { border-bottom: 1px solid var(--line-soft); padding: 9px 18px 9px 0; vertical-align: top; }
+  table.ledger tr:last-child td { border-bottom: 1px solid var(--line); }
+  table.ledger td.key { font-weight: 600; color: var(--ink-strong); white-space: nowrap; }
+  table.ledger .mono { font-size: 12.5px; }
+  figure { margin: 26px 0; }
+  .figwrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); padding: 18px 14px; }
+  figure svg { display: block; min-width: 640px; max-width: 100%; height: auto; margin: 0 auto; color: var(--ink); }
+  figure svg text:not([fill]) { fill: currentColor; }
+  figcaption { font-size: 13.5px; color: var(--muted); margin-top: 10px; max-width: 76ch; }
+  figcaption strong { color: var(--ink); font-weight: 600; }
+  .tag { display: inline-block; font-family: var(--mono); font-size: 11px; font-weight: 500; border-radius: 4px; padding: 1px 7px; margin-right: 6px; white-space: nowrap; border: 1px solid var(--line); background: var(--surface); color: var(--muted); }
+  .tag.ok { border-color: var(--live); background: var(--live-tint); color: var(--live); }
+  .tag.warn { border-color: var(--drift); background: var(--drift-tint); color: var(--drift); }
+  .tag.no { border-color: var(--conflict); background: var(--conflict-tint); color: var(--conflict); }
+  .tag.acc { border-color: var(--accent); background: var(--accent-tint); color: var(--accent-ink); }
+  /* rendered ResolvedSurface example */
+  .surface-demo { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin: 18px 0 10px; }
+  .sgroup { border: 1px solid var(--line); border-radius: 6px; background: var(--surface); padding: 12px 14px; }
+  .sgroup h4 { margin: 0 0 8px; font-family: var(--sans); font-size: 12px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent-ink); }
+  .sgroup h4 .pri { color: var(--muted); font-weight: 500; letter-spacing: 0; text-transform: none; }
+  .member { border: 1px solid var(--line-soft); border-radius: 5px; padding: 7px 10px; margin: 6px 0; background: var(--paper); }
+  .member .mid { font-family: var(--mono); font-size: 13px; font-weight: 500; color: var(--ink-strong); }
+  .member .basis { font-size: 12px; color: var(--muted); font-family: var(--mono); }
+  .surface-meta { border: 1px solid var(--line); border-radius: 6px; background: var(--surface); padding: 10px 14px; font-family: var(--mono); font-size: 12px; color: var(--muted); overflow-x: auto; }
+  .surface-meta .v { color: var(--ink); }
+  .oprow { display: flex; flex-wrap: wrap; gap: 10px; margin: 12px 0; }
+  .footer { border-top: 2px solid var(--ink-strong); margin-top: 8px; padding-top: 18px; font-size: 13.5px; color: var(--muted); }
+  .footer .mono { font-size: 12px; }
+  .refs { font-size: 13.5px; }
+  .refs li { margin: 3px 0; }
+</style>
+
+<div class="shell">
+
+<header class="masthead">
+  <div class="eyebrow">SCMS-008 · Adoption &amp; first build · board #34</div>
+  <h1>The Surface Seam</h1>
+  <p class="standfirst">The Semantic Surface System (<span class="mono">sss:protocol/semantic-surface</span> v0.1.0) reconciled against the Semantic CMS, pinned as a dependency, bound to nine resources — and implemented: the repository's <strong>first working code</strong>, a pure resolver whose eleven vectors prove the properties this page shows, on real output.</p>
+
+  <div class="envelope" role="group" aria-label="This adoption record as a canonical envelope">
+    <div class="envelope-head">
+      <span>Envelope · scms-0.1</span>
+      <span class="seal">provenance: declared</span>
+    </div>
+    <div class="envelope-body">
+      <table>
+        <tr><td class="k">subject_id</td><td class="v">scms:adoption/sss</td></tr>
+        <tr><td class="k">work_item</td><td class="v">SCMS-008 (#34) · Done — awaiting owner verification · first item on the full Ready predicate</td></tr>
+        <tr><td class="k">sources</td><td class="v">work/SCMS-008.md · bindings/PROJECT_BINDINGS.yaml · FORMAL_RESOURCE_MANIFEST.json · impl/surface-resolver/ · commit bab3d6dbdb84</td></tr>
+        <tr><td class="k">evidence</td><td class="v">scms-evidence-008 · node --test 11/11 pass · every example below is captured resolver output, not a mock</td></tr>
+      </table>
+    </div>
+  </div>
+  <p class="envelope-note">This page is a <em>derived</em> projection of the canonical records above. The design specification remains its own artifact; DESIGN.md v2's <span class="mono">[SSS]</span> hunk awaits disposition on PR #28.</p>
+</header>
+
+<!-- ============ 1 ============ -->
+<section id="s1">
+  <div class="sec-head"><span class="sec-num">1</span><h2>The seam</h2></div>
+  <p>SSS names the layer the design previously blurred: between what the domain <em>has</em> and how a page <em>looks</em> sits the decision of <strong>what matters here</strong>. One inequality carries the whole protocol:</p>
+  <div class="law"><p>CANON ≠ SURFACE ≠ EXPRESSION ≠ REPRESENTATION — the domain owns what exists; the surface owns contextual participation; expression owns permitted appearance; the representation is what a participant actually encounters.</p><span class="who">SSS-SPECIFICATION §1 · the governing separation</span></div>
+
+  <figure>
+    <div class="figwrap">
+    <svg viewBox="0 0 940 330" role="img" aria-label="Pipeline: Canon flows through access projection into SSS resolution, producing a ResolvedSurface consumed by SES expression and then a host renderer; operations exposed on the surface cross the ICP interaction boundary; the resolver is read-only with respect to Canon.">
+      <defs>
+        <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+        </marker>
+        <marker id="arA" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--accent)"/>
+        </marker>
+      </defs>
+      <g font-size="12.5" font-family="inherit">
+        <rect x="16" y="60" width="140" height="70" rx="5" fill="none" stroke="currentColor" stroke-width="1.6"/>
+        <text x="86" y="88" text-anchor="middle" font-weight="600">Canon</text>
+        <text x="86" y="106" text-anchor="middle" font-size="11" fill="var(--muted)">what exists</text>
+
+        <rect x="196" y="60" width="150" height="70" rx="5" fill="none" stroke="currentColor" stroke-width="1.3"/>
+        <text x="271" y="83" text-anchor="middle" font-weight="600">Access projection</text>
+        <text x="271" y="101" text-anchor="middle" font-size="11" fill="var(--muted)">what may be seen</text>
+        <text x="271" y="117" text-anchor="middle" font-size="10.5" fill="var(--muted)">before candidacy · INV-003</text>
+
+        <rect x="386" y="48" width="190" height="94" rx="5" fill="var(--accent)" fill-opacity="0.1" stroke="var(--accent)" stroke-width="1.8"/>
+        <text x="481" y="72" text-anchor="middle" font-weight="600" fill="var(--accent-ink)">SSS · surface resolution</text>
+        <text x="481" y="90" text-anchor="middle" font-size="11.5" fill="var(--accent-ink)">Resolve(D, P, Q, C, L, A, T)</text>
+        <text x="481" y="107" text-anchor="middle" font-size="11" fill="var(--accent-ink)">what matters here, and why</text>
+        <text x="481" y="124" text-anchor="middle" font-size="10.5" fill="var(--accent-ink)">read-only · deterministic · traced</text>
+
+        <rect x="616" y="60" width="150" height="70" rx="5" fill="none" stroke="currentColor" stroke-width="1.3"/>
+        <text x="691" y="83" text-anchor="middle" font-weight="600">Expression · SES</text>
+        <text x="691" y="101" text-anchor="middle" font-size="11" fill="var(--muted)">how it may appear</text>
+        <text x="691" y="117" text-anchor="middle" font-size="10.5" fill="var(--muted)">themes · recipes · morphology</text>
+
+        <rect x="806" y="60" width="118" height="70" rx="5" fill="none" stroke="currentColor" stroke-width="1.3"/>
+        <text x="865" y="88" text-anchor="middle" font-weight="600">Host</text>
+        <text x="865" y="106" text-anchor="middle" font-size="11" fill="var(--muted)">representation</text>
+
+        <line x1="156" y1="95" x2="192" y2="95" stroke="currentColor" stroke-width="1.3" marker-end="url(#ar)"/>
+        <line x1="346" y1="95" x2="382" y2="95" stroke="currentColor" stroke-width="1.3" marker-end="url(#ar)"/>
+        <line x1="576" y1="95" x2="612" y2="95" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arA)"/>
+        <text x="594" y="84" text-anchor="middle" font-size="10.5" fill="var(--accent-ink)">Resolved</text>
+        <text x="594" y="96" text-anchor="middle" font-size="10.5" fill="var(--accent-ink)">Surface</text>
+        <line x1="766" y1="95" x2="802" y2="95" stroke="currentColor" stroke-width="1.3" marker-end="url(#ar)"/>
+
+        <!-- operations branch -->
+        <line x1="481" y1="142" x2="481" y2="205" stroke="currentColor" stroke-width="1.2" stroke-dasharray="4 4" marker-end="url(#ar)"/>
+        <text x="493" y="178" font-size="11" fill="var(--muted)">exposed operations (identity = SES Operation)</text>
+        <rect x="386" y="209" width="190" height="58" rx="5" fill="none" stroke="currentColor" stroke-width="1.3"/>
+        <text x="481" y="232" text-anchor="middle" font-weight="600">ICP · interaction boundary</text>
+        <text x="481" y="250" text-anchor="middle" font-size="11" fill="var(--muted)">what may happen · exposure ≠ permission</text>
+
+        <!-- read-only note -->
+        <path d="M 386 142 Q 250 190 160 134" fill="none" stroke="currentColor" stroke-width="1.1" stroke-dasharray="2 5"/>
+        <text x="240" y="185" font-size="10.5" fill="var(--muted)">no write path — a surface never becomes canon (INV-001/002)</text>
+
+        <!-- consequence loop -->
+        <path d="M 576 238 L 900 238 L 900 145" fill="none" stroke="currentColor" stroke-width="1.1" stroke-dasharray="5 4" marker-end="url(#ar)"/>
+        <text x="742" y="228" text-anchor="middle" font-size="10.5" fill="var(--muted)">receipted mutation → new canon → future resolution</text>
+      </g>
+    </svg>
+    </div>
+    <figcaption><strong>The adopted pipeline.</strong> The surface is derived, read-only, and renderer-neutral; expression consumes it; consequential operations exit through the interaction boundary and return as new canonical state — never as edits to the surface.</figcaption>
+  </figure>
+</section>
+
+<!-- ============ 2 ============ -->
+<section id="s2">
+  <div class="sec-head"><span class="sec-num">2</span><h2>Nine bindings, one decomposition</h2></div>
+  <p>Reconciliation verdicts, recorded in <span class="mono">bindings/PROJECT_BINDINGS.yaml</span> and the alignment ledger. No doctrinal conflict was found; one existing binding decomposed.</p>
+  <div class="tablewrap"><table class="ledger">
+    <tr><th>Resource</th><th>Relation</th><th>The seam</th></tr>
+    <tr><td class="key">SES</td><td><span class="tag ok">exact</span></td><td>SSS upstream of expression; operation <em>identity</em> stays SES. SSS may say <code>role=primary</code>, never <code>render-as-hero</code>.</td></tr>
+    <tr><td class="key">SPS</td><td><span class="tag warn">constrained</span></td><td><strong>The decomposition:</strong> <code>morphologyFor</code> spanned two layers — selection, lens, and evidence tone are surface semantics (SSS); the container-form choice is an expression recipe over them. Semantic change declared; no SPS concept redefined.</td></tr>
+    <tr><td class="key">ICP</td><td><span class="tag ok">exact</span></td><td>Exposure ends where interaction begins. Exposure ≠ permission ≠ enablement ≠ execution ≠ success.</td></tr>
+    <tr><td class="key">FCI</td><td><span class="tag">not pinned</span></td><td>Deliberate restraint: its distinctions arrive via rr-rsp, ICP, HCML, and SSS itself. Pin only if the Field/Observation planes later need its measurement contracts.</td></tr>
+    <tr><td class="key">Fundamental</td><td><span class="tag warn">constrained</span></td><td>Metric meaning and provenance stay with the Field; SSS consumes signals with source identified; the P13 lossy verdict-only boundary is stricter and prevails.</td></tr>
+    <tr><td class="key">rr-rsp</td><td><span class="tag ok">exact</span></td><td>Frozen snapshots; access-before-resolution = filter-before-handle; observable-set-only fingerprints; observed never becomes declared.</td></tr>
+    <tr><td class="key">EQP</td><td><span class="tag warn">constrained</span></td><td>Qualification state consumable as an eligibility input; SSS never manufactures qualification or promotion.</td></tr>
+    <tr><td class="key">HCML</td><td><span class="tag ok">exact</span></td><td><code>ResolvedSurface.consistency</code> carries the HCML state vocabulary; the values remain HCML's.</td></tr>
+    <tr><td class="key">FPB</td><td><span class="tag acc">governs</span></td><td>The pin itself: content-digested, six-dimensional compatibility declared; SSS's own VERSIONING independently states re-pin-as-compatibility-event.</td></tr>
+  </table></div>
+
+  <figure>
+    <div class="figwrap">
+    <svg viewBox="0 0 940 240" role="img" aria-label="Before: SPS morphologyFor is one box choosing both which items appear and what container form renders them. After: SSS resolves participation and evidence tone; an expression recipe maps role, priority, and tone to a container form.">
+      <defs>
+        <marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+        </marker>
+      </defs>
+      <g font-size="12" font-family="inherit">
+        <text x="20" y="34" font-weight="600" font-size="11" fill="var(--muted)" letter-spacing="1.5">BEFORE · SPS APP.JS</text>
+        <rect x="20" y="46" width="400" height="76" rx="5" fill="none" stroke="currentColor" stroke-width="1.4"/>
+        <text x="220" y="74" text-anchor="middle" font-weight="600">morphologyFor(shelf)</text>
+        <text x="220" y="94" text-anchor="middle" font-size="11" fill="var(--muted)">purpose + lens + evidence density → members AND container form</text>
+        <text x="220" y="110" text-anchor="middle" font-size="10.5" fill="var(--conflict)">one function, two layers — selection fused to form</text>
+
+        <text x="20" y="168" font-weight="600" font-size="11" fill="var(--muted)" letter-spacing="1.5">AFTER · SCMS-008</text>
+        <rect x="20" y="180" width="270" height="52" rx="5" fill="var(--accent)" fill-opacity="0.1" stroke="var(--accent)" stroke-width="1.5"/>
+        <text x="155" y="201" text-anchor="middle" font-weight="600" fill="var(--accent-ink)">SSS participation</text>
+        <text x="155" y="218" text-anchor="middle" font-size="10.5" fill="var(--accent-ink)">members · role · priority · evidence tone</text>
+
+        <rect x="360" y="180" width="270" height="52" rx="5" fill="none" stroke="currentColor" stroke-width="1.3"/>
+        <text x="495" y="201" text-anchor="middle" font-weight="600">Expression recipe</text>
+        <text x="495" y="218" text-anchor="middle" font-size="10.5" fill="var(--muted)">{role, tone, count} → hero | rail | matrix | …</text>
+
+        <rect x="700" y="180" width="224" height="52" rx="5" fill="none" stroke="currentColor" stroke-width="1.3"/>
+        <text x="812" y="201" text-anchor="middle" font-weight="600">Rendered container</text>
+        <text x="812" y="218" text-anchor="middle" font-size="10.5" fill="var(--muted)">SES theme realizes it</text>
+
+        <line x1="290" y1="206" x2="356" y2="206" stroke="currentColor" stroke-width="1.3" marker-end="url(#ar2)"/>
+        <line x1="630" y1="206" x2="696" y2="206" stroke="currentColor" stroke-width="1.3" marker-end="url(#ar2)"/>
+        <text x="770" y="60" font-size="11" fill="var(--muted)">SSS-INV-008: semantic priority</text>
+        <text x="770" y="75" font-size="11" fill="var(--muted)">must not prescribe graphical</text>
+        <text x="770" y="90" font-size="11" fill="var(--muted)">form — the fused version is</text>
+        <text x="770" y="105" font-size="11" fill="var(--muted)">now structurally impossible.</text>
+      </g>
+    </svg>
+    </div>
+    <figcaption><strong>The one decomposition.</strong> SPS's insight — layout earned by evidence — survives intact; it just crosses the seam in two declared steps instead of one fused function.</figcaption>
+  </figure>
+</section>
+
+<!-- ============ 3 ============ -->
+<section id="s3">
+  <div class="sec-head"><span class="sec-num">3</span><h2>A resolution, for real</h2></div>
+  <p>Everything below is <strong>captured output of <code>impl/surface-resolver</code></strong> over the test fixture — the same snapshot the vector suite runs. Six subjects, five relations; the viewer resolves a <code>focus</code> surface on <code>art-1</code> at <strong>member</strong> access, radius 2.</p>
+
+  <figure>
+    <div class="figwrap">
+    <svg viewBox="0 0 940 300" role="img" aria-label="Input snapshot graph: art-1 anchor relates to art-2, note-1, ent-1 and admin-only sec-1; art-2 relates to art-3. At member access sec-1 and its edge are invisible; ent-1 is visible but entitlement-gated.">
+      <defs>
+        <marker id="ar3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+        </marker>
+      </defs>
+      <g font-size="12" font-family="inherit">
+        <text x="20" y="30" font-weight="600" font-size="11" fill="var(--muted)" letter-spacing="1.5">FROZEN SNAPSHOT snap-001 · RESOLVING AS member</text>
+
+        <!-- anchor -->
+        <rect x="80" y="120" width="120" height="52" rx="6" fill="var(--accent)" fill-opacity="0.1" stroke="var(--accent)" stroke-width="1.8"/>
+        <text x="140" y="141" text-anchor="middle" font-weight="600" fill="var(--accent-ink)">art-1</text>
+        <text x="140" y="158" text-anchor="middle" font-size="10.5" fill="var(--accent-ink)">anchor · public</text>
+
+        <!-- art-2 -->
+        <rect x="330" y="52" width="120" height="52" rx="6" fill="none" stroke="currentColor" stroke-width="1.4"/>
+        <text x="390" y="73" text-anchor="middle" font-weight="600">art-2</text>
+        <text x="390" y="90" text-anchor="middle" font-size="10.5" fill="var(--muted)">article · public</text>
+
+        <!-- note-1 -->
+        <rect x="330" y="124" width="120" height="52" rx="6" fill="none" stroke="currentColor" stroke-width="1.4"/>
+        <text x="390" y="145" text-anchor="middle" font-weight="600">note-1</text>
+        <text x="390" y="162" text-anchor="middle" font-size="10.5" fill="var(--muted)">note · member</text>
+
+        <!-- ent-1 -->
+        <rect x="330" y="196" width="120" height="52" rx="6" fill="var(--drift)" fill-opacity="0.12" stroke="var(--drift)" stroke-width="1.5"/>
+        <text x="390" y="217" text-anchor="middle" font-weight="600" fill="var(--drift)">ent-1</text>
+        <text x="390" y="234" text-anchor="middle" font-size="10.5" fill="var(--drift)">public · entitled ⚿</text>
+
+        <!-- art-3 depth 2 -->
+        <rect x="580" y="52" width="120" height="52" rx="6" fill="none" stroke="currentColor" stroke-width="1.4"/>
+        <text x="640" y="73" text-anchor="middle" font-weight="600">art-3</text>
+        <text x="640" y="90" text-anchor="middle" font-size="10.5" fill="var(--muted)">article · public</text>
+
+        <!-- sec-1 hidden -->
+        <rect x="580" y="196" width="140" height="52" rx="6" fill="none" stroke="var(--conflict)" stroke-width="1.4" stroke-dasharray="5 4"/>
+        <text x="650" y="217" text-anchor="middle" font-weight="600" fill="var(--conflict)">sec-1</text>
+        <text x="650" y="234" text-anchor="middle" font-size="10.5" fill="var(--conflict)">admin — invisible here</text>
+
+        <!-- edges -->
+        <line x1="200" y1="132" x2="326" y2="82" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar3)"/>
+        <text x="255" y="94" font-size="10.5" fill="var(--muted)">references</text>
+        <line x1="200" y1="148" x2="326" y2="148" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar3)"/>
+        <text x="263" y="140" font-size="10.5" fill="var(--muted)">annotated-by</text>
+        <line x1="200" y1="164" x2="326" y2="214" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar3)"/>
+        <text x="245" y="204" font-size="10.5" fill="var(--muted)">references</text>
+        <line x1="450" y1="78" x2="576" y2="78" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar3)"/>
+        <text x="513" y="70" font-size="10.5" fill="var(--muted)">references</text>
+        <line x1="200" y1="170" x2="576" y2="212" stroke="var(--conflict)" stroke-width="1.1" stroke-dasharray="5 4" marker-end="url(#ar3)"/>
+        <text x="360" y="272" font-size="10.5" fill="var(--conflict)">references (admin) — projected away before candidacy, with its endpoint</text>
+      </g>
+    </svg>
+    </div>
+    <figcaption><strong>The input.</strong> Access projection runs before anything is a candidate: at member access, <code>sec-1</code> and its edge simply do not exist for this resolution — they are not hidden afterward, they never participate (SSS-INV-003).</figcaption>
+  </figure>
+
+  <h3>The ResolvedSurface</h3>
+  <div class="surface-demo">
+    <div class="sgroup">
+      <h4>primary <span class="pri">· priority 1</span></h4>
+      <div class="member"><div class="mid">art-1</div><div class="basis">basis: subject-anchor</div></div>
+    </div>
+    <div class="sgroup">
+      <h4>supporting <span class="pri">· priority 2</span></h4>
+      <div class="member"><div class="mid">art-2</div><div class="basis">via references from art-1 · depth 1</div></div>
+      <div class="member"><div class="mid">note-1</div><div class="basis">via annotated-by from art-1 · depth 1</div></div>
+    </div>
+    <div class="sgroup">
+      <h4>context <span class="pri">· priority 3</span></h4>
+      <div class="member"><div class="mid">art-3</div><div class="basis">via references from art-2 · depth 2</div></div>
+    </div>
+  </div>
+  <div class="oprow">
+    <span class="tag no">excluded · ent-1 — withheld: entitlement-gated participation</span>
+    <span class="tag ok">operation open-article — available</span>
+    <span class="tag warn">operation edit — withheld (minAccess owner)</span>
+  </div>
+  <div class="surface-meta">
+    resolutionId <span class="v">res_d4cdbb5a24be0101</span> · consistency <span class="v">current</span> · provenance <span class="v">derived · @scms/surface-resolver 0.1.0</span><br>
+    dependencies <span class="v">art-1, art-2, art-3, ent-1, note-1</span> @ snap-001 · traversals <span class="v">7</span><br>
+    fingerprint <span class="v">d4cdbb5a24be010112275e37c4bdb84ae1bbcbb5c57b7652e6a84f28c38fcd10</span>
+  </div>
+  <p style="margin-top:14px">Every member carries its <strong>participation basis</strong> (SSS-INV-012); the exclusion keeps its eligibility outcome — <code>withheld</code>, which is not <code>absent</code>; and <code>edit</code> is exposed-as-withheld rather than silently dropped, because exposure state is information and permission lives at the interaction boundary anyway.</p>
+
+  <h3>The trace answers "why"</h3>
+  <pre>"excluded": [ { "subject": "ent-1", "eligibility": "withheld",
+                "reason": "entitlement-gated participation" } ],
+"grouping":  [ { "group": "primary",    "role": "primary",    "memberCount": 1, "rule": "traversal-depth" },
+               { "group": "supporting", "role": "supporting", "memberCount": 2, "rule": "traversal-depth" },
+               { "group": "context",    "role": "context",    "memberCount": 1, "rule": "traversal-depth" } ],
+"ordering":  [ { "group": "supporting", "rule": "id asc" }, … ]</pre>
+  <p>Generated prose may summarize this trace; it may never replace it (SSS-INV-016).</p>
+</section>
+
+<!-- ============ 4 ============ -->
+<section id="s4">
+  <div class="sec-head"><span class="sec-num">4</span><h2>The non-leak, drawn from a passing test</h2></div>
+  <figure>
+    <div class="figwrap">
+    <svg viewBox="0 0 940 240" role="img" aria-label="Two snapshots — one containing the admin-only subject sec-1, one without it — resolved at member access produce byte-identical ResolvedSurfaces with the same fingerprint d4cdbb5a.">
+      <defs>
+        <marker id="ar4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+        </marker>
+      </defs>
+      <g font-size="12" font-family="inherit">
+        <rect x="30" y="40" width="240" height="66" rx="5" fill="none" stroke="currentColor" stroke-width="1.4"/>
+        <text x="150" y="65" text-anchor="middle" font-weight="600">snap-001 with sec-1</text>
+        <text x="150" y="84" text-anchor="middle" font-size="11" fill="var(--muted)">6 subjects · 5 relations</text>
+
+        <rect x="30" y="140" width="240" height="66" rx="5" fill="none" stroke="currentColor" stroke-width="1.4"/>
+        <text x="150" y="165" text-anchor="middle" font-weight="600">snap-001 without sec-1</text>
+        <text x="150" y="184" text-anchor="middle" font-size="11" fill="var(--muted)">5 subjects · 4 relations</text>
+
+        <rect x="400" y="90" width="180" height="66" rx="5" fill="var(--accent)" fill-opacity="0.1" stroke="var(--accent)" stroke-width="1.6"/>
+        <text x="490" y="115" text-anchor="middle" font-weight="600" fill="var(--accent-ink)">resolve as member</text>
+        <text x="490" y="134" text-anchor="middle" font-size="11" fill="var(--accent-ink)">focus · art-1 · radius 2</text>
+
+        <line x1="270" y1="73" x2="396" y2="110" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar4)"/>
+        <line x1="270" y1="173" x2="396" y2="136" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar4)"/>
+        <line x1="580" y1="123" x2="656" y2="123" stroke="currentColor" stroke-width="1.3" marker-end="url(#ar4)"/>
+
+        <rect x="660" y="76" width="262" height="94" rx="5" fill="var(--live)" fill-opacity="0.12" stroke="var(--live)" stroke-width="1.6"/>
+        <text x="791" y="102" text-anchor="middle" font-weight="600" fill="var(--live)">byte-identical output</text>
+        <text x="791" y="122" text-anchor="middle" font-size="11" fill="var(--live)">groups · trace · dependencies</text>
+        <text x="791" y="143" text-anchor="middle" font-size="10.5" font-family="var(--mono)" fill="var(--live)">fp d4cdbb5a24be0101…</text>
+        <text x="791" y="160" text-anchor="middle" font-size="10.5" fill="var(--live)">asserted by vector 2, re-verified for this page</text>
+      </g>
+    </svg>
+    </div>
+    <figcaption><strong>Hidden state cannot move the hash.</strong> The fingerprint covers only the accessible dependency set plus the request, context, and resolver version — so invalidation timing can never leak an edit the viewer was not allowed to see. This is SSS §21 meeting the design's fingerprint-invalidation rule, and it is a passing test, not an aspiration.</figcaption>
+  </figure>
+</section>
+
+<!-- ============ 5 ============ -->
+<section id="s5">
+  <div class="sec-head"><span class="sec-num">5</span><h2>Eleven vectors</h2></div>
+  <div class="tablewrap"><table class="ledger">
+    <tr><th>Vector</th><th>Proves</th><th>Reference</th></tr>
+    <tr><td class="key">golden focus</td><td>membership, grouping, ordering, operation exposure, per-member basis</td><td class="mono">S1 · INV-012</td></tr>
+    <tr><td class="key">S2 non-leak</td><td>hidden state → byte-identical output, trace, fingerprint</td><td class="mono">S2 · negatives 1–2</td></tr>
+    <tr><td class="key">unknown ≠ ineligible</td><td>absent evidence is unknown, never a verdict</td><td class="mono">negative 3 · INV-013</td></tr>
+    <tr><td class="key">withheld ≠ absent</td><td>entitlement gates participation, visibly, by access</td><td class="mono">INV-013 · §10</td></tr>
+    <tr><td class="key">determinism</td><td>equal inputs byte-equal; shuffled key order hashes equal; undefined pruned</td><td class="mono">S1 · §4 determinism</td></tr>
+    <tr><td class="key">no ambient time</td><td>resolver source contains no wall clock or randomness</td><td class="mono">negative 9</td></tr>
+    <tr><td class="key">fingerprint sensitivity</td><td>an accessible dependency change moves the hash (the gate can fail)</td><td class="mono">§21</td></tr>
+    <tr><td class="key">closed failures</td><td>invalid purpose / lens are typed refusals, no fallback winner</td><td class="mono">§27</td></tr>
+    <tr><td class="key">disclosure mapping</td><td>inaccessible anchor ≡ not-found below owner; distinguished at owner+</td><td class="mono">§10 · 404-not-403</td></tr>
+    <tr><td class="key">collection profile</td><td>kinds lens, orderBy desc, missing-sorts-last, hidden id absent from output</td><td class="mono">S1</td></tr>
+    <tr><td class="key">identity</td><td>resolutionId derived from fingerprint; resolver version in identity</td><td class="mono">§19/§21</td></tr>
+  </table></div>
+  <div class="law"><p>Established: Implemented + Tested for an S0/S1 slice plus the central S2 access property. Not established: S3 cross-expression, S4 cross-domain, empirical usefulness. The types are non-normative derivations — the normative schemas are owed upstream.</p><span class="who">Claim-ladder honesty · scms-evidence-008 · UD-13 (#33)</span></div>
+</section>
+
+<!-- ============ 6 ============ -->
+<section id="s6">
+  <div class="sec-head"><span class="sec-num">6</span><h2>References</h2></div>
+  <ul class="refs">
+    <li><span class="mono">semantic-surface-model/docs/SSS-SPECIFICATION.md</span> — the normative candidate (§1 separation, §7 lens, §8 access order, §10 eligibility, §19 ResolvedSurface, §20 trace, §21 fingerprints, §25 lifecycle, §26 invariants)</li>
+    <li><span class="mono">semantic-surface-model/docs/{ARCHITECTURE, RELATIONSHIPS, IMPLEMENTATION_BOUNDARY, CONFORMANCE, VERSIONING}.md</span> — boundaries, adjacent-system relations, S0–S4 ladder, mandatory negatives</li>
+    <li><span class="mono">semantic-cms/bindings/PROJECT_BINDINGS.yaml</span> — the nine binding relations + FCI restraint note; <span class="mono">FORMAL_RESOURCE_MANIFEST.json · id "sss"</span> — the content-digested pin</li>
+    <li><span class="mono">semantic-cms/impl/surface-resolver/</span> — <span class="mono">src/resolver.ts</span> (twelve-step lifecycle), <span class="mono">src/fingerprint.ts</span> (canonical JSON, NUL-domain-separated SHA-256), <span class="mono">test/resolver.test.ts</span> (11 vectors)</li>
+    <li><span class="mono">work/SCMS-008.md</span> (the Ready-predicate item) · <span class="mono">records/evidence.jsonl · scms-evidence-008</span> · alignment reconciliation record 2026-08-28</li>
+    <li>Board: <a href="https://github.com/zachshallbetter/semantic-cms/issues/34">#34 SCMS-008</a> · <a href="https://github.com/zachshallbetter/semantic-cms/issues/33">#33 UD-13</a> · <a href="https://github.com/zachshallbetter/semantic-cms/pull/28">PR #28 — the [SSS] hunk for disposition</a> · commits <span class="mono">bab3d6dbdb84</span> (main), <span class="mono">8d7cc2c782a0</span> (v2 branch hunk)</li>
+    <li>The design specification artifact (v1 canon) and the SCMS-002/004 review artifacts complete this page's family.</li>
+  </ul>
+</section>
+
+<footer class="footer">
+  <p><span class="mono">scms:adoption/sss · SCMS-008 · declared · 2026-08-28 · main bab3d6dbdb84</span></p>
+  <p>Derived projection of the canonical records named in the envelope. All resolution output shown was captured from the tested resolver, including both fingerprints; nothing was mocked.</p>
+</footer>
+
+</div>

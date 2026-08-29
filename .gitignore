@@ -1,2 +1,11 @@
 __pycache__/
 .DS_Store
+# The user-global excludes file (~/.config/git/ignore) treats .agents/ and
+# AGENTS.md as local tooling. In an FPB project they are REQUIRED canonical
+# artifacts: AGENTS.md is the operating contract, .agents/ is the compiled
+# context whose digest the B1/C0 gates verify. Re-include both, or CI checks
+# a tree the author never had. (NR-scms-002)
+!.agents/
+!.agents/**
+!AGENTS.md
+.DS_Store

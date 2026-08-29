@@ -6,7 +6,7 @@
       "artifactUrl": "https://claude.ai/code/artifact/bcfb402c-49ad-4095-9eab-17b16deb671c",
       "source": "DESIGN.md",
       "sourceSha256": "39264296deec82b925418cf245b830c2d08ccb0346592d7d7a6c52ca2493a239",
-      "syncRule": "envelope source_hash in the HTML must equal sha256(DESIGN.md)",
+      "syncRule": "envelope source_hash in the HTML must equal sha256(DESIGN.md); \u00a77.1 additionally projects bindings/PROJECT_BINDINGS.yaml + FORMAL_RESOURCE_MANIFEST.json (SSS adoption) \u2014 declared in the page footer",
       "lastPublished": "2026-08-28"
     },
     {
@@ -23,6 +23,14 @@
       "source": "research/titan-node-observatory-tools-review.md",
       "sourceSha256": "5d6435f0484e8c017267519bade19495f6c5341a2031bbfc6e1d2e665bd0fb7d",
       "syncRule": "content-faithful projection; includes addendum 6.1",
+      "lastPublished": "2026-08-28"
+    },
+    {
+      "file": "projections/sss-surface-adoption.html",
+      "artifactUrl": "https://claude.ai/code/artifact/7f0f7cd1-9220-422c-a0db-e63c4383922a",
+      "source": "work/SCMS-008.md",
+      "sourceSha256": "afc7645a29520f4c7b1f9a906230f9a2a26dd5d949c83801afc05a01214f6bc8",
+      "syncRule": "content-faithful projection of the SCMS-008 record set (work item, bindings, evidence); resolver output shown is captured, not mocked",
       "lastPublished": "2026-08-28"
     }
   ]
