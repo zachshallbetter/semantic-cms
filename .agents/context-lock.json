@@ -9,14 +9,14 @@
     "repositories": [
       {
         "path": ".",
-        "commit": "1c258f9c582c2dfac16e922141b921d093a71064",
+        "commit": "415a360e0846151945f19b9a27ea23b1a2afc451",
         "branch": "main",
         "dirty": true,
         "remote": "https://github.com/zachshallbetter/semantic-cms.git"
       }
     ]
   },
-  "aggregateSourceDigest": "efeadee2480439094c9366ac8cb280a5e171007db8103f39b29fdf8aeba2bb9e",
+  "aggregateSourceDigest": "5c0b7404e519f242cffbc3bfec8e7625584784570f1fc4e64368c58a6098c768",
   "sources": [
     {
       "path": ".agents/skills/compile-context/SKILL.md",
@@ -100,8 +100,8 @@
     },
     {
       "path": "SPEC_HEALTH.md",
-      "bytes": 21058,
-      "sha256": "15350f1c567f798c9d32a6ddf75395eede61495fb4a048b9c01e9e6013ad1e52"
+      "bytes": 21627,
+      "sha256": "5e3fe25c6cad38cd09a1d03cb00598f26370722cf467d6e0aa9d3033595167c4"
     },
     {
       "path": "VERSION",
@@ -295,8 +295,8 @@
     },
     {
       "path": "impl/editor/server/serve.ts",
-      "bytes": 16388,
-      "sha256": "4312a3f8071bcdc143ff2c6a0ef18faf37f54ddbfc5ab264e178adce0be1ef4d"
+      "bytes": 18003,
+      "sha256": "369c2ae6d0de53e8439780a75369c5489f8137a1f4be2c76c61c59611f0e8962"
     },
     {
       "path": "impl/editor/src/session.ts",
@@ -340,8 +340,8 @@
     },
     {
       "path": "impl/migrate/src/governed.ts",
-      "bytes": 3476,
-      "sha256": "9f5d93adcb5ab2170e59f865757811e2be5efc00f5d3f84b1d60ae42b0358627"
+      "bytes": 4167,
+      "sha256": "4dbc890f6a0eeb95ff28c55e29663cd1815572d7ee45143339ccea47ed7ad86a"
     },
     {
       "path": "impl/migrate/src/zach-core.ts",
@@ -429,6 +429,11 @@
       "sha256": "b68f5d56b6314b811c8bc4735245aa2377d6268ef8159f3c96a4b9fdc39644a1"
     },
     {
+      "path": "impl/qualification/src/evaluators.ts",
+      "bytes": 5122,
+      "sha256": "f4833ebafd78a2a62053ec7e924bbbe5021597ac903b37a98aac20538abceab6"
+    },
+    {
       "path": "impl/qualification/src/promote.ts",
       "bytes": 7930,
       "sha256": "a2b6ab71cc26b1733b5ff2534045861e525b7baa9aff3288e6cf159b94389c42"
@@ -445,8 +450,8 @@
     },
     {
       "path": "impl/qualification/test/qualification.test.ts",
-      "bytes": 24400,
-      "sha256": "788dbcd904c3351011335a48a0267deac630e4d2046a4df0160faa8eda7f2308"
+      "bytes": 28886,
+      "sha256": "035b26a32185b5c284d0f4c6d99c2a5117c817cf459a1b2694b1c40be622045a"
     },
     {
       "path": "impl/reader/package.json",
@@ -470,8 +475,8 @@
     },
     {
       "path": "impl/schema/src/schema.ts",
-      "bytes": 6972,
-      "sha256": "e1457844a5de56f37c8606ca7b85b2baa18f70a293aa77eaf7cf06c1840f81f9"
+      "bytes": 7350,
+      "sha256": "d5b7875a585259a6b0af1e36bc490ca4c33988df14f8c3dc544f1e979bbcc84d"
     },
     {
       "path": "impl/schema/test/schema.test.ts",
@@ -490,8 +495,8 @@
     },
     {
       "path": "impl/site/server/serve.ts",
-      "bytes": 10478,
-      "sha256": "8f546da01b266910fe8aa3ba71a9d090a17611a112294aebbfb4af859e8bae1d"
+      "bytes": 10848,
+      "sha256": "2af47f67cea5cfda3bd7b47d2c64e57d3aa49984d952adf887e4ed1aa7625dae"
     },
     {
       "path": "impl/site/src/express.ts",
@@ -705,8 +710,8 @@
     },
     {
       "path": "work/GRAPH.md",
-      "bytes": 13573,
-      "sha256": "4fd6cc04440892db29e7c62c7241c7e9d21cb2fee9dc5ba832f10ae1b08ca32e"
+      "bytes": 13809,
+      "sha256": "b7e7eddd6298e73be75115d6d79d276d464e3a09f876ca813ec9faddaed8221d"
     },
     {
       "path": "work/SCMS-001.md",
@@ -917,6 +922,11 @@
       "path": "work/SCMS-051.md",
       "bytes": 3313,
       "sha256": "935b99dbd7d5e68d1c2fdb5e580a176ee80d88e640b4ca391a80271a22893b03"
+    },
+    {
+      "path": "work/SCMS-054.md",
+      "bytes": 3527,
+      "sha256": "b8f69fc860a2fef7cdf1f9f1a9347eb3a11daf2bc3aeb1092e5b9d753caad982"
     }
   ]
 }

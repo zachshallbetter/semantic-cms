@@ -77,6 +77,11 @@ export const ARTICLE_TYPE: ContentTypeSchema = {
   id: "article",
   slots: [
     { name: "title", required: true, admits: ["text"] },
+    // The owner's corpus carries an authored summary on most entries, and the
+    // type did not declare it — so every migrated article failed schema-valid
+    // with `undeclared-slot at summary`. A declared type is meant to describe
+    // the content that exists, not a subset someone remembered (NR-scms-016).
+    { name: "summary", required: false, admits: ["text"] },
     { name: "media", required: false, admits: ["image", "video"], many: true },
     { name: "body", required: true, admits: ["prose"] },
     { name: "meta", required: false, admits: ["text"], many: true },

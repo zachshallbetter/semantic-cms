@@ -67,6 +67,7 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-051 | Qualify, promote, and a reader who sees it | E8 | Done — arc closes end to end; verified by interaction; nothing deployed | records/evidence.jsonl · scms-evidence-051 |
 | SCMS-052 | Vector the replay path (raise SCMS-051's rung) | E8 | Done — 7 vectors incl. the gates-not-state control | records/evidence.jsonl · scms-evidence-052 |
 | SCMS-053 | Intra-group order as a declared non-property (closes SH-20) | E1 | Done — reported, not enforced; no conformance outcome changed | records/evidence.jsonl · scms-evidence-053 |
+| SCMS-054 | Evidence from evaluators that actually ran (NR-scms-016) | E3 | Done — fabricated PASSes replaced by real checks and blocking NOT_RUNs; articles now correctly unpublishable | records/evidence.jsonl · scms-evidence-054 |
 | SCMS-044 | Route the editor through the surface pipeline it currently bypasses | E12 | Done — SH-16 closed; two duplicate access checks removed; awaiting owner verification | records/evidence.jsonl · scms-evidence-044 |
 | SCMS-018 | R1 live co-authoring — **free lane only** (convergent merge) | E1 | **Blocked** — awaiting disposition of P7/P22 on PR #28 | records/blockers · scms-blocker-001 |
 | SCMS-010 | S4 cross-domain portability: a materially unrelated project (outside this repository, per owner doctrine 2026-08-28) consumes @semantic-systems/surface unmodified | external | Backlog — executes outside scms; scms records the conformance result | — |

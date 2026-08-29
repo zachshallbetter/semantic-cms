@@ -464,3 +464,87 @@ test("re-attesting supersedes the prior verdict rather than adding a second one"
   // gate reading whichever came first — the withdrawn one. A re-evaluation
   // nobody can read is worse than none at all.
 });
+
+// ── SCMS-054: evidence comes from evaluators that ran (NR-scms-016) ─────────
+
+test("an obligation with no evaluator records NOT_RUN, never PASS", async () => {
+  const { evaluateProfile, unevaluatedObligations } = await import("../src/evaluators.ts");
+  const env = {
+    schemaVersion: "scms-0.1", subjectId: "a1",
+    compatibility: { protocol: "scms-0.1", subjectSchema: "article@1" },
+    provenance: { kind: "declared", authority: "project.owner", source: "t" },
+    minimumAccess: "public",
+    body: { kind: "Content", contentKind: "article",
+            slots: { title: [{ kind: "text", value: "T" }], body: [{ kind: "prose", value: "B" }] } },
+    state: { semanticMaturity: "draft", evidenceState: "unqualified",
+             publicationState: "unpublished", deliveryState: "unpropagated" },
+  };
+  const outcomes = evaluateProfile(ARTICLE_PROFILE, {
+    envelope: env as never, candidateRevision: "sha256:" + "a".repeat(64),
+    actor: "owner", independentEvaluator: false,
+  });
+  const byOb = new Map(outcomes.map((o) => [o.evidence.obligation, o.evidence.result]));
+
+  assert.equal(byOb.get("ob/schema-valid"), "PASS", "this one really runs");
+  assert.equal(byOb.get("ob/access-declared"), "PASS", "so does this one");
+  assert.equal(byOb.get("ob/links-resolve"), "NOT_RUN", "and this one does not exist");
+  assert.equal(byOb.get("ob/media-alt-text"), "NOT_RUN");
+  assert.deepEqual(unevaluatedObligations(ARTICLE_PROFILE).sort(),
+    ["ob/links-resolve", "ob/media-alt-text"]);
+
+  // Each NOT_RUN says why, so the gap is legible rather than a bare absence.
+  for (const o of outcomes.filter((x) => x.evidence.result === "NOT_RUN")) {
+    assert.ok(o.detail && o.detail.length > 0, `${o.evidence.obligation} gave no reason`);
+  }
+});
+
+test("a coverage gap BLOCKS qualification — an unrun check is not a passed one", async () => {
+  const { evaluateProfile } = await import("../src/evaluators.ts");
+  const env = {
+    schemaVersion: "scms-0.1", subjectId: "a1",
+    compatibility: { protocol: "scms-0.1", subjectSchema: "article@1" },
+    provenance: { kind: "declared", authority: "project.owner", source: "t" },
+    minimumAccess: "public",
+    body: { kind: "Content", contentKind: "article",
+            slots: { title: [{ kind: "text", value: "T" }], body: [{ kind: "prose", value: "B" }] } },
+    state: { semanticMaturity: "draft", evidenceState: "unqualified",
+             publicationState: "unpublished", deliveryState: "unpropagated" },
+  };
+  const rev = "sha256:" + "b".repeat(64);
+  const input = { envelope: env as never, candidateRevision: rev,
+                  actor: "owner", independentEvaluator: false };
+
+  // The article profile has two obligations with no evaluator → BLOCKED.
+  const article = qualify(rev, ARTICLE_PROFILE,
+    evaluateProfile(ARTICLE_PROFILE, input).map((o) => o.evidence),
+    "owner", "2026-08-29T00:00:00Z");
+  assert.equal(article.disposition, "BLOCKED",
+    "two of four checks do not exist, so this is a coverage gap and not a verdict on the content");
+
+  // The note profile's obligations both have evaluators → QUALIFIED.
+  const note = qualify(rev, NOTE_PROFILE,
+    evaluateProfile(NOTE_PROFILE, input).map((o) => o.evidence),
+    "owner", "2026-08-29T00:00:00Z");
+  assert.equal(note.disposition, "QUALIFIED",
+    "and where every check exists and passes, qualification is earned");
+});
+
+test("a real schema failure is FAIL, distinct from a missing evaluator", async () => {
+  const { evaluateProfile } = await import("../src/evaluators.ts");
+  const broken = {
+    schemaVersion: "scms-0.1", subjectId: "a1",
+    compatibility: { protocol: "scms-0.1", subjectSchema: "article@1" },
+    provenance: { kind: "declared", authority: "project.owner", source: "t" },
+    minimumAccess: "public",
+    body: { kind: "Content", contentKind: "article", slots: { title: [{ kind: "text", value: "T" }] } },
+    state: { semanticMaturity: "draft", evidenceState: "unqualified",
+             publicationState: "unpublished", deliveryState: "unpropagated" },
+  };
+  const outcomes = evaluateProfile(NOTE_PROFILE, {
+    envelope: broken as never, candidateRevision: "sha256:" + "c".repeat(64),
+    actor: "owner", independentEvaluator: false,
+  });
+  const schema = outcomes.find((o) => o.evidence.obligation === "ob/schema-valid")!;
+  assert.equal(schema.evidence.result, "FAIL", "a missing required slot is a failure, not a gap");
+  assert.match(schema.detail ?? "", /required-slot-missing/);
+});

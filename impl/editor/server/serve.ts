@@ -32,9 +32,12 @@ import { CONTENT_PROMOTE, promoteHandler } from "../../qualification/src/promote
 import { CONTENT_UNPUBLISH, unpublishHandler } from "../../qualification/src/unpublish.ts";
 import { RECORD_EVIDENCE, recordEvidenceHandler, ATTEST, attestHandler, attestationFor } from "../../qualification/src/canon-evidence.ts";
 import { PROFILES } from "../../qualification/src/eqp.ts";
+import { evaluateProfile, unevaluatedObligations } from "../../qualification/src/evaluators.ts";
 import { migrateAll } from "../../migrate/src/zach-core.ts";
 import type { SourceEntry } from "../../migrate/src/zach-core.ts";
 import { governedImport } from "../../migrate/src/governed.ts";
+import { ARTICLE_TYPE, checkArticle } from "../../schema/src/schema.ts";
+import type { ArticleInstance } from "../../schema/src/schema.ts";
 import { editorView, editorIndex } from "../src/viewmodel.ts";
 import { landEdit, summarizeP7 } from "../src/session.ts";
 import type { P7Observation } from "../src/session.ts";
@@ -113,7 +116,13 @@ const P7_LOG = join(DATA_DIR, "p7-observations.jsonl");
 
 const imported = governedImport({
   journal, registry, envelopes: migrated.content,
-  context: { occurredAt: now(), authority }, actor: OWNER,
+  context: { occurredAt: now(), authority },
+  validateBody: (body) => {
+    const kind = (body as { contentKind?: string }).contentKind;
+    return kind === "article" || kind === "note"
+      ? checkArticle(body as unknown as ArticleInstance, ARTICLE_TYPE)
+      : [];
+  }, actor: OWNER,
 });
 
 /** Replay any edits from previous sessions, through the same contract path. */
@@ -126,7 +135,13 @@ if (existsSync(EDITS_LOG)) {
     const r = landEdit({
       journal, registry, subjectId: e.subjectId, session: "replay",
       baselineRevision: current.envelope.revision!, changes: e.changes,
-      context: { occurredAt: now(), authority }, actor: OWNER,
+      context: { occurredAt: now(), authority },
+  validateBody: (body) => {
+    const kind = (body as { contentKind?: string }).contentKind;
+    return kind === "article" || kind === "note"
+      ? checkArticle(body as unknown as ArticleInstance, ARTICLE_TYPE)
+      : [];
+  }, actor: OWNER,
     });
     if (r.outcome === "completed") replayed++;
   }
@@ -214,7 +229,13 @@ const server = createServer((req, res) => {
       const result = landEdit({
         journal, registry, subjectId: subject, session: "editor",
         baselineRevision: current.envelope.revision!, changes,
-        context: { occurredAt: now(), authority }, actor: OWNER,
+        context: { occurredAt: now(), authority },
+  validateBody: (body) => {
+    const kind = (body as { contentKind?: string }).contentKind;
+    return kind === "article" || kind === "note"
+      ? checkArticle(body as unknown as ArticleInstance, ARTICLE_TYPE)
+      : [];
+  }, actor: OWNER,
       });
 
       observations.push(result.observation);
@@ -256,19 +277,26 @@ const server = createServer((req, res) => {
     const revision = entry.envelope.revision!;
     const occurredAt = now();
 
+    // Evidence comes from evaluators that actually ran. An obligation with no
+    // evaluator records NOT_RUN, which qualify() treats as a coverage gap and
+    // which therefore BLOCKS promotion. The first version of this route recorded
+    // PASS for every obligation including checks that do not exist — fabricated
+    // evidence, and worse than the self-attestation it disclosed (NR-scms-016).
+    const outcomes = evaluateProfile(profile, {
+      envelope: entry.envelope as never, candidateRevision: revision,
+      actor: OWNER.id,
+      // The owner is not independent of their own work; recording otherwise
+      // would be the forgery SH-13 describes.
+      independentEvaluator: false,
+    });
+
     let seq = 0;
-    for (const ob of profile.obligations) {
+    for (const o of outcomes) {
       registry.execute(journal, {
         contract: "icp:interaction/qualification.record-evidence@1.0.0",
         requestId: `ev-${subject}-${seq}`, actor: OWNER,
         input: {
-          evidence: {
-            id: `ev_${subject}_${seq}`, obligation: ob.id, result: "PASS", validity: "VALID",
-            candidateRevision: revision, actor: OWNER.id,
-            // Stated truthfully. The owner is not independent of their own work,
-            // and recording otherwise would be the forgery SH-13 describes.
-            independentEvaluator: false,
-          },
+          evidence: o.evidence,
           observedAt: occurredAt,
           expiresAt: new Date(Date.parse(occurredAt) + 90 * 86400_000).toISOString(),
         },
@@ -288,10 +316,16 @@ const server = createServer((req, res) => {
       outcome: attested.outcome,
       attestation: attestationFor(journal, revision),
       view: viewFor(subject),
-      disclosure: "You attested to your own work. The evidence records say so — "
-        + "independentEvaluator is false on every one. Nothing in the system currently "
-        + "requires an independent evaluator (SH-13), so this passes; that is a gap in the "
-        + "gate, not a property of your content.",
+      evidence: outcomes.map((o) => ({
+        obligation: o.evidence.obligation, result: o.evidence.result,
+        ...(o.detail ? { detail: o.detail } : {}),
+      })),
+      unevaluated: unevaluatedObligations(profile),
+      disclosure: "You attested to your own work: independentEvaluator is false on every "
+        + "evidence record. Nothing currently requires an independent evaluator (SH-13), "
+        + "so that alone does not block you. What may block you is coverage — an obligation "
+        + "with no evaluator records NOT_RUN, which is a gap rather than a pass, and a gap "
+        + "yields BLOCKED. An unrun check is not a passed one.",
     });
   }
 

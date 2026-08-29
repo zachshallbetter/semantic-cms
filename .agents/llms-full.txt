@@ -1,6 +1,6 @@
 # PROJECT COMPILED CONTEXT
 Generator: 0.5.0
-Source digest: efeadee2480439094c9366ac8cb280a5e171007db8103f39b29fdf8aeba2bb9e
+Source digest: 5c0b7404e519f242cffbc3bfec8e7625584784570f1fc4e64368c58a6098c768
 
 > Generated projection. Canonical sources remain authoritative.
 
@@ -1486,6 +1486,7 @@ decision record) — never by deletion.
 | SH-19 | **CAVEAT — instrument limit** | The leak scan compares identities, not all spellings | After NR-scms-013 the S3 access-constraint check normalizes character references and percent-encoding before scanning, but an identity split across separate attributes or interleaved with markup is still invisible to it. It is a backstop against an adapter leaking by accident — the realistic failure — and not a proof against one encoding deliberately. | Either accept the limit explicitly in the S3 claim wording (current posture), or compare against a parsed DOM rather than a string. |
 | ~~SH-20~~ | **RESOLVED as a declared non-property** | Intra-group order is unprotected | *Closed by SCMS-053:* S3 does not promise intra-group order, and now says so. `checkEquivalence` reports `intraGroupOrderMatched` without enforcing it — priority is semantic and its realization is free, so an adapter may legitimately order a group by reading time, alphabet, or nothing at all. What was wrong is that the absence was true by omission: an unwritten missing guarantee is indistinguishable from one people assume they have. A caller who needs the property can now check for it. | — |
 | SH-21 | **GAP — migration** | The corpus is unpublished | `content.create@1` refuses to create already-published content (correctly — a caller must not supply the value deciding the gate), so all 215 migrated records arrive `unpublished`, including the 61 that were published in the source. Since SCMS-050 made the read path consult publication, the site correctly renders empty. | Promote those records through the real gate, which requires attestations and therefore intersects SH-13. Part of SCMS-029's reconciliation; not something the importer may do on its own. |
+| SH-22 | **GAP — coverage** | Two obligations have no evaluator | `ob/links-resolve` and `ob/media-alt-text` are declared in the article profile and have no checker, so every article qualifies as `BLOCKED` and cannot be promoted. Correct behaviour for a coverage gap (SCMS-054), and it means the owner's articles are unpublishable until the checkers exist. | Build a link resolver and a media alt-text inspector, or remove the obligations from the profile — which is a decision about what an article's publication should guarantee, not an implementation detail. |
 | ~~SH-12~~ | **RESOLVED** | Wire protocol concretes | *Closed by SCMS-024:* `schemas/scms/envelope.schema.json` (closed, hash-pattern-typed, freshness rule encoded conditionally) and `schemas/scms/golden/canonicalization.json` (4 positive vectors + 1 negative proving the check can fail). Residual limitation, recorded not hidden: no JSON-Schema library is available under the zero-dependency policy, so the schema document is not meta-validated and schema/runtime agreement is asserted case-wise. |
 
 ## Claim register
@@ -11552,9 +11553,12 @@ import { CONTENT_PROMOTE, promoteHandler } from "../../qualification/src/promote
 import { CONTENT_UNPUBLISH, unpublishHandler } from "../../qualification/src/unpublish.ts";
 import { RECORD_EVIDENCE, recordEvidenceHandler, ATTEST, attestHandler, attestationFor } from "../../qualification/src/canon-evidence.ts";
 import { PROFILES } from "../../qualification/src/eqp.ts";
+import { evaluateProfile, unevaluatedObligations } from "../../qualification/src/evaluators.ts";
 import { migrateAll } from "../../migrate/src/zach-core.ts";
 import type { SourceEntry } from "../../migrate/src/zach-core.ts";
 import { governedImport } from "../../migrate/src/governed.ts";
+import { ARTICLE_TYPE, checkArticle } from "../../schema/src/schema.ts";
+import type { ArticleInstance } from "../../schema/src/schema.ts";
 import { editorView, editorIndex } from "../src/viewmodel.ts";
 import { landEdit, summarizeP7 } from "../src/session.ts";
 import type { P7Observation } from "../src/session.ts";
@@ -11633,7 +11637,13 @@ const P7_LOG = join(DATA_DIR, "p7-observations.jsonl");
 
 const imported = governedImport({
   journal, registry, envelopes: migrated.content,
-  context: { occurredAt: now(), authority }, actor: OWNER,
+  context: { occurredAt: now(), authority },
+  validateBody: (body) => {
+    const kind = (body as { contentKind?: string }).contentKind;
+    return kind === "article" || kind === "note"
+      ? checkArticle(body as unknown as ArticleInstance, ARTICLE_TYPE)
+      : [];
+  }, actor: OWNER,
 });
 
 /** Replay any edits from previous sessions, through the same contract path. */
@@ -11646,7 +11656,13 @@ if (existsSync(EDITS_LOG)) {
     const r = landEdit({
       journal, registry, subjectId: e.subjectId, session: "replay",
       baselineRevision: current.envelope.revision!, changes: e.changes,
-      context: { occurredAt: now(), authority }, actor: OWNER,
+      context: { occurredAt: now(), authority },
+  validateBody: (body) => {
+    const kind = (body as { contentKind?: string }).contentKind;
+    return kind === "article" || kind === "note"
+      ? checkArticle(body as unknown as ArticleInstance, ARTICLE_TYPE)
+      : [];
+  }, actor: OWNER,
     });
     if (r.outcome === "completed") replayed++;
   }
@@ -11734,7 +11750,13 @@ const server = createServer((req, res) => {
       const result = landEdit({
         journal, registry, subjectId: subject, session: "editor",
         baselineRevision: current.envelope.revision!, changes,
-        context: { occurredAt: now(), authority }, actor: OWNER,
+        context: { occurredAt: now(), authority },
+  validateBody: (body) => {
+    const kind = (body as { contentKind?: string }).contentKind;
+    return kind === "article" || kind === "note"
+      ? checkArticle(body as unknown as ArticleInstance, ARTICLE_TYPE)
+      : [];
+  }, actor: OWNER,
       });
 
       observations.push(result.observation);
@@ -11776,19 +11798,26 @@ const server = createServer((req, res) => {
     const revision = entry.envelope.revision!;
     const occurredAt = now();
 
+    // Evidence comes from evaluators that actually ran. An obligation with no
+    // evaluator records NOT_RUN, which qualify() treats as a coverage gap and
+    // which therefore BLOCKS promotion. The first version of this route recorded
+    // PASS for every obligation including checks that do not exist — fabricated
+    // evidence, and worse than the self-attestation it disclosed (NR-scms-016).
+    const outcomes = evaluateProfile(profile, {
+      envelope: entry.envelope as never, candidateRevision: revision,
+      actor: OWNER.id,
+      // The owner is not independent of their own work; recording otherwise
+      // would be the forgery SH-13 describes.
+      independentEvaluator: false,
+    });
+
     let seq = 0;
-    for (const ob of profile.obligations) {
+    for (const o of outcomes) {
       registry.execute(journal, {
         contract: "icp:interaction/qualification.record-evidence@1.0.0",
         requestId: `ev-${subject}-${seq}`, actor: OWNER,
         input: {
-          evidence: {
-            id: `ev_${subject}_${seq}`, obligation: ob.id, result: "PASS", validity: "VALID",
-            candidateRevision: revision, actor: OWNER.id,
-            // Stated truthfully. The owner is not independent of their own work,
-            // and recording otherwise would be the forgery SH-13 describes.
-            independentEvaluator: false,
-          },
+          evidence: o.evidence,
           observedAt: occurredAt,
           expiresAt: new Date(Date.parse(occurredAt) + 90 * 86400_000).toISOString(),
         },
@@ -11808,10 +11837,16 @@ const server = createServer((req, res) => {
       outcome: attested.outcome,
       attestation: attestationFor(journal, revision),
       view: viewFor(subject),
-      disclosure: "You attested to your own work. The evidence records say so — "
-        + "independentEvaluator is false on every one. Nothing in the system currently "
-        + "requires an independent evaluator (SH-13), so this passes; that is a gap in the "
-        + "gate, not a property of your content.",
+      evidence: outcomes.map((o) => ({
+        obligation: o.evidence.obligation, result: o.evidence.result,
+        ...(o.detail ? { detail: o.detail } : {}),
+      })),
+      unevaluated: unevaluatedObligations(profile),
+      disclosure: "You attested to your own work: independentEvaluator is false on every "
+        + "evidence record. Nothing currently requires an independent evaluator (SH-13), "
+        + "so that alone does not block you. What may block you is coverage — an obligation "
+        + "with no evaluator records NOT_RUN, which is a gap rather than a pass, and a gap "
+        + "yields BLOCKED. An unrun check is not a passed one.",
     });
   }
 
@@ -13249,6 +13284,17 @@ export interface ImportReport {
 }
 
 export interface GovernedImportInput {
+  /**
+   * Optional conformance hook, threaded to the contract runtime.
+   *
+   * SCMS-022 made declared types load-bearing in the governed write path *when
+   * a validator is supplied*, and the import supplied none — so 215 records
+   * were created without their declared type ever being consulted, and the
+   * mismatch only surfaced later at qualification (NR-scms-016). Passing it
+   * here means creation refuses non-conformant content, which is where a type
+   * is supposed to bite.
+   */
+  validateBody?: (body: Record<string, unknown>) => Array<{ code: string; at: string; detail: string }>;
   journal: CanonJournal;
   registry: ContractRegistry;
   envelopes: Envelope[];
@@ -13276,7 +13322,10 @@ export function governedImport(input: GovernedImportInput): ImportReport {
         minimumAccess: env.minimumAccess,
         source: env.provenance.source ?? "import",
       } as unknown as Record<string, unknown>,
-    }, { ...input.context, instanceId: `import-${i}` });
+    }, {
+      ...input.context, instanceId: `import-${i}`,
+      ...(input.validateBody ? { validateBody: input.validateBody } : {}),
+    });
 
     const row: ImportOutcome = {
       subjectId: env.subjectId, outcome: result.outcome,
@@ -15287,6 +15336,132 @@ export const PROFILES: Record<ConsequenceProfile["id"], ConsequenceProfile> = {
 
 
 ========================================================================
+FILE: impl/qualification/src/evaluators.ts
+========================================================================
+
+/**
+ * Evaluators that actually run (SCMS-054).
+ *
+ * The editor's qualify route recorded `result: "PASS"` for every obligation in
+ * the profile — including `ob/links-resolve` and `ob/media-alt-text`, for which
+ * no check existed and none ran. That is not self-attestation, which SH-13
+ * already describes and which the route disclosed; it is **fabricated
+ * evidence**, and it is worse, because a reader of the record cannot tell that
+ * the check never happened.
+ *
+ * The vocabulary already had the honest answer: `NOT_RUN`. And `qualify()`
+ * already treats it correctly — a NOT_RUN obligation is a *coverage gap*, which
+ * yields `BLOCKED`, never `QUALIFIED` (EQP: an unrun check is not a passed
+ * one). The machinery was right and the caller was lying to it.
+ *
+ * So each obligation here either has a real evaluator or is explicitly NOT_RUN.
+ * The consequence is honest and inconvenient: an article, whose profile includes
+ * link and media obligations, cannot currently be promoted at all, because two
+ * of its four checks do not exist. A note, whose profile requires only the two
+ * that do exist, can. That is the system telling the truth about what it can
+ * currently verify.
+ */
+import type { EvidenceRecord, EvidenceResult, ConsequenceProfile } from "./eqp.ts";
+import type { Envelope } from "../../canon/src/envelope.ts";
+import { ARTICLE_TYPE, checkArticle } from "../../schema/src/schema.ts";
+import type { ArticleInstance } from "../../schema/src/schema.ts";
+
+export interface EvaluationInput {
+  envelope: Envelope;
+  candidateRevision: string;
+  actor: string;
+  /** Whether this evaluator is independent of the author. Recorded, never assumed. */
+  independentEvaluator: boolean;
+}
+
+type Evaluator = (input: EvaluationInput) => { result: EvidenceResult; detail?: string };
+
+/**
+ * `ob/schema-valid` — real. Runs the declared content type's checker.
+ */
+const schemaValid: Evaluator = ({ envelope }) => {
+  const body = envelope.body as unknown as { contentKind?: string; slots?: unknown };
+  if (body.contentKind !== "article" && body.contentKind !== "note") {
+    // No declared type for this kind. Not applicable is distinct from passing.
+    return { result: "NOT_APPLICABLE", detail: `no declared type for kind '${body.contentKind}'` };
+  }
+  const findings = checkArticle(body as unknown as ArticleInstance, ARTICLE_TYPE);
+  return findings.length === 0
+    ? { result: "PASS" }
+    : { result: "FAIL", detail: findings.map((f) => `${f.code} at ${f.at}`).join("; ") };
+};
+
+/**
+ * `ob/access-declared` — real. The envelope must carry an explicit access level;
+ * absence is a FAIL rather than a default, because a record whose reach is
+ * undeclared has not been decided about.
+ */
+const accessDeclared: Evaluator = ({ envelope }) => {
+  const valid = ["public", "member", "owner", "admin"];
+  return valid.includes(envelope.minimumAccess)
+    ? { result: "PASS" }
+    : { result: "FAIL", detail: `minimumAccess '${envelope.minimumAccess}' is not a declared level` };
+};
+
+/**
+ * Obligations with no evaluator. Named individually rather than defaulted, so
+ * adding an obligation to a profile without an evaluator produces a NOT_RUN
+ * that blocks promotion, instead of silently passing.
+ */
+const NOT_YET_BUILT: Record<string, string> = {
+  "ob/links-resolve": "no link checker exists; a link resolution pass has not been built",
+  "ob/media-alt-text": "no media inspector exists; alt-text coverage has not been checked",
+  "ob/entitlement-declared": "entitlement classes are not implemented (P2, deferred)",
+  "ob/recipient-contract": "no recipient contract checker exists",
+  "ob/second-attestation": "independent second attestation is not implemented (SH-13)",
+};
+
+const EVALUATORS: Record<string, Evaluator> = {
+  "ob/schema-valid": schemaValid,
+  "ob/access-declared": accessDeclared,
+};
+
+export interface EvaluationOutcome {
+  evidence: EvidenceRecord;
+  detail?: string;
+}
+
+/**
+ * Evaluate every obligation a profile declares. An obligation with no evaluator
+ * yields NOT_RUN — never PASS — which `qualify()` treats as a coverage gap.
+ */
+export function evaluateProfile(
+  profile: ConsequenceProfile, input: EvaluationInput,
+): EvaluationOutcome[] {
+  return profile.obligations.map((ob, i) => {
+    const evaluator = EVALUATORS[ob.id];
+    const outcome = evaluator
+      ? evaluator(input)
+      : { result: "NOT_RUN" as EvidenceResult,
+          detail: NOT_YET_BUILT[ob.id] ?? "no evaluator is registered for this obligation" };
+
+    return {
+      evidence: {
+        id: `ev_${input.candidateRevision.slice(7, 19)}_${i}`,
+        obligation: ob.id,
+        result: outcome.result,
+        validity: "VALID",
+        candidateRevision: input.candidateRevision,
+        actor: input.actor,
+        independentEvaluator: input.independentEvaluator,
+      },
+      ...(outcome.detail ? { detail: outcome.detail } : {}),
+    };
+  });
+}
+
+/** Obligations in this profile that currently have no evaluator. */
+export function unevaluatedObligations(profile: ConsequenceProfile): string[] {
+  return profile.obligations.filter((o) => !EVALUATORS[o.id]).map((o) => o.id);
+}
+
+
+========================================================================
 FILE: impl/qualification/src/promote.ts
 ========================================================================
 
@@ -16193,6 +16368,90 @@ test("re-attesting supersedes the prior verdict rather than adding a second one"
   // nobody can read is worse than none at all.
 });
 
+// ── SCMS-054: evidence comes from evaluators that ran (NR-scms-016) ─────────
+
+test("an obligation with no evaluator records NOT_RUN, never PASS", async () => {
+  const { evaluateProfile, unevaluatedObligations } = await import("../src/evaluators.ts");
+  const env = {
+    schemaVersion: "scms-0.1", subjectId: "a1",
+    compatibility: { protocol: "scms-0.1", subjectSchema: "article@1" },
+    provenance: { kind: "declared", authority: "project.owner", source: "t" },
+    minimumAccess: "public",
+    body: { kind: "Content", contentKind: "article",
+            slots: { title: [{ kind: "text", value: "T" }], body: [{ kind: "prose", value: "B" }] } },
+    state: { semanticMaturity: "draft", evidenceState: "unqualified",
+             publicationState: "unpublished", deliveryState: "unpropagated" },
+  };
+  const outcomes = evaluateProfile(ARTICLE_PROFILE, {
+    envelope: env as never, candidateRevision: "sha256:" + "a".repeat(64),
+    actor: "owner", independentEvaluator: false,
+  });
+  const byOb = new Map(outcomes.map((o) => [o.evidence.obligation, o.evidence.result]));
+
+  assert.equal(byOb.get("ob/schema-valid"), "PASS", "this one really runs");
+  assert.equal(byOb.get("ob/access-declared"), "PASS", "so does this one");
+  assert.equal(byOb.get("ob/links-resolve"), "NOT_RUN", "and this one does not exist");
+  assert.equal(byOb.get("ob/media-alt-text"), "NOT_RUN");
+  assert.deepEqual(unevaluatedObligations(ARTICLE_PROFILE).sort(),
+    ["ob/links-resolve", "ob/media-alt-text"]);
+
+  // Each NOT_RUN says why, so the gap is legible rather than a bare absence.
+  for (const o of outcomes.filter((x) => x.evidence.result === "NOT_RUN")) {
+    assert.ok(o.detail && o.detail.length > 0, `${o.evidence.obligation} gave no reason`);
+  }
+});
+
+test("a coverage gap BLOCKS qualification — an unrun check is not a passed one", async () => {
+  const { evaluateProfile } = await import("../src/evaluators.ts");
+  const env = {
+    schemaVersion: "scms-0.1", subjectId: "a1",
+    compatibility: { protocol: "scms-0.1", subjectSchema: "article@1" },
+    provenance: { kind: "declared", authority: "project.owner", source: "t" },
+    minimumAccess: "public",
+    body: { kind: "Content", contentKind: "article",
+            slots: { title: [{ kind: "text", value: "T" }], body: [{ kind: "prose", value: "B" }] } },
+    state: { semanticMaturity: "draft", evidenceState: "unqualified",
+             publicationState: "unpublished", deliveryState: "unpropagated" },
+  };
+  const rev = "sha256:" + "b".repeat(64);
+  const input = { envelope: env as never, candidateRevision: rev,
+                  actor: "owner", independentEvaluator: false };
+
+  // The article profile has two obligations with no evaluator → BLOCKED.
+  const article = qualify(rev, ARTICLE_PROFILE,
+    evaluateProfile(ARTICLE_PROFILE, input).map((o) => o.evidence),
+    "owner", "2026-08-29T00:00:00Z");
+  assert.equal(article.disposition, "BLOCKED",
+    "two of four checks do not exist, so this is a coverage gap and not a verdict on the content");
+
+  // The note profile's obligations both have evaluators → QUALIFIED.
+  const note = qualify(rev, NOTE_PROFILE,
+    evaluateProfile(NOTE_PROFILE, input).map((o) => o.evidence),
+    "owner", "2026-08-29T00:00:00Z");
+  assert.equal(note.disposition, "QUALIFIED",
+    "and where every check exists and passes, qualification is earned");
+});
+
+test("a real schema failure is FAIL, distinct from a missing evaluator", async () => {
+  const { evaluateProfile } = await import("../src/evaluators.ts");
+  const broken = {
+    schemaVersion: "scms-0.1", subjectId: "a1",
+    compatibility: { protocol: "scms-0.1", subjectSchema: "article@1" },
+    provenance: { kind: "declared", authority: "project.owner", source: "t" },
+    minimumAccess: "public",
+    body: { kind: "Content", contentKind: "article", slots: { title: [{ kind: "text", value: "T" }] } },
+    state: { semanticMaturity: "draft", evidenceState: "unqualified",
+             publicationState: "unpublished", deliveryState: "unpropagated" },
+  };
+  const outcomes = evaluateProfile(NOTE_PROFILE, {
+    envelope: broken as never, candidateRevision: "sha256:" + "c".repeat(64),
+    actor: "owner", independentEvaluator: false,
+  });
+  const schema = outcomes.find((o) => o.evidence.obligation === "ob/schema-valid")!;
+  assert.equal(schema.evidence.result, "FAIL", "a missing required slot is a failure, not a gap");
+  assert.match(schema.detail ?? "", /required-slot-missing/);
+});
+
 
 ========================================================================
 FILE: impl/reader/package.json
@@ -16758,6 +17017,11 @@ export const ARTICLE_TYPE: ContentTypeSchema = {
   id: "article",
   slots: [
     { name: "title", required: true, admits: ["text"] },
+    // The owner's corpus carries an authored summary on most entries, and the
+    // type did not declare it — so every migrated article failed schema-valid
+    // with `undeclared-slot at summary`. A declared type is meant to describe
+    // the content that exists, not a subset someone remembered (NR-scms-016).
+    { name: "summary", required: false, admits: ["text"] },
     { name: "media", required: false, admits: ["image", "video"], many: true },
     { name: "body", required: true, admits: ["prose"] },
     { name: "meta", required: false, admits: ["text"], many: true },
@@ -17138,6 +17402,8 @@ import { CONTENT_PROMOTE, promoteHandler } from "../../qualification/src/promote
 import { CONTENT_UNPUBLISH, unpublishHandler } from "../../qualification/src/unpublish.ts";
 import { RECORD_EVIDENCE, recordEvidenceHandler, ATTEST, attestHandler } from "../../qualification/src/canon-evidence.ts";
 import { governedImport } from "../../migrate/src/governed.ts";
+import { ARTICLE_TYPE, checkArticle } from "../../schema/src/schema.ts";
+import type { ArticleInstance } from "../../schema/src/schema.ts";
 import { replayActions } from "./replay.ts";
 import { migrateAll } from "../../migrate/src/zach-core.ts";
 import type { SourceEntry } from "../../migrate/src/zach-core.ts";
@@ -17211,6 +17477,12 @@ const imported = governedImport({
   journal, registry,
   envelopes: [...migrated.content, ...migrated.relations],
   context: { occurredAt: new Date().toISOString(), authority: "owner" },
+  validateBody: (body) => {
+    const kind = (body as { contentKind?: string }).contentKind;
+    return kind === "article" || kind === "note"
+      ? checkArticle(body as unknown as ArticleInstance, ARTICLE_TYPE)
+      : [];
+  },
   actor: { id: "project.owner", role: "owner" },
 });
 // Replay the owner's governed actions through the same contracts, so a
@@ -24686,6 +24958,7 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-051 | Qualify, promote, and a reader who sees it | E8 | Done — arc closes end to end; verified by interaction; nothing deployed | records/evidence.jsonl · scms-evidence-051 |
 | SCMS-052 | Vector the replay path (raise SCMS-051's rung) | E8 | Done — 7 vectors incl. the gates-not-state control | records/evidence.jsonl · scms-evidence-052 |
 | SCMS-053 | Intra-group order as a declared non-property (closes SH-20) | E1 | Done — reported, not enforced; no conformance outcome changed | records/evidence.jsonl · scms-evidence-053 |
+| SCMS-054 | Evidence from evaluators that actually ran (NR-scms-016) | E3 | Done — fabricated PASSes replaced by real checks and blocking NOT_RUNs; articles now correctly unpublishable | records/evidence.jsonl · scms-evidence-054 |
 | SCMS-044 | Route the editor through the surface pipeline it currently bypasses | E12 | Done — SH-16 closed; two duplicate access checks removed; awaiting owner verification | records/evidence.jsonl · scms-evidence-044 |
 | SCMS-018 | R1 live co-authoring — **free lane only** (convergent merge) | E1 | **Blocked** — awaiting disposition of P7/P22 on PR #28 | records/blockers · scms-blocker-001 |
 | SCMS-010 | S4 cross-domain portability: a materially unrelated project (outside this repository, per owner doctrine 2026-08-28) consumes @semantic-systems/surface unmodified | external | Backlog — executes outside scms; scms records the conformance result | — |
@@ -27407,4 +27680,79 @@ than following changes live. Wiring the transport between them is separate work.
 ## Closing state
 
 **Done — the arc closes: edit, qualify, promote, and a reader sees it. Nothing is deployed.**
+
+
+========================================================================
+FILE: work/SCMS-054.md
+========================================================================
+
+# SCMS-054 — Evidence from evaluators that actually ran
+
+**Intent ref:** PROJECT_INTENT.md · **Epic:** E3 · **Effect class:** E1
+**Assigned by:** coordinator goal, on reviewing what SCMS-051's qualify route actually recorded.
+**State:** Ready → Claimed → Done (closing state at bottom)
+
+## The defect I shipped hours earlier
+
+SCMS-051's qualify route recorded `result: "PASS"` for **every** obligation in the profile —
+including `ob/links-resolve` and `ob/media-alt-text`, for which no checker exists and none ran.
+
+That is not the self-attestation SH-13 describes, and which the route honestly disclosed. It is
+**fabricated evidence**: a reader of the record could not tell that the check never happened. I
+built a disclosure for the weaker problem and walked past the stronger one in the same function.
+
+## The vocabulary already had the honest answer
+
+`NOT_RUN` was already in the evidence vocabulary, and `qualify()` already treats it correctly — a
+NOT_RUN obligation is a **coverage gap**, which yields `BLOCKED`, never `QUALIFIED`. EQP's whole
+point is that an unrun check is not a passed one. The machinery was right and the caller was lying
+to it.
+
+## What now happens
+
+`impl/qualification/src/evaluators.ts` gives each obligation either a real evaluator or an explicit
+`NOT_RUN` with a stated reason:
+
+| Obligation | Status |
+|---|---|
+| `ob/schema-valid` | **real** — runs the declared content type's checker |
+| `ob/access-declared` | **real** — the envelope must carry a declared access level |
+| `ob/links-resolve` | NOT_RUN — no link checker exists |
+| `ob/media-alt-text` | NOT_RUN — no media inspector exists |
+| `ob/entitlement-declared` | NOT_RUN — entitlement classes are P2, deferred |
+| `ob/recipient-contract` | NOT_RUN — no checker exists |
+| `ob/second-attestation` | NOT_RUN — independent attestation is SH-13 |
+
+Missing evaluators are named **individually** rather than defaulted, so adding an obligation to a
+profile without an evaluator produces a blocking NOT_RUN instead of a silent pass.
+
+The consequence is honest and inconvenient, and was confirmed against the real corpus:
+
+```
+article → schema-valid PASS · access-declared PASS · links-resolve NOT_RUN · media-alt-text NOT_RUN
+        → BLOCKED → promote refused: needs_evidence
+note    → schema-valid PASS · access-declared PASS
+        → QUALIFIED → promoted
+```
+
+**An article cannot currently be published**, because two of its four checks do not exist. That is
+not a verdict on the content; it is the system declining to certify what it has not examined.
+
+## Two further defects this uncovered
+
+**The declared type did not describe the content.** `ARTICLE_TYPE` never declared a `summary` slot,
+which the owner's corpus carries on most entries, so every migrated article failed `schema-valid`
+with `undeclared-slot at summary`. A declared type is meant to describe the content that exists,
+not a subset someone remembered. Added.
+
+**Type enforcement was inert at import.** SCMS-022 made declared types load-bearing in the governed
+write path *when a validator is supplied* — and `governedImport` supplied none, so 215 records were
+created without their type ever being consulted, and the mismatch surfaced only later at
+qualification. `governedImport` now threads `validateBody`, and both servers pass it. All 215 still
+import, so the type and the corpus now agree.
+
+## Closing state
+
+**Done — evidence records what was checked, and the system declines to certify what it has not
+examined.**
 

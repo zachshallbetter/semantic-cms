@@ -39,6 +39,17 @@ export interface ImportReport {
 }
 
 export interface GovernedImportInput {
+  /**
+   * Optional conformance hook, threaded to the contract runtime.
+   *
+   * SCMS-022 made declared types load-bearing in the governed write path *when
+   * a validator is supplied*, and the import supplied none — so 215 records
+   * were created without their declared type ever being consulted, and the
+   * mismatch only surfaced later at qualification (NR-scms-016). Passing it
+   * here means creation refuses non-conformant content, which is where a type
+   * is supposed to bite.
+   */
+  validateBody?: (body: Record<string, unknown>) => Array<{ code: string; at: string; detail: string }>;
   journal: CanonJournal;
   registry: ContractRegistry;
   envelopes: Envelope[];
@@ -66,7 +77,10 @@ export function governedImport(input: GovernedImportInput): ImportReport {
         minimumAccess: env.minimumAccess,
         source: env.provenance.source ?? "import",
       } as unknown as Record<string, unknown>,
-    }, { ...input.context, instanceId: `import-${i}` });
+    }, {
+      ...input.context, instanceId: `import-${i}`,
+      ...(input.validateBody ? { validateBody: input.validateBody } : {}),
+    });
 
     const row: ImportOutcome = {
       subjectId: env.subjectId, outcome: result.outcome,
