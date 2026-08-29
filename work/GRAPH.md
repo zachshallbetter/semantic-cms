@@ -53,7 +53,7 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-036 | Evidence and attestations as Canon records | E3 | Done — forgery closed; SH-13 (self-attestation) remains owner policy | records/evidence.jsonl · scms-evidence-036 |
 | SCMS-037 | The site renders from Canon (consolidation, no deploy) | E8 | Done — third expression adapter, S3-checked; NR-scms-011 fixed; awaiting owner verification | records/evidence.jsonl · scms-evidence-037 |
 | SCMS-038 | Independent adversarial verification of the load-bearing claims | E0 | Ready — nothing has ever been marked Verified; targets the new authority gate first | — |
-| SCMS-039 | Recommended dispositions for the 25 open proposals on PR #28 | E0 | Ready — recommendations only; ratification is owner authority and will NOT be exercised | — |
+| SCMS-039 | Recommended dispositions for the 25 open proposals on PR #28 | E0 | Done — 25 recommendations with reasoning; 6 narrowed or declined; **ratification NOT exercised** | — |
 | SCMS-040 | The editor in preview: a usable authoring surface over real content | E12 | Done — SH-8 closed; preview published; awaiting owner verification | records/evidence.jsonl · scms-evidence-040 |
 | SCMS-041 | Migrate the corpus through the governed path (content.create@1) | E8+E12 | Done — creation is governed at last; SH-15 raised; awaiting owner verification | records/evidence.jsonl · scms-evidence-041 |
 | SCMS-042 | The editing session and the P7 instrument | E12 | Done — instrument built, NR-scms-008 fixed; **P7 stays open pending real edits** | records/evidence.jsonl · scms-evidence-042 |

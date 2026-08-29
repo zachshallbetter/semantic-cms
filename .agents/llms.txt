@@ -1,6 +1,6 @@
 # Project Context Index
 > Generator: 0.5.0
-> Source digest: `3093ecf9d7952dfa29bc1d24efab6c8a26f4c87461e9a67fcaa97f8c70b9c8fb`
+> Source digest: `1c55bc2f25007a60ff145fbdbeffdc1fa961878ca6977dd53d97e3adf1a421c5`
 
 > Generated projection. Canonical sources remain authoritative.
 
@@ -123,6 +123,7 @@
 - `projections/scms-004-review.html` | 32632 bytes | `abeb96a485acb33ff67b04e1eb8a6062049d9b1e3af0619eeedb57988fd910ae`
 - `projections/sss-surface-adoption.html` | 37647 bytes | `5827c88d68d8e336de1664335a22fc6705f06db11d521b98db58fe5a1cc58849`
 - `research/editor-survey.md` | 12613 bytes | `8f382169801c1afc9ae7d61afd49115e4af95c5f4d5b7ee389866b96345d470d`
+- `research/proposal-dispositions.md` | 12485 bytes | `673a87721ca53d8b1ce67a58dd2875eef1f916c90e8d1cb15155523f57a5b0de`
 - `research/titan-infinite-verse-review.md` | 39140 bytes | `2584c50c3e338b54b559745e167b868cb7fd59ae92a9cdf1ed4f84dbce1326e9`
 - `research/titan-node-observatory-tools-review.md` | 30465 bytes | `5d6435f0484e8c017267519bade19495f6c5341a2031bbfc6e1d2e665bd0fb7d`
 - `schemas/agent-message.schema.json` | 2269 bytes | `88c346d6ce2cf34d3bba9f35e2ef54e77776707b125b22bbc4ecc910ac33bedc`
@@ -137,7 +138,7 @@
 - `scripts/gen-context.py` | 8036 bytes | `819eb2f67a5ec3943bae509d78eebfd690febff6b157a75fafa05f1b047848fa`
 - `scripts/next-id.py` | 5685 bytes | `ab97cb462db8ae3850b778efe400df47c751180742723deeafd67d84073dcadf`
 - `scripts/validate-bootstrap.py` | 4120 bytes | `b3881974ac4d1259a0fa084c1aa80bfcdc1af4b3873f05c9057697e61bb1fb95`
-- `work/GRAPH.md` | 11817 bytes | `dbd48846b65b5ee7e98f5cd3c057dff12be1cc2db760c50d452c4577222d6bd7`
+- `work/GRAPH.md` | 11826 bytes | `10a4979760205b9f4602a87af857e5881acdafa86ce76a8c17067b73cdd5c8cb`
 - `work/SCMS-001.md` | 2155 bytes | `99c5bc6ed57cfd3b84eb813d1aadee333af8e706120003d34285cc6e20beffd9`
 - `work/SCMS-002.md` | 2769 bytes | `0fdb32c56443212ade358f5e06c6b45cb9be3b6b8a8bdaa1a7eec61264406a33`
 - `work/SCMS-003.md` | 1448 bytes | `b93754ca3c9f8e039abc83cfdb59c49f86f9dadf4f64da55fc76caf82fec6943`

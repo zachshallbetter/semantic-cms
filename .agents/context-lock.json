@@ -9,14 +9,14 @@
     "repositories": [
       {
         "path": ".",
-        "commit": "e3bc318cc5482e6256f5d24c53adbcb9e50a9adc",
+        "commit": "7e22e08e61f724d0d8ba6d295ff632e572771d4a",
         "branch": "main",
         "dirty": true,
         "remote": "https://github.com/zachshallbetter/semantic-cms.git"
       }
     ]
   },
-  "aggregateSourceDigest": "3093ecf9d7952dfa29bc1d24efab6c8a26f4c87461e9a67fcaa97f8c70b9c8fb",
+  "aggregateSourceDigest": "1c55bc2f25007a60ff145fbdbeffdc1fa961878ca6977dd53d97e3adf1a421c5",
   "sources": [
     {
       "path": ".agents/skills/compile-context/SKILL.md",
@@ -614,6 +614,11 @@
       "sha256": "8f382169801c1afc9ae7d61afd49115e4af95c5f4d5b7ee389866b96345d470d"
     },
     {
+      "path": "research/proposal-dispositions.md",
+      "bytes": 12485,
+      "sha256": "673a87721ca53d8b1ce67a58dd2875eef1f916c90e8d1cb15155523f57a5b0de"
+    },
+    {
       "path": "research/titan-infinite-verse-review.md",
       "bytes": 39140,
       "sha256": "2584c50c3e338b54b559745e167b868cb7fd59ae92a9cdf1ed4f84dbce1326e9"
@@ -685,8 +690,8 @@
     },
     {
       "path": "work/GRAPH.md",
-      "bytes": 11817,
-      "sha256": "dbd48846b65b5ee7e98f5cd3c057dff12be1cc2db760c50d452c4577222d6bd7"
+      "bytes": 11826,
+      "sha256": "10a4979760205b9f4602a87af857e5881acdafa86ce76a8c17067b73cdd5c8cb"
     },
     {
       "path": "work/SCMS-001.md",
