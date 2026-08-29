@@ -177,6 +177,28 @@
         "authority": "governs project operation"
       },
       "sourceState": "released package v0.5.1 (2026-08-28: adds instrument stratification, upstream-first repair doctrine, named drafting failure classes; doc-level additive); digest is sha256 of PACKAGE_MANIFEST.json, which binds per-file sha256 digests; full gate (check-all.py) passed at re-pin"
+    },
+    {
+      "id": "sss",
+      "kind": "protocol",
+      "required": true,
+      "version": "0.1.0",
+      "revisionOrDigest": "sha256:364317ed1f6c6b8b19d94e84c7cf1a6e48b130614fd6bbd7a70b405771d3346c",
+      "canonicalSource": "/Users/zachshallbetter/Projects/_Protocols/semantic-surface-model",
+      "mountOrAddress": "/Users/zachshallbetter/Projects/_Protocols/semantic-surface-model",
+      "authorityRole": "Surface resolution: purpose-bound semantic participation between Canon and expression \u2014 subject/purpose/context/lens, eligibility outcomes, membership/grouping/priority, operation exposure, resolution trace, surface fingerprints, access-before-resolution. Sixteen invariants; S0-S4 conformance ladder.",
+      "inventory": [
+        "docs/SSS-SPECIFICATION.md",
+        "docs/ARCHITECTURE.md",
+        "docs/RELATIONSHIPS.md",
+        "docs/IMPLEMENTATION_BOUNDARY.md",
+        "docs/CONFORMANCE.md"
+      ],
+      "compatibility": {
+        "semantics": "bound-as-declared",
+        "authority": "imported, never enlarged"
+      },
+      "sourceState": "local directory, not under version control; package boundary present (@semantic-systems/surface, private/UNLICENSED \u2014 UD-12 scope); schemas/ and conformance/ directories exist but are EMPTY (UD-13: normative schemas and golden vectors owed upstream); naming varies across dir (semantic-surface-model), protocol (Semantic Surface System), and package (@semantic-systems/surface) \u2014 flagged UD-13; aggregate content digest computed 2026-08-28"
     }
   ],
   "integrityPolicy": {

@@ -1,0 +1,10 @@
+{
+  "name": "@scms/surface-resolver",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Narrowest end-to-end SSS surface resolution for Semantic CMS (SCMS-008): pure resolver for the focus and collection profiles with typed failures, trace, and access-scoped fingerprints. Types are non-normative derivations of the SSS v0.1.0 reference shapes (normative schemas are owed upstream, UD-13). Zero runtime dependencies; requires Node >= 22.6 (native type stripping).",
+  "scripts": {
+    "test": "node --test test/resolver.test.ts"
+  }
+}

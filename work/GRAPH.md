@@ -24,6 +24,7 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-005 | Resolve the gap register (build excluded) | E1+E0 | Done — awaiting owner rulings on #26 (recipient) and #28 (v2 PR) | records/evidence.jsonl · scms-evidence-005 |
 | SCMS-006 | First upstream-first cycle: FPB v0.5.1 + SES packaging; re-pin | E1+E2 | Done — awaiting owner verification | records/evidence.jsonl · scms-evidence-006 |
 | SCMS-007 | Consumption boundaries for all pinned protocol resources | E1+E2 | Done — awaiting owner verification | records/evidence.jsonl · scms-evidence-007 |
+| SCMS-008 | Adopt SSS; implement the narrowest surface-resolution path | E1 | Done — awaiting owner verification | records/evidence.jsonl · scms-evidence-008 |
 
 ## Epic register
 

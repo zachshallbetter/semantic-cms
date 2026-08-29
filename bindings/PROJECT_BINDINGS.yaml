@@ -115,10 +115,17 @@ concept_bindings:
   - local: "Workspace morphology"
     source: "sps"
     imported: "Purpose-and-evidence-resolved morphology (morphologyFor, evidence tones earned|steady|fading)"
-    relation: "exact"
+    relation: "constrained"
     authority: "/Users/zachshallbetter/Projects/_Protocols/semantic-publication-substrate/app.js"
-    compatibility_effect: "none"
-    notes: ""
+    compatibility_effect: "semantic-change"
+    notes: >-
+      Decomposed under SSS adoption (SCMS-008): SPS's morphologyFor spans two layers
+      SSS now separates. Shelf selection, lens, membership, and the evidence tone
+      (earned|steady|fading, a participation basis) are SSS surface semantics; the
+      container-form choice (hero|rail|matrix|...) is expression, realized as an
+      expression recipe consuming SSS role/priority/emphasis (SSS-INV-008: semantic
+      priority must not prescribe graphical form). SPS remains the authority for the
+      evidence-tone idea and the publication domain; no SPS concept is redefined.
   - local: "Commit cycle"
     source: "fundamental"
     imported: "Six-phase frame scheduler (discover→read→compute→state→write→render)"
@@ -126,6 +133,80 @@ concept_bindings:
     authority: "/Users/zachshallbetter/Projects/fundamental-engine/docs/canonical/platform-architecture.md"
     compatibility_effect: "none"
     notes: "Mapped to ingest→freeze→derive→commit→notify→observe; one-way staging rule additionally imported from rr-rsp staging model."
+
+  # --- SSS (semantic-surface-model, pinned 2026-08-28, SCMS-008) ---
+  # FCI note (anti-bloat restraint): SSS §4 grounds its observation/interpretation
+  # discipline in FCI, which scms deliberately does NOT pin — those distinctions
+  # already arrive through pinned intermediaries (rr-rsp provenance classes, ICP
+  # §4.2/§4.4, HCML typed uncertainty, and now SSS itself). FCI remains an unpinned
+  # candidate reference; pin only if the Field/Observation planes later need its
+  # measurement contracts directly.
+  - local: "Surface resolution"
+    source: "sss"
+    imported: "Resolve(D,P,Q,C,L,A,T) -> ResolvedSurface; twelve-step lifecycle; CANON != SURFACE != EXPRESSION != REPRESENTATION"
+    relation: "exact"
+    authority: "/Users/zachshallbetter/Projects/_Protocols/semantic-surface-model/docs/SSS-SPECIFICATION.md"
+    compatibility_effect: "none"
+    notes: >-
+      Fills the seam DESIGN.md blurred between Canon and expression: participation
+      (what matters here) is SSS; expression (how it may appear) stays SES. Surface
+      resolution is read-only; sits inside the derive phase of the commit cycle.
+  - local: "Lens"
+    source: "sss"
+    imported: "SurfaceLens (subtractive with respect to power)"
+    relation: "exact"
+    authority: "/Users/zachshallbetter/Projects/_Protocols/semantic-surface-model/docs/SSS-SPECIFICATION.md"
+    compatibility_effect: "none"
+    notes: "Subscription lenses (DESIGN.md §8.2) are SurfaceLens applications; Power(output) <= Power(input) imported verbatim."
+  - local: "Semantic slice (agent context)"
+    source: "sss"
+    imported: "ResolvedSurface consumed directly by agents (ARCHITECTURE §10)"
+    relation: "exact"
+    authority: "/Users/zachshallbetter/Projects/_Protocols/semantic-surface-model/docs/ARCHITECTURE.md"
+    compatibility_effect: "none"
+    notes: "DESIGN.md §11's radius-bounded, access-filtered, provenance-flagged slices are ResolvedSurfaces."
+  - local: "Eligibility outcomes"
+    source: "sss"
+    imported: "eligible|ineligible|unknown|withheld|unsupported (non-interchangeable)"
+    relation: "exact"
+    authority: "/Users/zachshallbetter/Projects/_Protocols/semantic-surface-model/docs/SSS-SPECIFICATION.md"
+    compatibility_effect: "none"
+    notes: "Joins the non-collapsible absence vocabulary (DESIGN.md §3.5); outward less-revealing mappings only via a declared host projection contract (SSS §10)."
+  - local: "Surface fingerprint"
+    source: "sss"
+    imported: "Fingerprint over accessible dependencies + definition + context + resolver version; changes outside the observable set do not invalidate"
+    relation: "constrained"
+    authority: "/Users/zachshallbetter/Projects/_Protocols/semantic-surface-model/docs/SSS-SPECIFICATION.md"
+    compatibility_effect: "none"
+    notes: "Constrained to the scms hashing discipline (P20 two-tier, domain separation) and rr-rsp dependency-fingerprint semantics; the access non-leak property is the shared invariant."
+  - local: "Operation exposure"
+    source: "sss"
+    imported: "ResolvedOperation (required|available|withheld|unavailable|unknown); exposure != permission/enablement/execution"
+    relation: "constrained"
+    authority: "/Users/zachshallbetter/Projects/_Protocols/semantic-surface-model/docs/SSS-SPECIFICATION.md"
+    compatibility_effect: "none"
+    notes: >-
+      Three-way seam: operation IDENTITY stays SES Operation (exact, above);
+      EXPOSURE vocabulary is SSS; EXECUTION crosses ICP (exact, above). SSS
+      RELATIONSHIPS §1/§3 declares the same split — no authority enlarged.
+  - local: "Surface consistency"
+    source: "sss"
+    imported: "ResolvedSurface.consistency: ConsistencyState"
+    relation: "exact"
+    authority: "/Users/zachshallbetter/Projects/_Protocols/semantic-surface-model/docs/SSS-SPECIFICATION.md"
+    compatibility_effect: "none"
+    notes: "The ConsistencyState values themselves remain the HCML binding (above); SSS carries them on surfaces."
+  - local: "Field metrics on surfaces"
+    source: "sss"
+    imported: "Attention resolution (§16): consumes externally supplied field signals; does not own metric meaning"
+    relation: "constrained"
+    authority: "/Users/zachshallbetter/Projects/_Protocols/semantic-surface-model/docs/SSS-SPECIFICATION.md"
+    compatibility_effect: "none"
+    notes: >-
+      Metric definition/provenance stay with fundamental (binding above); the Field
+      plane's lossy verdict-only outward boundary (P13) is stricter than SSS requires
+      and prevails; SSS attention-outputs (needs-attention etc.) remain surface
+      interpretations, never promoted (matches SSS §16 and SSS-INV-006).
 
 authority_bindings:
   - effect: "project mutation (E0-E1 within this repository)"
@@ -151,7 +232,7 @@ authority_bindings:
 
 provider_bindings:
   work_graph: "work/ (GRAPH.md + SCMS-NNN.md issue contracts)"
-  repository: "local filesystem (version control recommended, not yet initialized)"
+  repository: "git — https://github.com/zachshallbetter/semantic-cms (board of record: issues; disposition: PRs)"
   dispatch: "interactive agent session"
   verification: "scripts/validate-bootstrap.py --check-context"
   protection: "append-only records convention + protected effects in PROJECT_PROFILE.json"
