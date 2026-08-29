@@ -70,7 +70,7 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-054 | Evidence from evaluators that actually ran (NR-scms-016) | E3 | Done — fabricated PASSes replaced by real checks and blocking NOT_RUNs; articles now correctly unpublishable | records/evidence.jsonl · scms-evidence-054 |
 | SCMS-055 | Link and media evaluators (narrows SH-22) | E3 | Done — internal refs resolved, external URLs honestly INCONCLUSIVE; owner decision named | records/evidence.jsonl · scms-evidence-055 |
 | SCMS-056 | Derive supersession and revocation instead of storing them (closes SH-23) | E1 | Done — no row is rewritten; recomputation-equals-index vector | records/evidence.jsonl · scms-evidence-056 |
-| SCMS-057 | Canon in Postgres: schema, grants, and append-only by refusal | E13 | Ready — depends on SCMS-056; §13's sketch made real | — |
+| SCMS-057 | Canon in Postgres: schema, grants, and append-only by refusal | E13 | Done — 15 refusal checks against real PG; NR-scms-017 found; adapter is next | records/evidence.jsonl · scms-evidence-057 |
 | SCMS-058 | The outbox as a transactional trigger, not an in-process push | E13 | Ready — depends on SCMS-057; 'nothing happens without an emission' enforced by the store | — |
 | SCMS-059 | Authentication (closes SH-2) | E13 | Ready — the largest gap; semantic-cms currently has none | — |
 | SCMS-060 | Content-addressed blobs for prose and media (closes SH-4) | E13 | Ready — depends on SCMS-057; bodySha256 already exists in the model | — |

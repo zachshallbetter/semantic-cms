@@ -17,7 +17,7 @@ export interface IntegrityFinding {
   code:
     | "receipt-without-event"      // something happened and nobody was told
     | "event-without-receipt"      // a subscriber would see a change Canon cannot explain
-    | "event-id-not-gapless"       // replay by cursor would silently skip
+    | "event-id-not-monotonic"     // a cursor query would return events out of order
     | "event-receipt-mismatch"     // the two chains disagree about what happened
     | "duplicate-emission";        // one change told twice — at-least-once becomes at-least-twice
   detail: string;
@@ -25,20 +25,31 @@ export interface IntegrityFinding {
 }
 
 /**
- * Every receipt has exactly one event, in the same order, and event ids are
- * gapless from zero. Gaplessness is not cosmetic: `eventsSince` is a range
- * query, so a gap is indistinguishable from a delivered event and a client
- * would replay past a change it never saw.
+ * Every receipt has exactly one event, in the same order, and event ids strictly
+ * increase.
+ *
+ * This used to require ids to be *gapless* from zero, on the reasoning that a
+ * gap would let a client replay past a change it never saw. That reasoning was
+ * wrong, and the requirement was an in-memory artifact mistaken for an
+ * invariant: `eventsSince` is a `>` query, so an id that never existed skips
+ * nothing. Postgres proved the point — a rolled-back transaction consumes a
+ * sequence value, so the store DESIGN.md §13 prescribes produces `1,2,3,5`
+ * legitimately, and this check would have rejected it (SCMS-057).
+ *
+ * What actually detects loss is **receipt/event parity**, checked below: a
+ * receipt with no event is a change nobody was told about, and that holds
+ * whether or not ids are contiguous. Gaplessness was only ever a proxy for it,
+ * and a proxy that fails on the real store is worse than the thing it proxied.
  */
 export function verifyEmissionIntegrity(journal: CanonJournal): IntegrityFinding[] {
   const findings: IntegrityFinding[] = [];
   const receipts = journal.receipts();
   const events = journal.events();
 
-  for (let i = 0; i < events.length; i++) {
-    if (events[i].eventId !== i) {
-      findings.push({ code: "event-id-not-gapless", at: i,
-        detail: `event at index ${i} carries id ${events[i].eventId}` });
+  for (let i = 1; i < events.length; i++) {
+    if (events[i].eventId <= events[i - 1].eventId) {
+      findings.push({ code: "event-id-not-monotonic", at: i,
+        detail: `id ${events[i].eventId} does not exceed its predecessor ${events[i - 1].eventId}` });
     }
   }
 

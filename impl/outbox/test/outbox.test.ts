@@ -54,11 +54,24 @@ test("an idempotent re-land emits nothing new — at-least-once is not at-least-
   assert.deepEqual(verifyEmissionIntegrity(j), []);
 });
 
-test("event ids are gapless and monotonic from zero", () => {
+test("event ids strictly increase; gaps are legitimate", () => {
   const j = new CanonJournal();
   let prev = j.append(doc("d0", "t0"), "tester");
   for (let i = 1; i < 12; i++) prev = j.supersede(prev.envelope.revision!, doc("d0", `t${i}`), "tester");
-  assert.deepEqual(j.events().map((e) => e.eventId), [...Array(12).keys()]);
+  const ids = j.events().map((e) => e.eventId);
+  for (let i = 1; i < ids.length; i++) assert.ok(ids[i] > ids[i - 1]);
+
+  // In memory the ids happen to be contiguous, and that is an artifact rather
+  // than a requirement: Postgres consumes a sequence value on rollback, so the
+  // prescribed store emits 1,2,3,5 legitimately. Loss is caught by
+  // receipt/event parity, not by contiguity.
+  const gapped = [...j.events()].map((e, i) => ({ ...e, eventId: e.eventId * 2 }));
+  const stubbed = {
+    receipts: () => j.receipts(), events: () => gapped,
+    eventsSince: (c: number | null) => (c === null ? gapped : gapped.filter((e) => e.eventId > c)),
+  } as unknown as CanonJournal;
+  assert.deepEqual(verifyEmissionIntegrity(stubbed), [],
+    "widely spaced but increasing ids are fine");
 });
 
 test("the event stream and the receipt chain describe the same changes", () => {
@@ -118,10 +131,10 @@ test("the integrity check can fail — otherwise it proves nothing", () => {
 
   // A write that told nobody.
   assert.equal(verifyEmissionIntegrity(stub(events.slice(0, 1)))[0].code, "receipt-without-event");
-  // A gap: replay would skip straight past it.
+  // Ids that do not increase: a cursor query would return them out of order.
   assert.equal(
-    verifyEmissionIntegrity(stub([events[0], { ...events[1], eventId: 5 }]))[0].code,
-    "event-id-not-gapless");
+    verifyEmissionIntegrity(stub([events[0], { ...events[1], eventId: 0 }]))[0].code,
+    "event-id-not-monotonic");
   // Two chains disagreeing about what happened.
   assert.ok(verifyEmissionIntegrity(stub([events[0], { ...events[1], revision: "sha256:" + "9".repeat(64) }]))
     .some((f) => f.code === "event-receipt-mismatch"));

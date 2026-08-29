@@ -8,6 +8,16 @@ on:
 jobs:
   gates:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready --health-interval 10s
+          --health-timeout 5s --health-retries 5
     steps:
       - uses: actions/checkout@v4
         with:
@@ -107,6 +117,15 @@ jobs:
       - name: Site as expression (SCMS-037 · S3-checked reader rendering)
         run: node --test test/*.test.ts
         working-directory: impl/site
+
+      - name: Canon store conformance (SCMS-057 · the grants must refuse)
+        run: ./test/run.sh
+        working-directory: impl/store
+        env:
+          PGHOST: localhost
+          PGPORT: "5432"
+          PGUSER: postgres
+          PGPASSWORD: postgres
 
       - name: End-to-end spine (SCMS-019/027/049 · the composed path)
         run: node --test test/spine.test.ts

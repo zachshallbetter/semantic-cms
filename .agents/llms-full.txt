@@ -1,6 +1,6 @@
 # PROJECT COMPILED CONTEXT
 Generator: 0.5.0
-Source digest: 938535e3ce4120b803378b7d37c20830cbd6f36e7036da79aeec71c79fc722dd
+Source digest: 63328f495298fff1cd85c8e8807f399ffef7cc6251efff8931267af05034b50a
 
 > Generated projection. Canonical sources remain authoritative.
 
@@ -157,6 +157,16 @@ on:
 jobs:
   gates:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready --health-interval 10s
+          --health-timeout 5s --health-retries 5
     steps:
       - uses: actions/checkout@v4
         with:
@@ -256,6 +266,15 @@ jobs:
       - name: Site as expression (SCMS-037 · S3-checked reader rendering)
         run: node --test test/*.test.ts
         working-directory: impl/site
+
+      - name: Canon store conformance (SCMS-057 · the grants must refuse)
+        run: ./test/run.sh
+        working-directory: impl/store
+        env:
+          PGHOST: localhost
+          PGPORT: "5432"
+          PGUSER: postgres
+          PGPASSWORD: postgres
 
       - name: End-to-end spine (SCMS-019/027/049 · the composed path)
         run: node --test test/spine.test.ts
@@ -1466,7 +1485,7 @@ decision record) — never by deletion.
 
 | # | Tag | Area | The ambiguity | Proposed default |
 |---|-----|------|---------------|------------------|
-| SH-1 | GUESS | Implementation stack | §13 is non-normative; dependencies span TS (Fundamental, SES-adjacent), Rust (rr-rsp, Infinite-Platform precedent), Python (ACP, FPB tooling). Which language owns the resolver, the store adapters, the wire? | TypeScript for resolver + wire + editor (shared client/server/edge per §13); Postgres for Canon; Python retained only for substrate tooling and ACP; Rust deferred until a measured need. |
+| SH-1 | **PARTIALLY RESOLVED** | Implementation stack | §13 is non-normative; dependencies span TS (Fundamental, SES-adjacent), Rust (rr-rsp, Infinite-Platform precedent), Python (ACP, FPB tooling). Which language owns the resolver, the store adapters, the wire? | TypeScript for resolver + wire + editor (shared client/server/edge per §13); Postgres for Canon; Python retained only for substrate tooling and ACP; Rust deferred until a measured need. | **Owner decided 2026-08-29: migrate off zach-core entirely.** Postgres for Canon, per §13's sketch, landed as a schema with enforcing grants in SCMS-057. Remaining: the adapter, auth (SH-2), and deployment. |
 | SH-2 | GUESS | Tenancy & identity | No tenancy model, no identity provider, no session model. Single-tenant (owner properties) or multi-tenant? | Single-tenant first (one owner, many actors incl. agents); actor identity via the four-class identity table (§3.3); external IdP deferred; capability tokens shaped per ICP verification levels. |
 | SH-3 | CAVEAT | Deletion vs law | Append-only-forever meets right-to-erasure (GDPR/CCPA) how? Revocation retains provenance — lawful for personal data? | Crypto-shredding candidate: personal-data fields encrypted per-subject; erasure = key destruction, leaving tombstoned ciphertext + intact non-personal provenance. Needs legal review before any third-party personal data enters Canon. |
 | SH-4 | GAP | Media & blobs | Canon is record-centric. Images/video/fonts: CAS store, derivative classes (thumbnail/preview/reader-*), codec-outside-identity — described in the IV review, adopted nowhere. | Adopt IV's model: BLAKE3- or SHA-256-addressed CAS, immutable, `Cache-Control: immutable`; manifests declare derivative *classes* never encodings; delivery projections own codecs. |
@@ -14577,7 +14596,7 @@ export interface IntegrityFinding {
   code:
     | "receipt-without-event"      // something happened and nobody was told
     | "event-without-receipt"      // a subscriber would see a change Canon cannot explain
-    | "event-id-not-gapless"       // replay by cursor would silently skip
+    | "event-id-not-monotonic"     // a cursor query would return events out of order
     | "event-receipt-mismatch"     // the two chains disagree about what happened
     | "duplicate-emission";        // one change told twice — at-least-once becomes at-least-twice
   detail: string;
@@ -14585,20 +14604,31 @@ export interface IntegrityFinding {
 }
 
 /**
- * Every receipt has exactly one event, in the same order, and event ids are
- * gapless from zero. Gaplessness is not cosmetic: `eventsSince` is a range
- * query, so a gap is indistinguishable from a delivered event and a client
- * would replay past a change it never saw.
+ * Every receipt has exactly one event, in the same order, and event ids strictly
+ * increase.
+ *
+ * This used to require ids to be *gapless* from zero, on the reasoning that a
+ * gap would let a client replay past a change it never saw. That reasoning was
+ * wrong, and the requirement was an in-memory artifact mistaken for an
+ * invariant: `eventsSince` is a `>` query, so an id that never existed skips
+ * nothing. Postgres proved the point — a rolled-back transaction consumes a
+ * sequence value, so the store DESIGN.md §13 prescribes produces `1,2,3,5`
+ * legitimately, and this check would have rejected it (SCMS-057).
+ *
+ * What actually detects loss is **receipt/event parity**, checked below: a
+ * receipt with no event is a change nobody was told about, and that holds
+ * whether or not ids are contiguous. Gaplessness was only ever a proxy for it,
+ * and a proxy that fails on the real store is worse than the thing it proxied.
  */
 export function verifyEmissionIntegrity(journal: CanonJournal): IntegrityFinding[] {
   const findings: IntegrityFinding[] = [];
   const receipts = journal.receipts();
   const events = journal.events();
 
-  for (let i = 0; i < events.length; i++) {
-    if (events[i].eventId !== i) {
-      findings.push({ code: "event-id-not-gapless", at: i,
-        detail: `event at index ${i} carries id ${events[i].eventId}` });
+  for (let i = 1; i < events.length; i++) {
+    if (events[i].eventId <= events[i - 1].eventId) {
+      findings.push({ code: "event-id-not-monotonic", at: i,
+        detail: `id ${events[i].eventId} does not exceed its predecessor ${events[i - 1].eventId}` });
     }
   }
 
@@ -14707,11 +14737,24 @@ test("an idempotent re-land emits nothing new — at-least-once is not at-least-
   assert.deepEqual(verifyEmissionIntegrity(j), []);
 });
 
-test("event ids are gapless and monotonic from zero", () => {
+test("event ids strictly increase; gaps are legitimate", () => {
   const j = new CanonJournal();
   let prev = j.append(doc("d0", "t0"), "tester");
   for (let i = 1; i < 12; i++) prev = j.supersede(prev.envelope.revision!, doc("d0", `t${i}`), "tester");
-  assert.deepEqual(j.events().map((e) => e.eventId), [...Array(12).keys()]);
+  const ids = j.events().map((e) => e.eventId);
+  for (let i = 1; i < ids.length; i++) assert.ok(ids[i] > ids[i - 1]);
+
+  // In memory the ids happen to be contiguous, and that is an artifact rather
+  // than a requirement: Postgres consumes a sequence value on rollback, so the
+  // prescribed store emits 1,2,3,5 legitimately. Loss is caught by
+  // receipt/event parity, not by contiguity.
+  const gapped = [...j.events()].map((e, i) => ({ ...e, eventId: e.eventId * 2 }));
+  const stubbed = {
+    receipts: () => j.receipts(), events: () => gapped,
+    eventsSince: (c: number | null) => (c === null ? gapped : gapped.filter((e) => e.eventId > c)),
+  } as unknown as CanonJournal;
+  assert.deepEqual(verifyEmissionIntegrity(stubbed), [],
+    "widely spaced but increasing ids are fine");
 });
 
 test("the event stream and the receipt chain describe the same changes", () => {
@@ -14771,10 +14814,10 @@ test("the integrity check can fail — otherwise it proves nothing", () => {
 
   // A write that told nobody.
   assert.equal(verifyEmissionIntegrity(stub(events.slice(0, 1)))[0].code, "receipt-without-event");
-  // A gap: replay would skip straight past it.
+  // Ids that do not increase: a cursor query would return them out of order.
   assert.equal(
-    verifyEmissionIntegrity(stub([events[0], { ...events[1], eventId: 5 }]))[0].code,
-    "event-id-not-gapless");
+    verifyEmissionIntegrity(stub([events[0], { ...events[1], eventId: 0 }]))[0].code,
+    "event-id-not-monotonic");
   // Two chains disagreeing about what happened.
   assert.ok(verifyEmissionIntegrity(stub([events[0], { ...events[1], revision: "sha256:" + "9".repeat(64) }]))
     .some((f) => f.code === "event-receipt-mismatch"));
@@ -18453,6 +18496,308 @@ test("the page states what it was derived from", () => {
   assert.ok(page.includes("rendered from Canon"));
   assert.ok(page.includes(rendered.surface.sourceSnapshot));
 });
+
+
+========================================================================
+FILE: impl/store/package.json
+========================================================================
+
+{
+  "name": "@scms/store",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Canon in Postgres (SCMS-057): DESIGN.md §13's sketch made real — append-only by grant, emission by trigger, current and revoked derived as views. The conformance suite proves the database refuses, rather than trusting that it would.",
+  "scripts": { "test": "./test/run.sh" }
+}
+
+
+========================================================================
+FILE: impl/store/sql/001-canon.sql
+========================================================================
+
+-- Canon in Postgres (SCMS-057).
+--
+-- DESIGN.md §13's sketch, made real:
+--
+--   "Store: Postgres. Revision and receipt tables append-only *by grant*
+--    (no UPDATE/DELETE for the runtime role)."
+--
+-- The point of this file is that append-only stops being something the code
+-- promises and becomes something the database refuses. Every guarantee below is
+-- a grant or a constraint, not a convention — because this project's recurring
+-- failure is a rule stated in prose beside code that only partly provides it.
+--
+-- Two roles:
+--   scms_owner    — owns the schema, runs migrations, may do anything.
+--   scms_runtime  — what the application connects as. INSERT and SELECT only.
+--
+-- Idempotent, so re-running is safe. There is no migration runner yet, and
+-- pretending otherwise would be the gap zach-core also has.
+
+-- ── Roles ──────────────────────────────────────────────────────────────────
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'scms_runtime') THEN
+    CREATE ROLE scms_runtime NOLOGIN;
+  END IF;
+END $$;
+
+-- ── Records ────────────────────────────────────────────────────────────────
+-- The revision IS the content hash, so identity and integrity are the same
+-- column. A duplicate insert of identical content collides on the primary key,
+-- which is the idempotency the in-memory journal implements by hand.
+CREATE TABLE IF NOT EXISTS canon_record (
+  revision           text PRIMARY KEY CHECK (revision LIKE 'sha256:%'),
+  subject_id         text NOT NULL,
+  schema_version     text NOT NULL,
+  compatibility      jsonb NOT NULL,
+  provenance         jsonb NOT NULL,
+  minimum_access     text NOT NULL CHECK (minimum_access IN ('public','member','owner','admin')),
+  body               jsonb NOT NULL,
+  semantic_maturity  text NOT NULL,
+  evidence_state     text NOT NULL,
+  publication_state  text NOT NULL,
+  delivery_state     text NOT NULL,
+  -- The successor carries the pointer; the predecessor is never touched
+  -- (SCMS-056 / SH-23). Self-reference is rejected rather than merely unlikely.
+  supersedes         text REFERENCES canon_record(revision) CHECK (supersedes IS DISTINCT FROM revision),
+  actor              text NOT NULL,
+  landed_at          timestamptz NOT NULL
+);
+
+-- One successor per predecessor. Without this, two rows could both claim to
+-- supersede the same revision and `current` would be ambiguous — a fork with no
+-- merge, which §8.5 does not permit outside the branching P7 defers.
+CREATE UNIQUE INDEX IF NOT EXISTS canon_record_one_successor
+  ON canon_record (supersedes) WHERE supersedes IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS canon_record_subject ON canon_record (subject_id);
+
+-- ── Receipts ───────────────────────────────────────────────────────────────
+-- Ordering is carried by the hash chain, not by seq contiguity: each receipt
+-- names its predecessor's hash. seq gaps are therefore harmless, which matters
+-- because a rolled-back transaction consumes a sequence value.
+CREATE TABLE IF NOT EXISTS canon_receipt (
+  seq            bigserial PRIMARY KEY,
+  action         text NOT NULL CHECK (action IN ('append','supersede','revoke')),
+  subject_id     text NOT NULL,
+  revision       text NOT NULL REFERENCES canon_record(revision),
+  prior_revision text,
+  actor          text NOT NULL,
+  prev_hash      text NOT NULL,
+  hash           text NOT NULL UNIQUE
+);
+
+-- Revocation is read off this chain (SCMS-056), so it needs to be cheap.
+CREATE INDEX IF NOT EXISTS canon_receipt_revoke
+  ON canon_receipt (revision) WHERE action = 'revoke';
+
+-- ── Outbox ─────────────────────────────────────────────────────────────────
+-- Written ONLY by the trigger below. The runtime role has no INSERT here, so
+-- the stream cannot be forged: an event exists if and only if a receipt does.
+CREATE TABLE IF NOT EXISTS canon_outbox (
+  event_id       bigserial PRIMARY KEY,
+  receipt_seq    bigint NOT NULL UNIQUE REFERENCES canon_receipt(seq),
+  action         text NOT NULL,
+  subject_id     text NOT NULL,
+  revision       text NOT NULL,
+  prior_revision text,
+  actor          text NOT NULL,
+  minimum_access text NOT NULL
+);
+
+-- "Nothing happens without an emission" (§8.1) enforced by the store rather
+-- than by the process. SECURITY DEFINER so the runtime role can cause an
+-- emission without being able to write one.
+CREATE OR REPLACE FUNCTION canon_emit() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER AS $$
+DECLARE acc text;
+BEGIN
+  SELECT minimum_access INTO acc FROM canon_record WHERE revision = NEW.revision;
+  INSERT INTO canon_outbox (receipt_seq, action, subject_id, revision, prior_revision, actor, minimum_access)
+  VALUES (NEW.seq, NEW.action, NEW.subject_id, NEW.revision, NEW.prior_revision, NEW.actor, acc);
+  -- The native channel §8.1 requires, so fan-out needs no second infrastructure.
+  PERFORM pg_notify('canon_outbox', NEW.seq::text);
+  RETURN NEW;
+END $$;
+
+DROP TRIGGER IF EXISTS canon_emit_on_receipt ON canon_receipt;
+CREATE TRIGGER canon_emit_on_receipt AFTER INSERT ON canon_receipt
+  FOR EACH ROW EXECUTE FUNCTION canon_emit();
+
+-- ── Derived views (SCMS-056: never stored) ─────────────────────────────────
+CREATE OR REPLACE VIEW canon_revoked AS
+  SELECT DISTINCT revision FROM canon_receipt WHERE action = 'revoke';
+
+CREATE OR REPLACE VIEW canon_current AS
+  SELECT r.* FROM canon_record r
+  WHERE NOT EXISTS (SELECT 1 FROM canon_record s WHERE s.supersedes = r.revision)
+    AND NOT EXISTS (SELECT 1 FROM canon_revoked v WHERE v.revision = r.revision);
+
+-- ── Grants: the actual guarantee ───────────────────────────────────────────
+GRANT USAGE ON SCHEMA public TO scms_runtime;
+GRANT SELECT, INSERT ON canon_record, canon_receipt TO scms_runtime;
+GRANT SELECT ON canon_outbox, canon_current, canon_revoked TO scms_runtime;
+GRANT USAGE ON SEQUENCE canon_receipt_seq_seq TO scms_runtime;
+
+-- Explicit, not merely omitted. An omitted grant is an accident waiting to be
+-- corrected by someone being helpful; a REVOKE is a decision.
+REVOKE UPDATE, DELETE, TRUNCATE ON canon_record  FROM scms_runtime;
+REVOKE UPDATE, DELETE, TRUNCATE ON canon_receipt FROM scms_runtime;
+REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON canon_outbox FROM scms_runtime;
+
+
+========================================================================
+FILE: impl/store/test/grants.sql
+========================================================================
+
+-- SCMS-057 conformance: the guarantees are grants, so the proof is refusal.
+\set ON_ERROR_STOP off
+\set QUIET on
+\pset tuples_only on
+\pset format unaligned
+
+-- Seed as owner.
+INSERT INTO canon_record VALUES
+  ('sha256:' || repeat('a',64), 'art-1', 'scms-0.1', '{}', '{"kind":"declared"}', 'public',
+   '{"kind":"Content"}', 'draft','unqualified','unpublished','unpropagated', NULL, 'tester', now());
+INSERT INTO canon_receipt (action, subject_id, revision, prior_revision, actor, prev_hash, hash)
+VALUES ('append','art-1','sha256:' || repeat('a',64), NULL, 'tester','sha256:'||repeat('0',64),'sha256:'||repeat('1',64));
+
+SELECT '1 emission-on-receipt: ' || CASE WHEN count(*) = 1 THEN 'PASS' ELSE 'FAIL' END FROM canon_outbox;
+
+SET ROLE scms_runtime;
+
+-- Every one of these MUST fail. A success here means the guarantee is prose.
+UPDATE canon_record SET actor = 'tamper';
+\if :ERROR
+  SELECT '2 UPDATE canon_record refused: PASS';
+\else
+  SELECT '2 UPDATE canon_record refused: FAIL — the row was rewritten';
+\endif
+
+DELETE FROM canon_record;
+\if :ERROR
+  SELECT '3 DELETE canon_record refused: PASS';
+\else
+  SELECT '3 DELETE canon_record refused: FAIL';
+\endif
+
+UPDATE canon_receipt SET hash = 'sha256:' || repeat('9',64);
+\if :ERROR
+  SELECT '4 UPDATE canon_receipt refused: PASS';
+\else
+  SELECT '4 UPDATE canon_receipt refused: FAIL — the chain is forgeable';
+\endif
+
+DELETE FROM canon_receipt;
+\if :ERROR
+  SELECT '5 DELETE canon_receipt refused: PASS';
+\else
+  SELECT '5 DELETE canon_receipt refused: FAIL';
+\endif
+
+-- The runtime may CAUSE an emission and may not WRITE one.
+INSERT INTO canon_outbox (receipt_seq, action, subject_id, revision, prior_revision, actor, minimum_access)
+VALUES (999,'append','forged','sha256:'||repeat('f',64),NULL,'attacker','public');
+\if :ERROR
+  SELECT '6 forged outbox row refused: PASS';
+\else
+  SELECT '6 forged outbox row refused: FAIL — the stream is forgeable';
+\endif
+
+DELETE FROM canon_outbox;
+\if :ERROR
+  SELECT '7 DELETE canon_outbox refused: PASS';
+\else
+  SELECT '7 DELETE canon_outbox refused: FAIL — history is erasable';
+\endif
+
+-- ...but the runtime CAN append, and appending emits.
+INSERT INTO canon_record VALUES
+  ('sha256:' || repeat('b',64), 'art-1', 'scms-0.1', '{}', '{"kind":"declared"}', 'public',
+   '{"kind":"Content"}', 'draft','unqualified','unpublished','unpropagated',
+   'sha256:' || repeat('a',64), 'runtime', now());
+INSERT INTO canon_receipt (action, subject_id, revision, prior_revision, actor, prev_hash, hash)
+VALUES ('supersede','art-1','sha256:' || repeat('b',64), 'sha256:'||repeat('a',64), 'runtime',
+        'sha256:'||repeat('1',64), 'sha256:'||repeat('2',64));
+\if :ERROR
+  SELECT '8 runtime CAN append: FAIL — append-only means append';
+\else
+  SELECT '8 runtime CAN append: PASS';
+\endif
+
+SELECT '9 append emitted: ' || CASE WHEN count(*) = 2 THEN 'PASS' ELSE 'FAIL (' || count(*) || ')' END FROM canon_outbox;
+
+-- Derived, never stored (SCMS-056).
+SELECT '10 current excludes superseded: ' ||
+  CASE WHEN (SELECT count(*) FROM canon_current) = 1
+        AND (SELECT revision FROM canon_current) = 'sha256:' || repeat('b',64)
+  THEN 'PASS' ELSE 'FAIL' END;
+
+-- Two successors for one predecessor must be impossible, or `current` forks.
+INSERT INTO canon_record VALUES
+  ('sha256:' || repeat('c',64), 'art-1', 'scms-0.1', '{}', '{"kind":"declared"}', 'public',
+   '{"kind":"Content"}', 'draft','unqualified','unpublished','unpropagated',
+   'sha256:' || repeat('a',64), 'runtime', now());
+\if :ERROR
+  SELECT '11 second successor refused: PASS';
+\else
+  SELECT '11 second successor refused: FAIL — current() is ambiguous';
+\endif
+
+-- Revocation is derived from the receipt chain, with no row rewritten.
+INSERT INTO canon_receipt (action, subject_id, revision, prior_revision, actor, prev_hash, hash)
+VALUES ('revoke','art-1','sha256:' || repeat('b',64), 'sha256:'||repeat('b',64), 'runtime',
+        'sha256:'||repeat('2',64), 'sha256:'||repeat('3',64));
+
+SELECT '12 revoke removes it from current, by derivation: ' ||
+  CASE WHEN (SELECT count(*) FROM canon_current) = 0 THEN 'PASS' ELSE 'FAIL' END;
+
+SELECT '13 the revoked row itself is untouched: ' ||
+  CASE WHEN (SELECT actor FROM canon_record WHERE revision = 'sha256:' || repeat('b',64)) = 'runtime'
+  THEN 'PASS' ELSE 'FAIL' END;
+
+SELECT '14 revoking emitted too: ' ||
+  CASE WHEN (SELECT count(*) FROM canon_outbox) = 3 THEN 'PASS' ELSE 'FAIL' END;
+
+-- Every receipt has exactly one event and vice versa — parity, in the store.
+SELECT '15 receipt/event parity: ' ||
+  CASE WHEN (SELECT count(*) FROM canon_receipt) = (SELECT count(*) FROM canon_outbox)
+        AND NOT EXISTS (SELECT 1 FROM canon_receipt r
+                        LEFT JOIN canon_outbox o ON o.receipt_seq = r.seq WHERE o.event_id IS NULL)
+  THEN 'PASS' ELSE 'FAIL' END;
+
+RESET ROLE;
+
+
+========================================================================
+FILE: impl/store/test/run.sh
+========================================================================
+
+#!/usr/bin/env bash
+# SCMS-057 conformance: apply the schema to a scratch database and prove the
+# grants refuse. Every guarantee in 001-canon.sql is a grant or a constraint,
+# so the only honest test is to attempt the forbidden thing and require failure.
+set -euo pipefail
+DB="${SCMS_TEST_DB:-scms_store_conformance}"
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+dropdb --if-exists "$DB" >/dev/null 2>&1 || true
+createdb "$DB"
+trap 'dropdb --if-exists "$DB" >/dev/null 2>&1 || true' EXIT
+
+psql -q -d "$DB" -f "$HERE/../sql/001-canon.sql" >/dev/null
+out="$(psql -q -d "$DB" -f "$HERE/grants.sql" 2>&1 | grep -E 'PASS|FAIL' || true)"
+echo "$out"
+
+if echo "$out" | grep -q FAIL; then
+  echo "store conformance FAILED"
+  exit 1
+fi
+count="$(echo "$out" | grep -c PASS)"
+echo "store conformance ok ($count checks)"
 
 
 ========================================================================
@@ -25246,7 +25591,7 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-054 | Evidence from evaluators that actually ran (NR-scms-016) | E3 | Done — fabricated PASSes replaced by real checks and blocking NOT_RUNs; articles now correctly unpublishable | records/evidence.jsonl · scms-evidence-054 |
 | SCMS-055 | Link and media evaluators (narrows SH-22) | E3 | Done — internal refs resolved, external URLs honestly INCONCLUSIVE; owner decision named | records/evidence.jsonl · scms-evidence-055 |
 | SCMS-056 | Derive supersession and revocation instead of storing them (closes SH-23) | E1 | Done — no row is rewritten; recomputation-equals-index vector | records/evidence.jsonl · scms-evidence-056 |
-| SCMS-057 | Canon in Postgres: schema, grants, and append-only by refusal | E13 | Ready — depends on SCMS-056; §13's sketch made real | — |
+| SCMS-057 | Canon in Postgres: schema, grants, and append-only by refusal | E13 | Done — 15 refusal checks against real PG; NR-scms-017 found; adapter is next | records/evidence.jsonl · scms-evidence-057 |
 | SCMS-058 | The outbox as a transactional trigger, not an in-process push | E13 | Ready — depends on SCMS-057; 'nothing happens without an emission' enforced by the store | — |
 | SCMS-059 | Authentication (closes SH-2) | E13 | Ready — the largest gap; semantic-cms currently has none | — |
 | SCMS-060 | Content-addressed blobs for prose and media (closes SH-4) | E13 | Ready — depends on SCMS-057; bodySha256 already exists in the model | — |
@@ -28103,4 +28448,86 @@ in the vector from append-only data alone, without the journal's indexes.
 ## Closing state
 
 **Done — Canon can now live somewhere that refuses UPDATE, which is the point.**
+
+
+========================================================================
+FILE: work/SCMS-057.md
+========================================================================
+
+# SCMS-057 — Canon in Postgres: append-only by refusal
+
+**Intent ref:** PROJECT_INTENT.md · **Epic:** E13 · **Effect class:** E1
+**Assigned by:** owner — *"Migrate off of zach-core entirely."*
+**State:** Ready → Claimed → Done (closing state at bottom)
+
+## What this is
+
+§13's sketch, made real:
+
+> *"Store: Postgres. Revision and receipt tables append-only **by grant** (no UPDATE/DELETE for the
+> runtime role)."*
+
+The point is not that Canon now has a schema. It is that **append-only stops being something the
+code promises and becomes something the database refuses.** This project's recurring failure is a
+rule stated in prose beside code that only partly provides it; a grant cannot be partly provided.
+
+## The shape
+
+- **`canon_record`** — the revision *is* the primary key, so identity and integrity are one column,
+  and re-landing identical content collides on the key rather than needing the idempotency check the
+  in-memory journal implements by hand.
+- **`canon_receipt`** — the hash chain. Ordering is carried by `prev_hash`, not by `seq` contiguity.
+- **`canon_outbox`** — written **only** by an `AFTER INSERT` trigger on receipts, `SECURITY DEFINER`.
+  The runtime role has no INSERT here, so an event exists **if and only if** a receipt does. The
+  trigger also `pg_notify`s, which is the native channel §8.1 requires so fan-out needs no second
+  infrastructure.
+- **`canon_current`** and **`canon_revoked`** are **views**, not columns — SCMS-056's derivation,
+  expressed where it belongs.
+
+Two constraints worth naming: a unique partial index on `supersedes` makes a second successor
+impossible, so `current` can never fork; and `supersedes IS DISTINCT FROM revision` rejects
+self-supersession rather than leaving it merely unlikely.
+
+## The conformance suite is fifteen refusals
+
+The only honest test of a guarantee made by grants is to attempt the forbidden thing and require
+failure. As the runtime role: UPDATE and DELETE on records and receipts, a forged outbox row, and
+DELETE on the outbox — **all must fail**. Then the controls: the runtime *can* append, appending
+*does* emit, and receipt/event parity holds. Fifteen checks, all passing.
+
+## What Postgres taught us, immediately
+
+The in-memory outbox required event ids to be **gapless**, on the reasoning that a gap would let a
+client replay past a change it never saw.
+
+That reasoning was wrong, and Postgres proved it within minutes:
+
+```
+before: max event_id = 3
+after rollback+commit: event_ids = 1,2,3,5
+```
+
+A rolled-back transaction consumes a sequence value. So the store the design prescribes produces
+gaps **legitimately**, and `verifyEmissionIntegrity` would have rejected it. Gaplessness was an
+in-memory artifact mistaken for an invariant.
+
+It was also the wrong detector. `eventsSince` is a `>` query, so an id that never existed skips
+nothing. What actually detects loss is **receipt/event parity** — a receipt with no event is a change
+nobody was told about — and that holds whether or not ids are contiguous. The check now requires
+strictly-increasing ids, and parity does the work it was always doing.
+
+A proxy that fails on the real store is worse than the property it proxied.
+
+## What this does NOT establish
+
+There is **no store adapter yet** — nothing in `impl/` reads or writes these tables, and the
+in-memory journal is still what every other package uses. That is deliberate sequencing, not an
+oversight: the grants are the load-bearing claim and they are provable on their own. The adapter is
+next, and it is where the first runtime dependency (a Postgres driver) enters.
+
+No auth, no migration runner, no connection pooling, no production database.
+
+## Closing state
+
+**Done — the database refuses what the design says it must, and says so in fifteen checks.**
 

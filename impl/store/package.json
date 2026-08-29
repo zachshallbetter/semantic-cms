@@ -1,0 +1,8 @@
+{
+  "name": "@scms/store",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Canon in Postgres (SCMS-057): DESIGN.md §13's sketch made real — append-only by grant, emission by trigger, current and revoked derived as views. The conformance suite proves the database refuses, rather than trusting that it would.",
+  "scripts": { "test": "./test/run.sh" }
+}
