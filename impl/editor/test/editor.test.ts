@@ -283,3 +283,71 @@ test("the summary counts only what bears on the question", () => {
   assert.equal(s.overlappingFreeLaneEdits, 40, "required-lane overlaps do not count toward P7");
   assert.equal(s.sufficient, true);
 });
+
+// ── SCMS-044: the editor is a surface (SH-16) ───────────────────────────────
+
+test("the editor resolves a ResolvedSurface — it does not query Canon directly", async () => {
+  const { freeze } = await import("../../canon/src/freeze.ts");
+  const { resolveSurface } = await import("../../surface-resolver/src/resolver.ts");
+  const { editorRequest } = await import("../../authoring/src/editor.ts");
+  const { isFailure } = await import("../../surface-resolver/src/types.ts");
+
+  const snapshot = freeze(journal, "editor");
+  const surface = resolveSurface(snapshot as never, editorRequest(publicSubject, "owner", fullOffer));
+  assert.ok(!isFailure(surface));
+  const s = surface as { purpose: string; groups: Array<{ members: Array<{ subject: string }> }>; fingerprint: string };
+
+  assert.equal(s.purpose, "edit", "the authoring surface declares its purpose in SSS vocabulary");
+  assert.ok(s.groups.flatMap((g) => g.members.map((m) => m.subject)).includes(publicSubject));
+  assert.ok(s.fingerprint.length > 0, "and it is a real surface, with a dependency fingerprint");
+});
+
+test("the authoring surface survives being expressed a SECOND way", async () => {
+  // SH-16's own test: if a voice adapter cannot render the authoring surface,
+  // the surface is underspecified and the hand-written page was carrying
+  // meaning the model does not hold. This is the check that would catch that.
+  const { freeze } = await import("../../canon/src/freeze.ts");
+  const { resolveSurface } = await import("../../surface-resolver/src/resolver.ts");
+  const { editorRequest } = await import("../../authoring/src/editor.ts");
+  const { expressStructural, expressLinear } = await import("../../surface-expression/src/expressions.ts");
+
+  const snapshot = freeze(journal, "editor");
+  const surface = resolveSurface(
+    snapshot as never, editorRequest(publicSubject, "owner", fullOffer)) as never;
+
+  const web = expressStructural(surface);
+  const voice = expressLinear(surface);
+
+  assert.notEqual(web.modality, voice.modality, "materially different adapters");
+  assert.deepEqual(web.presentedOrder, voice.presentedOrder,
+    "both present the same subjects in the same order — participation is preserved");
+  assert.deepEqual(
+    web.exposedOperations.map((o) => o.id).sort(),
+    voice.exposedOperations.map((o) => o.id).sort(),
+    "and both expose the same operations — the authoring surface is not visual-only");
+  assert.notDeepEqual(web.morphology, voice.morphology,
+    "while morphology stays free, which is the SES boundary holding");
+});
+
+test("the editor's index and a reader's discovery differ by declared lens, not by accident", async () => {
+  const { editorIndex: idx } = await import("../src/viewmodel.ts");
+  const unlisted = migrated.content
+    .filter((e) => ((e.body as unknown as { attrs: Record<string, unknown> }).attrs).listed === false)
+    .map((e) => e.subjectId);
+  assert.equal(unlisted.length, 2);
+
+  // The author sees unlisted work; that is the job.
+  const authorRows = idx(journal, "owner").map((r) => r.subject);
+  for (const s of unlisted) assert.ok(authorRows.includes(s), `author cannot see unlisted ${s}`);
+
+  // The reader's discovery surface excludes it — same resolver, different lens.
+  const { freeze } = await import("../../canon/src/freeze.ts");
+  const { renderRoute, isRouteFailure, READER_ROUTES } = await import("../../reader/src/routes.ts");
+  const rendered = renderRoute(
+    freeze(journal, "r") as never, READER_ROUTES.find((r) => r.path === "/writing")!, "public");
+  assert.ok(!isRouteFailure(rendered));
+  for (const s of unlisted) {
+    assert.ok(!(rendered as { subjects: string[] }).subjects.includes(s),
+      `reader discovery leaked unlisted ${s}`);
+  }
+});

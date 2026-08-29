@@ -23,9 +23,29 @@
  *    vocabularies. Those findings appear on the entry itself: the ambiguity the
  *    importer declined to launder is handed to the person who can actually
  *    settle it.
+ *
+ * SCMS-044 (closing SH-16) routed this through the surface pipeline. It used to
+ * read Canon directly and carry its own access comparison, which meant the one
+ * place a person meets this system was the one place that collapsed
+ * `CANON != SURFACE != EXPRESSION != REPRESENTATION` into a hand-written page —
+ * and, worse, held a *second* implementation of the access rule. Two
+ * implementations of an access rule is a second chance to get it wrong, which
+ * is precisely how NR-scms-004 and NR-scms-006 happened.
+ *
+ * Now the editor resolves a `ResolvedSurface` with `purpose: "edit"` and reads
+ * membership from it. Access is decided once, by the resolver that is vectored
+ * for it. What remains here is what the resolver has no business knowing: the
+ * *domain* preconditions on an operation — already published, no attestation,
+ * conflicted — which are not access questions. Exposure comes from the surface;
+ * eligibility comes from state. SSS-INV-010 draws exactly that line.
  */
 import type { CanonJournal } from "../../canon/src/journal.ts";
 import type { Envelope, AccessLevel } from "../../canon/src/envelope.ts";
+import { freeze } from "../../canon/src/freeze.ts";
+import { resolveSurface } from "../../surface-resolver/src/resolver.ts";
+import { isFailure } from "../../surface-resolver/src/types.ts";
+import type { ResolvedSurface } from "../../surface-resolver/src/types.ts";
+import { editorRequest } from "../../authoring/src/editor.ts";
 import { consistencyState, permits, chip } from "../../observation/src/consistency.ts";
 import type { ClientBaseline, Freshness, ConsistencyState } from "../../observation/src/consistency.ts";
 import type { AuthoringOffer } from "../../authoring/src/editor.ts";
@@ -85,6 +105,8 @@ function weigh(effectClass: string): OperationWeight {
 
 export interface EditorInput {
   journal: CanonJournal;
+  /** Explicit freeze identity — the resolver's purity depends on no ambient "now". */
+  snapshotId?: string;
   subject: string;
   access: AccessLevel;
   offer: AuthoringOffer;
@@ -96,21 +118,28 @@ export interface EditorInput {
   qualified?: boolean;
 }
 
-const ACCESS_RANK: Record<AccessLevel, number> = { public: 0, member: 1, owner: 2, admin: 3 };
-
 export function editorView(input: EditorInput): EditorView | { notFound: true } {
-  const entry = input.journal.current().find((e) => e.envelope.subjectId === input.subject);
-  // Access is checked here, not merely accepted. An earlier draft of this
-  // function took `access` and never consumed it, so a public actor could open
-  // a private entry in the editor — the declaration-without-a-consumer failure
-  // (NR-scms-004), this time as an access leak. Caught by its own vector.
+  // RESOLVE. The editor is a surface, not a page that queries Canon (§11).
+  // Access is decided here and only here — this function no longer carries an
+  // access comparison of its own, because the resolver already has one that is
+  // vectored against the real corpus.
   //
-  // The refusal is `notFound` rather than `forbidden`: distinguishing the two
-  // tells an unauthorized caller that the subject exists (§5 disclosure rule).
+  // Refusal collapses to `notFound` for both "absent" and "inaccessible":
+  // distinguishing them tells an unauthorized caller that the subject exists
+  // (§5 disclosure rule), which is also why the resolver's own failure classes
+  // are not passed through to the caller here.
+  const snapshot = freeze(input.journal, input.snapshotId ?? "editor");
+  const surface = resolveSurface(
+    snapshot as never, editorRequest(input.subject, input.access, input.offer));
+  if (isFailure(surface)) return { notFound: true };
+  const resolved = surface as ResolvedSurface;
+
+  // HYDRATE — for surface members only. The editor may look up, never look
+  // around; the same discipline `deriveFeed` holds in impl/reader.
+  const members = new Set(resolved.groups.flatMap((g) => g.members.map((m) => m.subject)));
+  if (!members.has(input.subject)) return { notFound: true };
+  const entry = input.journal.current().find((e) => e.envelope.subjectId === input.subject);
   if (!entry) return { notFound: true };
-  if (ACCESS_RANK[entry.envelope.minimumAccess] > ACCESS_RANK[input.access]) {
-    return { notFound: true };
-  }
   const env = entry.envelope as Envelope;
   const body = env.body as unknown as {
     contentKind: string;
@@ -131,12 +160,21 @@ export function editorView(input: EditorInput): EditorView | { notFound: true } 
     editable: canDraft,
   }));
 
+  // Exposure is the SURFACE's answer; eligibility is the STATE's. SSS-INV-010:
+  // exposure does not imply permission, so a surface saying `available` is not
+  // the same as this view saying `enabled`.
+  const exposureOf = new Map(resolved.operations.map((o) => [o.id, o.exposure]));
+
   const operations: OperationView[] = input.offer.operations.map((op) => {
     const weight = weigh(op.effectClass);
     let enabled = true;
     let reason: string | undefined;
 
-    if (weight === "consequential" && !canAct) {
+    const exposure = exposureOf.get(op.contract);
+    if (exposure !== "available") {
+      enabled = false;
+      reason = `withheld at ${input.access} access`;
+    } else if (weight === "consequential" && !canAct) {
       enabled = false;
       reason = `consistency is '${assessment.state}' — ${assessment.reason}`;
     } else if (!canDraft) {
@@ -191,16 +229,35 @@ export interface IndexRow {
 /** The corpus as an author sees it, filtered by what this actor may reach. */
 export function editorIndex(
   journal: CanonJournal, access: AccessLevel, findings: MigrationFinding[] = [],
+  snapshotId = "editor-index",
 ): IndexRow[] {
-  const rank = { public: 0, member: 1, owner: 2, admin: 3 };
   const bySubject = new Map<string, number>();
   for (const f of findings) {
     const slug = f.entry.replace(/^.*\//, "").replace(/\.md$/, "");
     bySubject.set(slug, (bySubject.get(slug) ?? 0) + 1);
   }
-  return journal.current()
-    .filter((e) => rank[e.envelope.minimumAccess] <= rank[access])
-    .map((e) => {
+
+  // A collection surface, not a filtered journal scan. This carried the last
+  // hand-rolled access comparison in the editor; it now has none, so there is
+  // exactly one implementation of the access rule in the read path.
+  //
+  // Note what this lens deliberately does NOT do: it omits the reader's
+  // `listed === true` predicate. An author must see unlisted and unpublished
+  // work — that is the whole job — while a reader's discovery surface must not.
+  // Same resolver, different lens, and the difference is declared rather than
+  // emergent.
+  const snapshot = freeze(journal, snapshotId);
+  const surface = resolveSurface(snapshot as never, {
+    profile: "collection", purpose: "edit", access,
+  });
+  if (isFailure(surface)) return [];
+
+  const byId = new Map(journal.current().map((e) => [e.envelope.subjectId, e]));
+  return (surface as ResolvedSurface).groups
+    .flatMap((g) => g.members.map((m) => m.subject))
+    .map((subject) => {
+      const e = byId.get(subject);
+      if (!e) return null;
       const body = e.envelope.body as unknown as {
         contentKind: string; slots?: Record<string, Array<{ value?: unknown }>>;
         attrs?: Record<string, unknown>;

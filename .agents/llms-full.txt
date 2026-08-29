@@ -1,6 +1,6 @@
 # PROJECT COMPILED CONTEXT
 Generator: 0.5.0
-Source digest: b60380230f64bf05ae8ef5e87891bf66cc07159e84d7f90c3711445659abc22f
+Source digest: 15340fb2fb2d1f6faf0d5fad341f3ffe7dcac64e74d659d6e0ebcee5ada73636
 
 > Generated projection. Canonical sources remain authoritative.
 
@@ -1464,8 +1464,8 @@ decision record) — never by deletion.
 | SH-13 | **DECISION — owner** (narrowed by SCMS-036) | Attestation provenance | *Forgery is closed:* evidence and attestations are Canon records landed through contracts, and neither promotion nor attestation reads its deciding input from the caller. **What remains is policy:** an owner can still record evidence for their own work and attest to it. | Who may evaluate, and what independence each consequence profile demands. `EvidenceRecord.independentEvaluator` already exists and is recorded but not required by any profile — making it required at a stated effect class would be the smallest real change. Needs owner disposition. |
 | SH-14 | **GAP — read path** | Derived observations are unreachable | `freeze()` projects only `Content` and `Relation` bodies into the snapshot, so `Observation` bodies never become snapshot subjects at any access level. SCMS-028's derived Semantic Article Field lands in Canon and is then invisible to every surface, including the owner's. Found incidentally by the NR-scms-007 adversarial pass. | Either project observations into the snapshot with their own access, or state explicitly that observations reach surfaces through the Field plane rather than through resolution — currently neither is true. |
 | SH-15 | **DECISION — owner** | Migrated publication status | `content.create@1` fixes a new record to draft/unqualified/unpublished and will not read state from input, so **51 entries that were published on the old site arrive unpublished**. This is the system's own claim applied to its migration: publishing is qualification plus promotion, and neither is inherited by copying. It is either exactly right, or an unacceptable amount of ceremony for content that has been live for years. | Three options: (a) keep it strict — re-publish each with real evidence, which is the current behaviour; (b) a distinct owner-authorized `content.adopt` contract that carries prior publication with its provenance recorded as adopted-not-qualified; (c) a migration consequence profile whose obligations are satisfiable by the fact of prior publication. Needs owner disposition. |
-| SH-16 | **GAP — architectural** | The editor bypasses the surface pipeline | The editor reads Canon directly and renders hand-authored HTML. It does **not** resolve a `ResolvedSurface` and does **not** express through the SES adapters — it imports neither `resolveSurface` nor `expressStructural`/`expressLinear`. So the one place a person actually meets this system is the one place that collapses `CANON ≠ SURFACE ≠ EXPRESSION ≠ REPRESENTATION` into a single hand-written page, while `impl/reader` does it properly. The owner ratified that authoring slices are ResolvedSurfaces (§11); SCMS-031 built the authoring surface's *operations* and SCMS-040/043 did not consume it as a surface. | Route the editor through `resolveSurface` with `purpose: "edit"` (the request already exists in `impl/authoring`), then express it. The honest test is whether the editor survives being expressed a second way — if a voice adapter cannot render the authoring surface, the surface is underspecified and the page was carrying meaning the model does not hold. |
-| SH-15 | **GAP — live contradiction** | Drafting republishes | `content.revise@1` builds its next envelope from the prior one, so a revision inherits `publicationState`. Reader surfaces resolve from `journal.current()`, so **an in-progress edit to a promoted subject reaches the public the instant it lands** — verified against landed code, not inferred. This contradicts §6's central claim that publishing is qualification plus promotion and never a boolean: `revise` currently republishes without either. | Defined in SCMS-044: a working copy as an `observed` envelope, so drafting against promoted content cannot move a state axis or enter a reader surface. Awaiting owner scheduling. |
+| ~~SH-16~~ | **RESOLVED** | The editor bypasses the surface pipeline | *Closed by SCMS-044:* the editor resolves a `ResolvedSurface` with `purpose: "edit"` and reads membership from it; the index resolves a collection surface. Both hand-rolled access comparisons are gone, leaving one implementation of the access rule in the read path. SH-16's own test passes — the authoring surface expresses two materially different ways with identical presented order and exposed operations while morphology differs, so it is not underspecified. | — |
+| SH-15 | **GAP — live contradiction** | Drafting republishes | `content.revise@1` builds its next envelope from the prior one, so a revision inherits `publicationState`. Reader surfaces resolve from `journal.current()`, so **an in-progress edit to a promoted subject reaches the public the instant it lands** — verified against landed code, not inferred. This contradicts §6's central claim that publishing is qualification plus promotion and never a boolean: `revise` currently republishes without either. | Defined in SCMS-045: a working copy as an `observed` envelope, so drafting against promoted content cannot move a state axis or enter a reader surface. Awaiting owner scheduling. |
 | ~~SH-12~~ | **RESOLVED** | Wire protocol concretes | *Closed by SCMS-024:* `schemas/scms/envelope.schema.json` (closed, hash-pattern-typed, freshness rule encoded conditionally) and `schemas/scms/golden/canonicalization.json` (4 positive vectors + 1 negative proving the check can fail). Residual limitation, recorded not hidden: no JSON-Schema library is available under the zero-dependency policy, so the schema document is not meta-validated and schema/runtime agreement is asserted case-wise. |
 
 ## Claim register
@@ -11570,9 +11570,29 @@ FILE: impl/editor/src/viewmodel.ts
  *    vocabularies. Those findings appear on the entry itself: the ambiguity the
  *    importer declined to launder is handed to the person who can actually
  *    settle it.
+ *
+ * SCMS-044 (closing SH-16) routed this through the surface pipeline. It used to
+ * read Canon directly and carry its own access comparison, which meant the one
+ * place a person meets this system was the one place that collapsed
+ * `CANON != SURFACE != EXPRESSION != REPRESENTATION` into a hand-written page —
+ * and, worse, held a *second* implementation of the access rule. Two
+ * implementations of an access rule is a second chance to get it wrong, which
+ * is precisely how NR-scms-004 and NR-scms-006 happened.
+ *
+ * Now the editor resolves a `ResolvedSurface` with `purpose: "edit"` and reads
+ * membership from it. Access is decided once, by the resolver that is vectored
+ * for it. What remains here is what the resolver has no business knowing: the
+ * *domain* preconditions on an operation — already published, no attestation,
+ * conflicted — which are not access questions. Exposure comes from the surface;
+ * eligibility comes from state. SSS-INV-010 draws exactly that line.
  */
 import type { CanonJournal } from "../../canon/src/journal.ts";
 import type { Envelope, AccessLevel } from "../../canon/src/envelope.ts";
+import { freeze } from "../../canon/src/freeze.ts";
+import { resolveSurface } from "../../surface-resolver/src/resolver.ts";
+import { isFailure } from "../../surface-resolver/src/types.ts";
+import type { ResolvedSurface } from "../../surface-resolver/src/types.ts";
+import { editorRequest } from "../../authoring/src/editor.ts";
 import { consistencyState, permits, chip } from "../../observation/src/consistency.ts";
 import type { ClientBaseline, Freshness, ConsistencyState } from "../../observation/src/consistency.ts";
 import type { AuthoringOffer } from "../../authoring/src/editor.ts";
@@ -11632,6 +11652,8 @@ function weigh(effectClass: string): OperationWeight {
 
 export interface EditorInput {
   journal: CanonJournal;
+  /** Explicit freeze identity — the resolver's purity depends on no ambient "now". */
+  snapshotId?: string;
   subject: string;
   access: AccessLevel;
   offer: AuthoringOffer;
@@ -11643,21 +11665,28 @@ export interface EditorInput {
   qualified?: boolean;
 }
 
-const ACCESS_RANK: Record<AccessLevel, number> = { public: 0, member: 1, owner: 2, admin: 3 };
-
 export function editorView(input: EditorInput): EditorView | { notFound: true } {
-  const entry = input.journal.current().find((e) => e.envelope.subjectId === input.subject);
-  // Access is checked here, not merely accepted. An earlier draft of this
-  // function took `access` and never consumed it, so a public actor could open
-  // a private entry in the editor — the declaration-without-a-consumer failure
-  // (NR-scms-004), this time as an access leak. Caught by its own vector.
+  // RESOLVE. The editor is a surface, not a page that queries Canon (§11).
+  // Access is decided here and only here — this function no longer carries an
+  // access comparison of its own, because the resolver already has one that is
+  // vectored against the real corpus.
   //
-  // The refusal is `notFound` rather than `forbidden`: distinguishing the two
-  // tells an unauthorized caller that the subject exists (§5 disclosure rule).
+  // Refusal collapses to `notFound` for both "absent" and "inaccessible":
+  // distinguishing them tells an unauthorized caller that the subject exists
+  // (§5 disclosure rule), which is also why the resolver's own failure classes
+  // are not passed through to the caller here.
+  const snapshot = freeze(input.journal, input.snapshotId ?? "editor");
+  const surface = resolveSurface(
+    snapshot as never, editorRequest(input.subject, input.access, input.offer));
+  if (isFailure(surface)) return { notFound: true };
+  const resolved = surface as ResolvedSurface;
+
+  // HYDRATE — for surface members only. The editor may look up, never look
+  // around; the same discipline `deriveFeed` holds in impl/reader.
+  const members = new Set(resolved.groups.flatMap((g) => g.members.map((m) => m.subject)));
+  if (!members.has(input.subject)) return { notFound: true };
+  const entry = input.journal.current().find((e) => e.envelope.subjectId === input.subject);
   if (!entry) return { notFound: true };
-  if (ACCESS_RANK[entry.envelope.minimumAccess] > ACCESS_RANK[input.access]) {
-    return { notFound: true };
-  }
   const env = entry.envelope as Envelope;
   const body = env.body as unknown as {
     contentKind: string;
@@ -11678,12 +11707,21 @@ export function editorView(input: EditorInput): EditorView | { notFound: true } 
     editable: canDraft,
   }));
 
+  // Exposure is the SURFACE's answer; eligibility is the STATE's. SSS-INV-010:
+  // exposure does not imply permission, so a surface saying `available` is not
+  // the same as this view saying `enabled`.
+  const exposureOf = new Map(resolved.operations.map((o) => [o.id, o.exposure]));
+
   const operations: OperationView[] = input.offer.operations.map((op) => {
     const weight = weigh(op.effectClass);
     let enabled = true;
     let reason: string | undefined;
 
-    if (weight === "consequential" && !canAct) {
+    const exposure = exposureOf.get(op.contract);
+    if (exposure !== "available") {
+      enabled = false;
+      reason = `withheld at ${input.access} access`;
+    } else if (weight === "consequential" && !canAct) {
       enabled = false;
       reason = `consistency is '${assessment.state}' — ${assessment.reason}`;
     } else if (!canDraft) {
@@ -11738,16 +11776,35 @@ export interface IndexRow {
 /** The corpus as an author sees it, filtered by what this actor may reach. */
 export function editorIndex(
   journal: CanonJournal, access: AccessLevel, findings: MigrationFinding[] = [],
+  snapshotId = "editor-index",
 ): IndexRow[] {
-  const rank = { public: 0, member: 1, owner: 2, admin: 3 };
   const bySubject = new Map<string, number>();
   for (const f of findings) {
     const slug = f.entry.replace(/^.*\//, "").replace(/\.md$/, "");
     bySubject.set(slug, (bySubject.get(slug) ?? 0) + 1);
   }
-  return journal.current()
-    .filter((e) => rank[e.envelope.minimumAccess] <= rank[access])
-    .map((e) => {
+
+  // A collection surface, not a filtered journal scan. This carried the last
+  // hand-rolled access comparison in the editor; it now has none, so there is
+  // exactly one implementation of the access rule in the read path.
+  //
+  // Note what this lens deliberately does NOT do: it omits the reader's
+  // `listed === true` predicate. An author must see unlisted and unpublished
+  // work — that is the whole job — while a reader's discovery surface must not.
+  // Same resolver, different lens, and the difference is declared rather than
+  // emergent.
+  const snapshot = freeze(journal, snapshotId);
+  const surface = resolveSurface(snapshot as never, {
+    profile: "collection", purpose: "edit", access,
+  });
+  if (isFailure(surface)) return [];
+
+  const byId = new Map(journal.current().map((e) => [e.envelope.subjectId, e]));
+  return (surface as ResolvedSurface).groups
+    .flatMap((g) => g.members.map((m) => m.subject))
+    .map((subject) => {
+      const e = byId.get(subject);
+      if (!e) return null;
       const body = e.envelope.body as unknown as {
         contentKind: string; slots?: Record<string, Array<{ value?: unknown }>>;
         attrs?: Record<string, unknown>;
@@ -12134,6 +12191,74 @@ test("the summary counts only what bears on the question", () => {
   assert.equal(s.freeLaneEdits, 140);
   assert.equal(s.overlappingFreeLaneEdits, 40, "required-lane overlaps do not count toward P7");
   assert.equal(s.sufficient, true);
+});
+
+// ── SCMS-044: the editor is a surface (SH-16) ───────────────────────────────
+
+test("the editor resolves a ResolvedSurface — it does not query Canon directly", async () => {
+  const { freeze } = await import("../../canon/src/freeze.ts");
+  const { resolveSurface } = await import("../../surface-resolver/src/resolver.ts");
+  const { editorRequest } = await import("../../authoring/src/editor.ts");
+  const { isFailure } = await import("../../surface-resolver/src/types.ts");
+
+  const snapshot = freeze(journal, "editor");
+  const surface = resolveSurface(snapshot as never, editorRequest(publicSubject, "owner", fullOffer));
+  assert.ok(!isFailure(surface));
+  const s = surface as { purpose: string; groups: Array<{ members: Array<{ subject: string }> }>; fingerprint: string };
+
+  assert.equal(s.purpose, "edit", "the authoring surface declares its purpose in SSS vocabulary");
+  assert.ok(s.groups.flatMap((g) => g.members.map((m) => m.subject)).includes(publicSubject));
+  assert.ok(s.fingerprint.length > 0, "and it is a real surface, with a dependency fingerprint");
+});
+
+test("the authoring surface survives being expressed a SECOND way", async () => {
+  // SH-16's own test: if a voice adapter cannot render the authoring surface,
+  // the surface is underspecified and the hand-written page was carrying
+  // meaning the model does not hold. This is the check that would catch that.
+  const { freeze } = await import("../../canon/src/freeze.ts");
+  const { resolveSurface } = await import("../../surface-resolver/src/resolver.ts");
+  const { editorRequest } = await import("../../authoring/src/editor.ts");
+  const { expressStructural, expressLinear } = await import("../../surface-expression/src/expressions.ts");
+
+  const snapshot = freeze(journal, "editor");
+  const surface = resolveSurface(
+    snapshot as never, editorRequest(publicSubject, "owner", fullOffer)) as never;
+
+  const web = expressStructural(surface);
+  const voice = expressLinear(surface);
+
+  assert.notEqual(web.modality, voice.modality, "materially different adapters");
+  assert.deepEqual(web.presentedOrder, voice.presentedOrder,
+    "both present the same subjects in the same order — participation is preserved");
+  assert.deepEqual(
+    web.exposedOperations.map((o) => o.id).sort(),
+    voice.exposedOperations.map((o) => o.id).sort(),
+    "and both expose the same operations — the authoring surface is not visual-only");
+  assert.notDeepEqual(web.morphology, voice.morphology,
+    "while morphology stays free, which is the SES boundary holding");
+});
+
+test("the editor's index and a reader's discovery differ by declared lens, not by accident", async () => {
+  const { editorIndex: idx } = await import("../src/viewmodel.ts");
+  const unlisted = migrated.content
+    .filter((e) => ((e.body as unknown as { attrs: Record<string, unknown> }).attrs).listed === false)
+    .map((e) => e.subjectId);
+  assert.equal(unlisted.length, 2);
+
+  // The author sees unlisted work; that is the job.
+  const authorRows = idx(journal, "owner").map((r) => r.subject);
+  for (const s of unlisted) assert.ok(authorRows.includes(s), `author cannot see unlisted ${s}`);
+
+  // The reader's discovery surface excludes it — same resolver, different lens.
+  const { freeze } = await import("../../canon/src/freeze.ts");
+  const { renderRoute, isRouteFailure, READER_ROUTES } = await import("../../reader/src/routes.ts");
+  const rendered = renderRoute(
+    freeze(journal, "r") as never, READER_ROUTES.find((r) => r.path === "/writing")!, "public");
+  assert.ok(!isRouteFailure(rendered));
+  for (const s of unlisted) {
+    assert.ok(!(rendered as { subjects: string[] }).subjects.includes(s),
+      `reader discovery leaked unlisted ${s}`);
+  }
 });
 
 
@@ -21872,8 +21997,8 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-041 | Migrate the corpus through the governed path (content.create@1) | E8+E12 | Done — creation is governed at last; SH-15 raised; awaiting owner verification | records/evidence.jsonl · scms-evidence-041 |
 | SCMS-042 | The editing session and the P7 instrument | E12 | Done — instrument built, NR-scms-008 fixed; **P7 stays open pending real edits** | records/evidence.jsonl · scms-evidence-042 |
 | SCMS-043 | The editor, running: saves through contracts, records P7 observations | E12 | Done — verified by interaction; awaiting owner verification | records/evidence.jsonl · scms-evidence-043 |
-| SCMS-044 | The working copy: drafting that does not publish | E2 | **Defined — not scheduled.** Closes SH-15; canonical passage awaits owner ratification; should precede the P7 workload | work/SCMS-044.md |
-| SCMS-044 | Route the editor through the surface pipeline it currently bypasses | E12 | Ready — closes SH-16; the editor is the one surface that is not one | — |
+| SCMS-045 | The working copy: drafting that does not publish | E2 | **Defined — not scheduled.** Closes SH-15; canonical passage awaits owner ratification; should precede the P7 workload | work/SCMS-045.md |
+| SCMS-044 | Route the editor through the surface pipeline it currently bypasses | E12 | Done — SH-16 closed; two duplicate access checks removed; awaiting owner verification | records/evidence.jsonl · scms-evidence-044 |
 | SCMS-018 | R1 live co-authoring — **free lane only** (convergent merge) | E1 | **Blocked** — awaiting disposition of P7/P22 on PR #28 | records/blockers · scms-blocker-001 |
 | SCMS-010 | S4 cross-domain portability: a materially unrelated project (outside this repository, per owner doctrine 2026-08-28) consumes @semantic-systems/surface unmodified | external | Backlog — executes outside scms; scms records the conformance result | — |
 
@@ -24037,4 +24162,136 @@ register says so rather than borrowing the view-model's coverage.
 ## Closing state
 
 **Done — the editor saves. P7 can now accumulate evidence instead of waiting for it.**
+
+
+========================================================================
+FILE: work/SCMS-045.md
+========================================================================
+
+# SCMS-045 — The working copy: drafting that does not publish
+
+**Intent ref:** PROJECT_INTENT.md · **Epic:** E2 · **Effect class:** E1
+**Assigned by:** owner — *"Define it and we'll add it in at the appropriate time."*
+**State:** **Defined — not scheduled.** Deliberately not claimed. The canonical passage in §5 below
+requires owner ratification before it is applied to DESIGN.md.
+
+---
+
+## 1. The hazard this closes, demonstrated
+
+`content.revise@1` builds its next envelope as `{ ...prior.envelope, body: nextBody }`
+(`impl/contracts/src/runtime.ts:440`). Every one of the four state axes is inherited — including
+`publicationState`. Reader surfaces resolve from `journal.current()`. So a revision to a **promoted**
+subject is visible to the public the instant it lands.
+
+Verified against the landed code, not reasoned about:
+
+```
+reader sees BEFORE : The Finished Version
+revise outcome     : completed
+publicationState   : promoted
+reader sees AFTER  : half-finished thought I was still
+```
+
+This system's central claim is that *publishing is qualification plus promotion, never a boolean*.
+`revise` currently republishes without either. That is not a missing feature; it is a live
+contradiction of §6, and it is recorded as **SH-15** rather than left inside this work item.
+
+## 2. Why zach-core's mechanism cannot be copied directly
+
+`zach-core` solves this with a mutable `working_copy` jsonb column, last-writer-wins
+(`archive.schema.sql:138`, `api/v1/admin/draft.ts`). Semantic CMS cannot hold a mutable buffer:
+Canon is append-only by construction (§3.4), and a column that is overwritten in place is precisely
+the destructive edit the design forbids.
+
+The mechanism has to be re-derived rather than imported. The design already contains its shape.
+
+## 3. Definition — **a working copy is an observation, not a revision**
+
+§8.3's provenance chip already names the state (`local · unsent`), and §8.4 already makes presence,
+selections and soft locks `observed` envelopes carrying mandatory `observed_at` and `expires_at`. A
+working copy is that same kind of thing: something *seen*, not something *declared*.
+
+Landing it as an `observed` envelope rather than a `declared` one yields the required properties
+structurally, with no new enforcement to remember:
+
+| Property | Why it follows | From |
+|---|---|---|
+| Cannot move any of the four state axes | An `observed` record may update a chip; it may never overwrite a `declared` field | §3.2 no-promotion rule |
+| Never reaches a reader surface | `freeze()` projects only `Content` and `Relation` bodies into a snapshot | SH-14, which becomes the mechanism here rather than a gap |
+| Abandoned buffers self-release | Mandatory `expires_at`; an expired observation may not drive decisions | §8.4 soft-lock semantics |
+| Honest provenance | The envelope says "observed", which is exactly what an unsent draft is | §3.2 four-class lattice |
+| Owner-scoped | A buffer is written at `owner` access **regardless of the subject's access** — a draft on a public article is not public | §5 |
+
+## 4. The buffering rule
+
+Derived from our own model rather than imported from zach-core, though it lands in the same place:
+
+> **A revision to a promoted subject is immediately visible to readers. Therefore drafting against a
+> promoted subject MUST buffer. Drafting against an unpublished subject MAY write through, because
+> there is no reader to protect.**
+
+- **Buffered** (subject is `promoted`): the draft lands as an observation. Published fields are
+  untouched. Readers see the promoted revision, unchanged.
+- **Written through** (subject is not `promoted`): the draft lands as an ordinary revision. Nothing
+  is gained by buffering content no reader can reach.
+
+**Commit** is the explicit act: promoting a buffer into a revision crosses `content.revise@1` with
+the buffer's content and the author's `expectedRevision`, then discards the buffer. Autosave is
+durability; commit is publication. That is the same separation §6 already draws between
+qualification and promotion, applied one layer down.
+
+**Emission.** A buffer write is something happening, so it emits — but it emits an *observation*
+event, never a content-change event. Subscribers to a subject's content must not be woken by a
+keystroke, and the outbox invariant ("nothing happens without an emission", SCMS-032) stays intact
+because the buffer write does emit, into the right channel.
+
+**Concurrency.** Buffers are per-session observations, so two sessions drafting the same subject do
+not collide in the buffer; they collide at **commit**, where `expectedRevision` already produces a
+typed `conflict` with no partial write. A second session's uncommitted buffer is *presence*, not
+conflict — "someone else is editing this" — which §8.4 already covers.
+
+## 5. Proposed canonical passage — **NOT APPLIED**
+
+For DESIGN.md §8, pending ratification:
+
+> **8.9 Drafting is not publishing.**
+> A revision inherits publication state, so a revision to a promoted subject reaches readers
+> immediately. Drafting against a promoted subject therefore lands as a **working copy**: an
+> `observed` envelope, owner-scoped, carrying `observed_at` and `expires_at`, which by construction
+> cannot move a state axis, cannot enter a reader surface, and self-releases when abandoned.
+> Committing a working copy is an explicit governed write; until it happens, readers see the
+> published revision and nothing else. Drafting against unpublished content writes through, because
+> there is no reader to protect. Autosave is durability. Commit is publication. A system that
+> conflates them publishes drafts.
+
+## 6. Ready predicate — for whenever this is scheduled
+
+- **Scope:** the working-copy observation type; the buffered/written-through branch in the write
+  path; commit-and-discard; observation-channel emission; the presence signal for a foreign buffer.
+- **Exclusions:** no new merge semantics (P7 is separate), no transport work, no UI beyond surfacing
+  the buffer state the editor already renders as `local · unsent`.
+- **Dependencies:** SCMS-032 (outbox), SCMS-017 (consistency states), SCMS-040/043 (the editor).
+  **SH-14 must be resolved first or deliberately left standing** — the definition leans on
+  `freeze()` not projecting observations, which is currently true by omission rather than by
+  declared intent. Leaning on an accident is how the last four negative results happened.
+- **Acceptance:**
+  1. A buffered draft against a promoted subject leaves every reader surface byte-identical.
+  2. A buffered draft moves no state axis, and a control proves the assertion can fail.
+  3. An expired buffer drives nothing — it cannot be committed and cannot hold a lock.
+  4. Write-through applies only where the subject is not promoted.
+  5. A buffer write emits on the observation channel and **not** on the content channel, with the
+     outbox integrity check still passing.
+  6. Two sessions committing from divergent buffers produce a typed `conflict` and land nothing.
+  7. A buffer on a public subject is not readable at public access.
+- **Stop conditions:** if buffering cannot be expressed without a mutable record, stop and record —
+  that would mean the observation framing is wrong, not that append-only should bend.
+
+## 7. One ordering consequence worth acting on
+
+**This should land before the P7 workload runs, not after.** Today every autosave that lands is a
+revision, so P7's free-lane overlap statistic would count autosave races as concurrent authorship.
+With buffering, only *commits* are revisions, and the overlap number then measures what §8.5
+actually asked about: two people meaningfully editing the same prose. Running the workload first
+would produce a number that looks like evidence and is not.
 

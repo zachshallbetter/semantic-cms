@@ -1,4 +1,4 @@
-# SCMS-044 — The working copy: drafting that does not publish
+# SCMS-045 — The working copy: drafting that does not publish
 
 **Intent ref:** PROJECT_INTENT.md · **Epic:** E2 · **Effect class:** E1
 **Assigned by:** owner — *"Define it and we'll add it in at the appropriate time."*

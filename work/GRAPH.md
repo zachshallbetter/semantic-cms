@@ -58,8 +58,8 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-041 | Migrate the corpus through the governed path (content.create@1) | E8+E12 | Done — creation is governed at last; SH-15 raised; awaiting owner verification | records/evidence.jsonl · scms-evidence-041 |
 | SCMS-042 | The editing session and the P7 instrument | E12 | Done — instrument built, NR-scms-008 fixed; **P7 stays open pending real edits** | records/evidence.jsonl · scms-evidence-042 |
 | SCMS-043 | The editor, running: saves through contracts, records P7 observations | E12 | Done — verified by interaction; awaiting owner verification | records/evidence.jsonl · scms-evidence-043 |
-| SCMS-044 | The working copy: drafting that does not publish | E2 | **Defined — not scheduled.** Closes SH-15; canonical passage awaits owner ratification; should precede the P7 workload | work/SCMS-044.md |
-| SCMS-044 | Route the editor through the surface pipeline it currently bypasses | E12 | Ready — closes SH-16; the editor is the one surface that is not one | — |
+| SCMS-045 | The working copy: drafting that does not publish | E2 | **Defined — not scheduled.** Closes SH-15; canonical passage awaits owner ratification; should precede the P7 workload | work/SCMS-045.md |
+| SCMS-044 | Route the editor through the surface pipeline it currently bypasses | E12 | Done — SH-16 closed; two duplicate access checks removed; awaiting owner verification | records/evidence.jsonl · scms-evidence-044 |
 | SCMS-018 | R1 live co-authoring — **free lane only** (convergent merge) | E1 | **Blocked** — awaiting disposition of P7/P22 on PR #28 | records/blockers · scms-blocker-001 |
 | SCMS-010 | S4 cross-domain portability: a materially unrelated project (outside this repository, per owner doctrine 2026-08-28) consumes @semantic-systems/surface unmodified | external | Backlog — executes outside scms; scms records the conformance result | — |
 
