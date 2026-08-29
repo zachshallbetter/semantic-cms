@@ -1,0 +1,834 @@
+<title>Semantic CMS</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --paper: #f6f5f1;
+    --surface: #eeece5;
+    --surface-2: #e9e6dd;
+    --ink: #212939;
+    --ink-strong: #141c2b;
+    --muted: #5d6579;
+    --line: #d8d5ca;
+    --line-soft: #e3e0d6;
+    --accent: #b8391c;
+    --accent-ink: #9c2f16;
+    --accent-tint: #f1e2da;
+    --live: #2c7a4f;
+    --live-tint: #e2ede4;
+    --drift: #92661a;
+    --drift-tint: #f0e9d6;
+    --conflict: #9c2f56;
+    --conflict-tint: #f0e0e7;
+    --dormant: #6b7280;
+    --code-bg: #edebe2;
+    --serif: "Spectral", Georgia, "Times New Roman", serif;
+    --sans: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+    --mono: "IBM Plex Mono", "SF Mono", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #141926;
+      --surface: #1b2232;
+      --surface-2: #202839;
+      --ink: #dfdccf;
+      --ink-strong: #f3f0e5;
+      --muted: #979fb4;
+      --line: #323c53;
+      --line-soft: #283044;
+      --accent: #e05933;
+      --accent-ink: #ea7350;
+      --accent-tint: #3b2418;
+      --live: #55b283;
+      --live-tint: #1d3229;
+      --drift: #c99b45;
+      --drift-tint: #362d17;
+      --conflict: #cf7099;
+      --conflict-tint: #38202b;
+      --dormant: #8b93a5;
+      --code-bg: #1a2130;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #141926;
+    --surface: #1b2232;
+    --surface-2: #202839;
+    --ink: #dfdccf;
+    --ink-strong: #f3f0e5;
+    --muted: #979fb4;
+    --line: #323c53;
+    --line-soft: #283044;
+    --accent: #e05933;
+    --accent-ink: #ea7350;
+    --accent-tint: #3b2418;
+    --live: #55b283;
+    --live-tint: #1d3229;
+    --drift: #c99b45;
+    --drift-tint: #362d17;
+    --conflict: #cf7099;
+    --conflict-tint: #38202b;
+    --dormant: #8b93a5;
+    --code-bg: #1a2130;
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+  .shell { max-width: 1020px; margin: 0 auto; padding: 0 28px 96px; }
+  a { color: var(--accent-ink); text-decoration: none; border-bottom: 1px solid transparent; }
+  a:hover, a:focus-visible { border-bottom-color: var(--accent-ink); }
+  a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* ---------- masthead ---------- */
+  .masthead { padding: 64px 0 0; }
+  .eyebrow {
+    font-family: var(--sans); font-size: 11px; font-weight: 600;
+    letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent-ink);
+  }
+  h1 {
+    font-family: var(--serif); font-weight: 600; color: var(--ink-strong);
+    font-size: clamp(40px, 6vw, 60px); line-height: 1.05; margin: 10px 0 14px;
+    letter-spacing: -0.01em; text-wrap: balance;
+  }
+  .standfirst {
+    font-size: 18px; color: var(--muted); max-width: 62ch; margin: 0 0 36px; text-wrap: pretty;
+  }
+  .standfirst strong { color: var(--ink); font-weight: 500; }
+
+  /* the design doc as its own record */
+  .envelope {
+    border: 1px solid var(--line); background: var(--surface);
+    border-radius: 6px; overflow: hidden; margin: 0 0 12px;
+  }
+  .envelope-head {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 10px 16px; border-bottom: 1px solid var(--line);
+    font-family: var(--mono); font-size: 12px; color: var(--muted);
+  }
+  .envelope-head .seal { color: var(--accent-ink); font-weight: 500; }
+  .envelope-body { padding: 14px 16px 16px; overflow-x: auto; }
+  .envelope table { border-collapse: collapse; font-family: var(--mono); font-size: 12.5px; }
+  .envelope td { padding: 3px 0; vertical-align: top; }
+  .envelope td.k { color: var(--muted); padding-right: 28px; white-space: nowrap; }
+  .envelope td.v { color: var(--ink); }
+  .envelope .hash { word-break: break-all; }
+  .envelope-note { font-size: 13px; color: var(--muted); margin: 0 0 56px; }
+  .envelope-note em { font-style: normal; color: var(--ink); }
+
+  /* ---------- toc ---------- */
+  .toc {
+    border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
+    padding: 20px 0 24px; margin: 0 0 64px;
+  }
+  .toc-title { margin: 0 0 12px; }
+  .toc ol {
+    margin: 0; padding: 0; list-style: none;
+    columns: 2; column-gap: 48px;
+  }
+  @media (max-width: 640px) { .toc ol { columns: 1; } }
+  .toc li { break-inside: avoid; padding: 3px 0; font-size: 14.5px; }
+  .toc .n {
+    font-family: var(--serif); color: var(--accent-ink); font-weight: 600;
+    display: inline-block; width: 2.1em; font-variant-numeric: tabular-nums;
+  }
+  .toc a { color: var(--ink); }
+  .toc a:hover { color: var(--accent-ink); }
+
+  /* ---------- sections ---------- */
+  section { margin: 0 0 72px; }
+  .sec-head { display: flex; align-items: baseline; gap: 16px; border-top: 2px solid var(--ink-strong); padding-top: 14px; margin-bottom: 20px; }
+  .sec-num { font-family: var(--serif); font-weight: 600; font-size: 26px; color: var(--accent-ink); font-variant-numeric: tabular-nums; }
+  h2 {
+    font-family: var(--serif); font-weight: 600; font-size: 29px; line-height: 1.15;
+    color: var(--ink-strong); margin: 0; letter-spacing: -0.005em; text-wrap: balance;
+  }
+  h3 {
+    font-family: var(--sans); font-weight: 600; font-size: 16.5px;
+    color: var(--ink-strong); margin: 34px 0 10px;
+  }
+  h3 .sub { color: var(--muted); font-weight: 500; }
+  p { max-width: 76ch; margin: 0 0 14px; }
+  ul, ol { max-width: 76ch; padding-left: 1.3em; margin: 0 0 14px; }
+  li { margin: 4px 0; }
+  strong { color: var(--ink-strong); font-weight: 600; }
+  .lede { font-size: 17px; }
+
+  code, .mono { font-family: var(--mono); font-size: 0.92em; }
+  p code, li code, td code {
+    background: var(--code-bg); border: 1px solid var(--line-soft);
+    padding: 0.5px 5px; border-radius: 4px; font-size: 0.86em; white-space: nowrap;
+  }
+  pre {
+    background: var(--code-bg); border: 1px solid var(--line);
+    border-radius: 6px; padding: 16px 18px; overflow-x: auto;
+    font-family: var(--mono); font-size: 13px; line-height: 1.6; margin: 18px 0;
+    color: var(--ink);
+  }
+  pre .c { color: var(--muted); }
+  pre .a { color: var(--accent-ink); }
+
+  /* callouts: the load-bearing rules */
+  .law {
+    border-left: 3px solid var(--accent); background: var(--accent-tint);
+    padding: 14px 20px; margin: 22px 0; max-width: 76ch; border-radius: 0 6px 6px 0;
+  }
+  .law p { margin: 0; color: var(--ink-strong); font-family: var(--serif); font-size: 17.5px; line-height: 1.5; }
+  .law .who { display: block; margin-top: 8px; font-family: var(--sans); font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent-ink); font-weight: 600; }
+
+  /* tables */
+  .tablewrap { overflow-x: auto; margin: 18px 0; }
+  table.ledger { border-collapse: collapse; width: 100%; font-size: 14px; line-height: 1.5; }
+  table.ledger th {
+    text-align: left; font-family: var(--sans); font-size: 11px; font-weight: 600;
+    letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted);
+    border-bottom: 2px solid var(--ink-strong); padding: 8px 18px 8px 0;
+  }
+  table.ledger td { border-bottom: 1px solid var(--line-soft); padding: 9px 18px 9px 0; vertical-align: top; }
+  table.ledger tr:last-child td { border-bottom: 1px solid var(--line); }
+  table.ledger td.key { font-weight: 600; color: var(--ink-strong); white-space: nowrap; }
+  table.ledger td.keyw { font-weight: 600; color: var(--ink-strong); }
+  table.ledger .mono { font-size: 12.5px; }
+  table.ledger .num { font-variant-numeric: tabular-nums; }
+  .yes { color: var(--live); font-weight: 600; }
+  .no { color: var(--conflict); font-weight: 600; }
+  .frozen { color: var(--conflict); font-weight: 600; }
+
+  /* provenance cards */
+  .prov-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(215px, 1fr)); gap: 12px; margin: 18px 0; }
+  .prov {
+    border: 1px solid var(--line); border-radius: 6px; background: var(--surface);
+    padding: 12px 14px;
+  }
+  .prov .name { font-family: var(--mono); font-size: 13px; font-weight: 500; color: var(--accent-ink); }
+  .prov p { font-size: 13.5px; color: var(--muted); margin: 6px 0 0; }
+  .prov p strong { color: var(--ink); font-weight: 500; }
+
+  /* chips */
+  .chip {
+    display: inline-flex; align-items: center; gap: 7px;
+    border: 1px solid var(--line); border-radius: 999px;
+    padding: 3px 12px 3px 9px; font-family: var(--mono); font-size: 12px;
+    background: var(--surface); color: var(--ink); white-space: nowrap;
+  }
+  .chip .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--dormant); flex: none; }
+  .chip.live { border-color: var(--live); background: var(--live-tint); }
+  .chip.live .dot { background: var(--live); }
+  .chip.stale { border-color: var(--drift); background: var(--drift-tint); }
+  .chip.stale .dot { background: var(--drift); }
+  .chip.conflict { border-color: var(--conflict); background: var(--conflict-tint); }
+  .chip.conflict .dot { background: var(--conflict); }
+  .chip-row { display: flex; flex-wrap: wrap; gap: 10px; margin: 16px 0 6px; }
+  .chip-cap { font-size: 13px; color: var(--muted); margin: 0 0 14px; }
+
+  /* figures */
+  figure { margin: 26px 0; }
+  .figwrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); padding: 18px 14px; }
+  figure svg { display: block; min-width: 640px; max-width: 100%; height: auto; margin: 0 auto; color: var(--ink); }
+  figure svg text:not([fill]) { fill: currentColor; }
+  figcaption { font-size: 13.5px; color: var(--muted); margin-top: 10px; max-width: 76ch; }
+  figcaption strong { color: var(--ink); font-weight: 600; }
+
+  /* R1 R2 R3 */
+  .obligations { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; margin: 20px 0; }
+  .ob { border: 1px solid var(--line); border-top: 3px solid var(--accent); border-radius: 6px; padding: 14px 16px; background: var(--surface); }
+  .ob .tag { font-family: var(--mono); font-size: 12px; color: var(--accent-ink); font-weight: 500; }
+  .ob h4 { margin: 4px 0 6px; font-size: 15.5px; font-weight: 600; color: var(--ink-strong); font-family: var(--sans); }
+  .ob p { font-size: 13.5px; color: var(--muted); margin: 0; }
+
+  .footer {
+    border-top: 2px solid var(--ink-strong); margin-top: 8px; padding-top: 18px;
+    font-size: 13.5px; color: var(--muted);
+  }
+  .footer .mono { font-size: 12px; }
+  hr.thin { border: 0; border-top: 1px solid var(--line); margin: 40px 0; }
+</style>
+
+<div class="shell">
+
+<header class="masthead">
+  <div class="eyebrow">Design specification · semantic-cms</div>
+  <h1>Semantic CMS</h1>
+  <p class="standfirst">A realtime publication system assembled from the <strong>_Protocols</strong> suite, <strong>Fundamental Engine</strong>, and <strong>reflective-rust</strong> — where content is a canonical record graph, every rendering is a governed projection, every write crosses a contract, and live state is observation with an expiry.</p>
+
+  <div class="envelope" role="group" aria-label="This document, represented as a canonical record envelope">
+    <div class="envelope-head">
+      <span>Envelope · scms-0.1</span>
+      <span class="seal">provenance: declared</span>
+    </div>
+    <div class="envelope-body">
+      <table>
+        <tr><td class="k">subject_id</td><td class="v">scms:design/semantic-cms</td></tr>
+        <tr><td class="k">compatibility</td><td class="v">{ protocol: scms-0.1, subject_schema: design-doc@1 }</td></tr>
+        <tr><td class="k">authority</td><td class="v">project.owner</td></tr>
+        <tr><td class="k">source</td><td class="v">DESIGN.md · 2026-08-28</td></tr>
+        <tr><td class="k">source_hash</td><td class="v hash">sha256:39264296deec82b925418cf245b830c2d08ccb0346592d7d7a6c52ca2493a239</td></tr>
+        <tr><td class="k">status</td><td class="v">documented · not implemented · not tested · not empirically validated</td></tr>
+      </table>
+    </div>
+  </div>
+  <p class="envelope-note">This page is a <em>derived</em> projection of the canonical <em>DESIGN.md</em>. Contradictions are repaired in the source and re-projected — never by editing the projection.</p>
+</header>
+
+<nav class="toc" aria-label="Contents">
+  <div class="toc-title eyebrow">Contents</div>
+  <ol>
+    <li><span class="n">1</span><a href="#s1">Thesis</a></li>
+    <li><span class="n">2</span><a href="#s2">The six planes</a></li>
+    <li><span class="n">3</span><a href="#s3">The record model</a></li>
+    <li><span class="n">4</span><a href="#s4">Content types</a></li>
+    <li><span class="n">5</span><a href="#s5">The write path</a></li>
+    <li><span class="n">6</span><a href="#s6">The publish path</a></li>
+    <li><span class="n">7</span><a href="#s7">Projections</a></li>
+    <li><span class="n">8</span><a href="#s8">Realtime machinery</a></li>
+    <li><span class="n">9</span><a href="#s9">The field plane</a></li>
+    <li><span class="n">10</span><a href="#s10">Access &amp; delivery honesty</a></li>
+    <li><span class="n">11</span><a href="#s11">Agents &amp; AI</a></li>
+    <li><span class="n">12</span><a href="#s12">Versioning &amp; compatibility</a></li>
+    <li><span class="n">13</span><a href="#s13">Reference implementation</a></li>
+    <li><span class="n">14</span><a href="#s14">Narrowest end-to-end path</a></li>
+    <li><span class="n">15</span><a href="#s15">Traceability</a></li>
+  </ol>
+</nav>
+
+<!-- ============================ 1 ============================ -->
+<section id="s1">
+  <div class="sec-head"><span class="sec-num">1</span><h2>Thesis</h2></div>
+  <p class="lede">Every consequential fact in the system is an explicit, typed, provenance-bearing, versioned record with a named authority. Everything anyone sees — every page, feed, index, dashboard, notification, agent corpus, live signal — is a <strong>projection</strong> of those records that declares what it preserves, transforms, omits, and introduces. Every write crosses a <strong>contract</strong>. Publishing is <strong>qualification plus promotion</strong>, never a boolean on a row. And realtime state is <strong>observation with an expiry</strong> — it can inform and emphasize, but it never becomes a second source of truth.</p>
+  <p>“Realtime” decomposes into three precise obligations:</p>
+  <div class="obligations">
+    <div class="ob"><span class="tag">R1</span><h4>Live co-authoring</h4><p>Multiple actors — human and machine — edit the same content simultaneously, with no silent conflict resolution on consequential fields.</p></div>
+    <div class="ob"><span class="tag">R2</span><h4>Live propagation</h4><p>A committed change reaches every projection and every subscriber, with the freshness of what each viewer sees disclosed, not implied.</p></div>
+    <div class="ob"><span class="tag">R3</span><h4>Live honesty</h4><p>The system continuously shows what it actually is — drift, staleness, presence, degradation — rather than what it intends to be.</p></div>
+  </div>
+  <p>Most realtime systems buy R1 and R2 by sacrificing R3: optimistic UI that lies about delivery, CRDTs that silently merge meaning, caches that serve superseded content without admission. This design treats R3 as the constraint the other two must satisfy.</p>
+</section>
+
+<!-- ============================ 2 ============================ -->
+<section id="s2">
+  <div class="sec-head"><span class="sec-num">2</span><h2>The six planes</h2></div>
+  <p>Adapted from SPS’s layered stack: each plane owns one kind of truth and is prohibited from owning its neighbors’.</p>
+  <div class="tablewrap"><table class="ledger">
+    <tr><th>Plane</th><th>Owns</th><th>Must not own</th></tr>
+    <tr><td class="key">1 · Canon</td><td>Identity, revisions, typed relations, provenance, entitlement declarations</td><td>Layout, delivery state, live signals</td></tr>
+    <tr><td class="key">2 · Contracts</td><td>Authority, validation, instance lifecycle, receipts, recovery <span class="mono">(ICP)</span></td><td>Content meaning, visual styling</td></tr>
+    <tr><td class="key">3 · Qualification</td><td>Claims, evidence, obligations, attestations <span class="mono">(EQP)</span></td><td>The publish decision itself — promotion is separate authority</td></tr>
+    <tr><td class="key">4 · Projection</td><td>Expression resolution, derived artifacts, access projection <span class="mono">(SES)</span></td><td>Any mutation of canonical state</td></tr>
+    <tr><td class="key">5 · Field</td><td>Live metrics, relationship signals, emphasis, workspace morphology <span class="mono">(Fundamental)</span></td><td>Canonical metadata — signals alter emphasis and explanation, never title, order, entitlement, or identity</td></tr>
+    <tr><td class="key">6 · Observation</td><td>Freshness, drift, presence, degradation <span class="mono">(rr-rsp)</span></td><td>Authority — observations expire, and may not drive decisions after expiry</td></tr>
+  </table></div>
+
+  <figure>
+    <div class="figwrap">
+    <svg viewBox="0 0 940 400" role="img" aria-label="Architecture diagram: editors and agents write only through the contract plane into Canon; projections derive one way out to viewers; the field plane reads Canon; presence and delivery manifests return only as expiring observed records appended to Canon.">
+      <defs>
+        <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+        </marker>
+        <marker id="arrA" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--accent)"/>
+        </marker>
+      </defs>
+      <g font-size="12.5" font-family="inherit">
+        <!-- actors -->
+        <rect x="16" y="120" width="118" height="76" rx="5" fill="none" stroke="currentColor" stroke-width="1.3"/>
+        <text x="75" y="152" text-anchor="middle" font-weight="600">Editors</text>
+        <text x="75" y="170" text-anchor="middle" font-weight="600">Agents</text>
+
+        <!-- contracts (the write door, accented) -->
+        <rect x="204" y="112" width="150" height="92" rx="5" fill="var(--accent)" fill-opacity="0.1" stroke="var(--accent)" stroke-width="1.6"/>
+        <text x="279" y="146" text-anchor="middle" font-weight="600" fill="var(--accent-ink)">Contracts</text>
+        <text x="279" y="164" text-anchor="middle" fill="var(--accent-ink)">the only write door</text>
+        <text x="279" y="182" text-anchor="middle" fill="var(--accent-ink)" font-size="11.5">verify · validate · receipt</text>
+
+        <!-- canon -->
+        <rect x="424" y="96" width="150" height="124" rx="5" fill="none" stroke="currentColor" stroke-width="1.8"/>
+        <text x="499" y="136" text-anchor="middle" font-weight="600">Canon</text>
+        <text x="499" y="155" text-anchor="middle" font-size="11.5">append-only records</text>
+        <text x="499" y="172" text-anchor="middle" font-size="11.5">revisions · relations</text>
+        <text x="499" y="189" text-anchor="middle" font-size="11.5">receipts · observations</text>
+
+        <!-- projections -->
+        <rect x="644" y="112" width="150" height="92" rx="5" fill="none" stroke="currentColor" stroke-width="1.3"/>
+        <text x="719" y="146" text-anchor="middle" font-weight="600">Projections</text>
+        <text x="719" y="164" text-anchor="middle" font-size="11.5">pages · feeds · index</text>
+        <text x="719" y="182" text-anchor="middle" font-size="11.5">corpus · read-only</text>
+
+        <!-- viewers -->
+        <rect x="850" y="120" width="76" height="76" rx="5" fill="none" stroke="currentColor" stroke-width="1.3"/>
+        <text x="888" y="153" text-anchor="middle" font-weight="600">Viewers</text>
+        <text x="888" y="171" text-anchor="middle" font-size="11.5">+ edge</text>
+
+        <!-- field plane -->
+        <rect x="204" y="296" width="150" height="66" rx="5" fill="none" stroke="currentColor" stroke-width="1.3" stroke-dasharray="none"/>
+        <text x="279" y="322" text-anchor="middle" font-weight="600">Field plane</text>
+        <text x="279" y="340" text-anchor="middle" font-size="11.5">metrics · emphasis</text>
+
+        <!-- observation plane -->
+        <rect x="644" y="296" width="150" height="66" rx="5" fill="none" stroke="currentColor" stroke-width="1.3"/>
+        <text x="719" y="322" text-anchor="middle" font-weight="600">Observation</text>
+        <text x="719" y="340" text-anchor="middle" font-size="11.5">presence · manifests</text>
+
+        <!-- write arrows -->
+        <line x1="134" y1="158" x2="200" y2="158" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arrA)"/>
+        <text x="167" y="147" text-anchor="middle" font-size="11" fill="var(--accent-ink)">interaction</text>
+        <line x1="354" y1="158" x2="420" y2="158" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arrA)"/>
+        <text x="387" y="147" text-anchor="middle" font-size="11" fill="var(--accent-ink)">append + receipt</text>
+
+        <!-- read arrows -->
+        <line x1="574" y1="158" x2="640" y2="158" stroke="currentColor" stroke-width="1.3" marker-end="url(#arr)"/>
+        <text x="607" y="147" text-anchor="middle" font-size="11">freeze · derive</text>
+        <line x1="794" y1="158" x2="846" y2="158" stroke="currentColor" stroke-width="1.3" marker-end="url(#arr)"/>
+        <text x="820" y="147" text-anchor="middle" font-size="11">invalidate</text>
+        <text x="820" y="178" text-anchor="middle" font-size="10.5" fill="var(--muted)">fetch via access</text>
+        <text x="820" y="191" text-anchor="middle" font-size="10.5" fill="var(--muted)">projection</text>
+
+        <!-- field reads canon -->
+        <line x1="360" y1="329" x2="452" y2="226" stroke="currentColor" stroke-width="1.1" stroke-dasharray="4 4" marker-end="url(#arr)"/>
+        <text x="380" y="292" font-size="11" fill="var(--muted)">reads (never writes)</text>
+
+        <!-- viewers -> observation -->
+        <line x1="874" y1="200" x2="800" y2="304" stroke="currentColor" stroke-width="1.1" marker-end="url(#arr)"/>
+        <text x="864" y="262" font-size="11" text-anchor="start" fill="var(--muted)">presence,</text>
+        <text x="864" y="275" font-size="11" text-anchor="start" fill="var(--muted)">served state</text>
+
+        <!-- observation -> canon (dashed, expiring) -->
+        <line x1="644" y1="322" x2="540" y2="226" stroke="currentColor" stroke-width="1.1" stroke-dasharray="4 4" marker-end="url(#arr)"/>
+        <text x="600" y="292" text-anchor="middle" font-size="11" fill="var(--muted)">append as observed</text>
+        <text x="600" y="305" text-anchor="middle" font-size="11" fill="var(--muted)">(expires_at required)</text>
+
+        <!-- no-write annotation -->
+        <text x="719" y="92" text-anchor="middle" font-size="11" fill="var(--muted)">no write path exists on this side</text>
+      </g>
+    </svg>
+    </div>
+    <figcaption><strong>One write door, one-way reads.</strong> Mutation exists only through the contract plane; projections derive from frozen snapshots and cannot write back; live state re-enters Canon only as <span class="mono">observed</span> records that carry a mandatory expiry.</figcaption>
+  </figure>
+
+  <div class="law"><p>Read and reveal capabilities are structurally separated from write capabilities. A projection that writes back is a coupling wearing a projection’s clothes.</p><span class="who">ICP §4.5 · Fundamental’s projection purity contract</span></div>
+</section>
+
+<!-- ============================ 3 ============================ -->
+<section id="s3">
+  <div class="sec-head"><span class="sec-num">3</span><h2>The record model</h2></div>
+
+  <h3>3.1 <span class="sub">·</span> One envelope, five body kinds</h3>
+  <p>Every record is a versioned envelope in the rr-rsp shape:</p>
+  <pre>Envelope {
+  schema_version      <span class="c">// wire protocol version, e.g. "scms-0.1"</span>
+  subject_id          <span class="c">// stable identity, chosen by the owning authority</span>
+  compatibility       <span class="c">// { protocol, subject_schema } — checked independently of identity</span>
+  provenance          <span class="c">// { kind, authority, source, source_hash, observed_at?, expires_at? }</span>
+  minimum_access      <span class="c">// access floor for the whole record</span>
+  body                <span class="c">// tagged: Schema | Content | Relation | Observation | Topology</span>
+}</pre>
+  <p>Content types, themes, and contract definitions (<code>Schema</code>), documents (<code>Content</code>), typed edges (<code>Relation</code>), measurements and presence (<code>Observation</code>), and the delivery graph (<code>Topology</code>) are peers in one store, differentiated by tag — uniform identity, access projection, and provenance for all of them.</p>
+
+  <h3>3.2 <span class="sub">·</span> Provenance is a four-class lattice</h3>
+  <div class="prov-grid">
+    <div class="prov"><span class="name">declared</span><p>Asserted by the authority that owns it. <strong>An author’s text, an editor’s confidence rating.</strong></p></div>
+    <div class="prov"><span class="name">derived</span><p>Mechanically projected from an identified source. <strong>A rendered page, an index, a summary.</strong></p></div>
+    <div class="prov"><span class="name">observed</span><p>Measured from a running system, time-bounded. <strong>Presence, delivery state, engagement.</strong> Must carry <span class="name">observed_at + expires_at</span>.</p></div>
+    <div class="prov"><span class="name">system-certified</span><p>Emitted by an identified trusted pipeline from validated inputs. <strong>Resolver output with its trace.</strong></p></div>
+  </div>
+  <div class="law"><p>Consumers must not promote one provenance class into another. An observed engagement spike does not become declared importance; a derived summary does not become authored text.</p><span class="who">rr-rsp descriptor protocol</span></div>
+  <p>Expiry governs <em>authority to decide</em>, not deletion — expired observations are retained for replay, but may no longer drive current-state decisions.</p>
+
+  <h3>3.3 <span class="sub">·</span> Four identity classes, never conflated</h3>
+  <div class="tablewrap"><table class="ledger">
+    <tr><th>Class</th><th>Stability contract</th><th>CMS instance</th></tr>
+    <tr><td class="key">Process-local</td><td>one session</td><td>editing session id, subscription id</td></tr>
+    <tr><td class="key">Build-local</td><td>one artifact</td><td>revision hash <span class="mono">(JCS → SHA-256)</span></td></tr>
+    <tr><td class="key">Schema key</td><td>stable across declared-compatible releases</td><td>content id, semantic slug namespace</td></tr>
+    <tr><td class="key">Human name</td><td>display only — no uniqueness</td><td>title, byline</td></tr>
+  </table></div>
+  <p>A semantic replacement gets a <strong>new id</strong>; an editorial correction keeps the id. The content hash answers “same bytes”; compatibility answers “may be exchanged.” Different questions, checked by different mechanisms.</p>
+
+  <h3>3.4 <span class="sub">·</span> Append-only, enforced by grants</h3>
+  <p>Revision and receipt tables carry <strong>no UPDATE grant</strong> — custody lives in the database, not in convention (PDP’s pattern). There is no destructive edit and no destructive delete, only:</p>
+  <ul>
+    <li><strong>Supersession</strong> — a new revision names what it supersedes; the old becomes historical-only.</li>
+    <li><strong>Revocation</strong> — prevents new use; retains all provenance needed to explain past use.</li>
+    <li><strong>Entitlement hiding</strong> — content participates in discovery as a <em>protected resource</em>: geometry, relations, and metrics visible; the text layer gated.</li>
+  </ul>
+  <p>The receipt chain is hash-linked. Negative results — failed qualifications, rejected candidates, discredited metrics — are permanent project memory: never deleted, renumbered, or rewritten.</p>
+
+  <h3>3.5 <span class="sub">·</span> Multi-axis state — the one-enum <code>status</code> field is prohibited</h3>
+  <div class="tablewrap"><table class="ledger">
+    <tr><th>Axis</th><th>Values</th></tr>
+    <tr><td class="key">Semantic maturity</td><td class="mono">draft → complete → superseded</td></tr>
+    <tr><td class="key">Evidence state</td><td class="mono">unqualified → qualified → stale → invalidated</td></tr>
+    <tr><td class="key">Publication state</td><td class="mono">unpublished → promoted → embargoed → superseded → revoked</td></tr>
+    <tr><td class="key">Delivery state</td><td class="mono">unpropagated → propagating → synchronized → drifted</td></tr>
+  </table></div>
+  <p>The axes are orthogonal: a document can be semantically complete, evidence-stale, still promoted, and drifted at one edge — and each of those facts matters separately. Likewise, absence vocabulary never collapses: <code>hidden ≠ unavailable ≠ absent ≠ unknown ≠ unsupported ≠ missing</code>. A renderer that merges any two of them has changed the reader’s understanding without computing anything.</p>
+
+  <h3>3.6 <span class="sub">·</span> Relations associate; patterns couple</h3>
+  <p>Typed edges (<code>supports</code>, <code>contradicts</code>, <code>precedes</code>, <code>part-of</code>, <code>adapts</code>, <code>references</code>, <code>same-creator</code>…) are <strong>non-causal by default</strong>. An edge moves nothing — no feed reordering, no emphasis change — until a named field pattern explicitly turns the association into a coupling, declared in the pattern’s passport. This guardrail keeps the system semantic and authorable rather than haunted.</p>
+</section>
+
+<!-- ============================ 4 ============================ -->
+<section id="s4">
+  <div class="sec-head"><span class="sec-num">4</span><h2>Content types</h2></div>
+  <p>The content type system is SES’s semantic model, mapped onto CMS vocabulary:</p>
+  <div class="tablewrap"><table class="ledger">
+    <tr><th>SES primitive</th><th>CMS meaning</th></tr>
+    <tr><td class="key">Element</td><td>Smallest meaningful unit (heading, image, button). Owns semantics and accessibility; minimal visual identity.</td></tr>
+    <tr><td class="key">Slot</td><td>A <strong>field</strong>: named, typed content participation inside a block (<code>title</code>, <code>media</code>, <code>meta</code>, <code>actions</code>…).</td></tr>
+    <tr><td class="key">Block</td><td>A content component (article section, media card, hero) — a semantic composition of elements and slots.</td></tr>
+    <tr><td class="key">Socket</td><td>A <strong>region with an admission policy</strong>: which blocks, what cardinality, what importance, which operations required.</td></tr>
+    <tr><td class="key">Composition</td><td>A <strong>page type</strong>: semantic arrangement of sockets — hierarchy and participation, not pixel layout.</td></tr>
+    <tr><td class="key">Variant · State</td><td>Semantic specialization (<code>primary</code>, <code>quiet</code>) · condition (<code>selected</code>, <code>loading</code>, <code>read</code>, <code>locked</code>).</td></tr>
+    <tr><td class="key">Operation</td><td>Stable action identity (<code>open-article</code>, <code>save</code>, <code>request-access</code>) shared by UI, API, and agents — one operation, many actors.</td></tr>
+  </table></div>
+  <p>Expression is separate and <em>granted</em>: Visual Language → Theme → Recipe, resolved through a <strong>pure, deterministic 12-layer cascade</strong> that leaves a per-field trace (source layer, prior value, resulting value, permitting contract clause, merge rule). Failure is closed: an unknown token, unknown asset, undeclared transform, or ambiguous conflict is a typed hard failure — never a silent default.</p>
+  <p>Each rendering surface holds a <strong>Projection Contract</strong> — <code>preserve / transform / mayOmit / mayIntroduce</code> plus six invariance dimensions (<code>semantic, behavioral, actionIdentity, structural, morphological, visual</code>), each set to <code>required | bounded | free</code>. Protected fields — identity, required content types, semantic roles, operation identity, contract invariance levels, routing intent — are never overridable by any layer, including accessibility overrides and user style options.</p>
+  <div class="law"><p>Two renderings of the same content are equivalent iff identities, required content and priority, operation identity, exposure and reachability, accessible names, roles and order, and responsive reachability all match. Pixel equality is explicitly not required.</p><span class="who">SES projection equivalence — the definition of “the same page in two themes”</span></div>
+</section>
+
+<!-- ============================ 5 ============================ -->
+<section id="s5">
+  <div class="sec-head"><span class="sec-num">5</span><h2>The write path</h2></div>
+  <p><strong>No persistent mutation executes outside a registered contract.</strong> Contract definitions are versioned records (<code>content.revise@1.0</code>, <code>content.promote@1.0</code>, <code>entitlement.grant@1.0</code>, <code>schema.migrate@1.0</code>); executions are instances moving through the ICP canonical lifecycle (<code>declared → ready → started → validating → … → completed | blocked | conflicted</code>). <code>blocked</code> is not <code>error</code>: every blocking outcome carries an executable recovery action (<code>refresh_record</code>, <code>review_conflict</code>, <code>reauthenticate</code>, <code>provide_proof</code>…) or a declared terminal reason.</p>
+  <p>Verification level is <strong>derived from consequence, not UI preference</strong>:</p>
+  <div class="tablewrap"><table class="ledger">
+    <tr><th>Effect class</th><th>Example</th><th>Verification</th></tr>
+    <tr><td class="key">E0 · observational</td><td>read, subscribe</td><td class="mono">none</td></tr>
+    <tr><td class="key">E1 · reversible draft</td><td>keystrokes, block reorder in draft</td><td class="mono">none — batched, receipted per session</td></tr>
+    <tr><td class="key">E2 · compensable</td><td>unpublish, cache purge</td><td class="mono">confirm</td></tr>
+    <tr><td class="key">E3 · consequential external</td><td>publish, entitlement change, price/legal content</td><td class="mono">confirm → reauthenticate</td></tr>
+    <tr><td class="key">E4 · durable / irreversible</td><td>revocation with takedown obligations</td><td class="mono">prove</td></tr>
+  </table></div>
+  <p>Every landed mutation produces a <strong>change receipt</strong> — actor, resource, before/after revision, path-level changes, evidence ids, verification id, reversibility class, compensation interaction, integrity digest — hash-chained into the append-only ledger.</p>
+</section>
+
+<!-- ============================ 6 ============================ -->
+<section id="s6">
+  <div class="sec-head"><span class="sec-num">6</span><h2>The publish path</h2></div>
+  <p>Publishing decomposes into two gates that must not collapse:</p>
+  <ol>
+    <li><strong>Qualification (EQP):</strong> given this exact revision, this exact claim set, this exact context — is the required evidence present, valid, current, and sufficient? Evidence results keep <code>PASS / FAIL / PARTIAL / INCONCLUSIVE / BLOCKED / NOT_RUN</code> distinct; missing evidence yields <code>inconclusive</code>, never pass.</li>
+    <li><strong>Promotion:</strong> a separate E3 contract executed by a named authority. <code>QUALIFIED</code> does not mean live. Embargo is promotion with a declared world-time trigger.</li>
+  </ol>
+  <p>Re-qualification is incremental — the realtime publish equation:</p>
+  <pre>RequiredEvidence(rev<span class="a">ₙ</span>) = InvalidatedEvidence(rev<span class="a">ₙ₋₁</span> → rev<span class="a">ₙ</span>)
+                     + EvidenceForNewClaims(rev<span class="a">ₙ</span>)
+                     + MandatoryProfileEvidence</pre>
+  <p>Scope follows the qualification radius: a typo is <strong>R1</strong> (local); a slug change is <strong>R2</strong> (references and redirects re-verify); a content-type schema change is <strong>R3</strong> (every instance re-validates); shared-vocabulary changes are <strong>R4</strong>. The editor watches obligations resolve <em>live</em> — “publishable, blocked on 2 obligations” is a realtime surface that updates as evidence runs.</p>
+
+  <h3>6.1 <span class="sub">·</span> Consequence profiles — the stopping condition</h3>
+  <p>The Formalism essay’s warning is honored in the schema itself: a specify→check loop with no exit condition is the formalist’s characteristic failure, so every content class declares its gate roster <em>and its end</em>.</p>
+  <div class="tablewrap"><table class="ledger">
+    <tr><th>Profile</th><th>Example</th><th>Required evidence</th><th>Explicitly not required</th></tr>
+    <tr><td class="key">note</td><td>personal post, changelog entry</td><td>schema-valid · access declared</td><td>link checks, review, a11y audit beyond defaults</td></tr>
+    <tr><td class="key">article</td><td>essay, feature</td><td>+ links resolve · media has alt text · relations valid</td><td>legal review, human comprehension evidence</td></tr>
+    <tr><td class="key">commitment</td><td>pricing, legal, medical, promises to named recipients</td><td>+ entitlement declared · recipient contract present · reauthenticated promotion · second attestation</td><td>—</td></tr>
+  </table></div>
+  <div class="law"><p>“No further gates” is a declared statement, not silence. A draft note must never be gated like a legal page; a legal page must never ship like a note.</p><span class="who">The formalist’s correction: the stopping condition is part of the specification</span></div>
+</section>
+
+<!-- ============================ 7 ============================ -->
+<section id="s7">
+  <div class="sec-head"><span class="sec-num">7</span><h2>Projections</h2></div>
+  <p>Every consumable artifact is a derived projection of Canon: HTML pages, feeds, search index, sitemaps, notifications, embeddings, OG images, and the <strong>agent corpus</strong> (<code>llms.txt</code> / <code>llms-full.txt</code> — compiled context whose validity is an aggregate source digest, repaired at the source and recompiled, never hand-edited). Three disciplines govern derivation:</p>
+  <ul>
+    <li><strong>Frozen snapshot, one-way materialization.</strong> Derivation runs against frozen state S₀, produces G₀, materializes S₁ = S₀ + G₀. Generated artifacts are invisible to their own producing pass — no fixed-point loops. Derived content (summaries, embeddings, cross-links) enters future passes only explicitly, as <code>derived</code> records.</li>
+    <li><strong>Access projection before serialization.</strong> <code>project_for(access)</code> removes invisible members and dangling edges <em>before any handle exists</em>. Projection is subtractive with respect to power: it may hide, withhold, relabel, understate; it may never manufacture a capability or grant a permission. Internally, <code>exposed / hidden / unavailable</code> stay unmerged; outwardly, mapping hidden→absent for low-access viewers is a <em>declared omission</em> in that surface’s contract.</li>
+    <li><strong>Fingerprint-scoped invalidation.</strong> Every derived artifact records fine-grained dependency edges on its <em>access-projected</em> inputs and receives a structural fingerprint independent of execution order. A change to a field a given projection could not observe produces <strong>no invalidation for it</strong> — simultaneously the correct caching model and a side-channel guarantee: invalidation timing cannot leak hidden edits.</li>
+  </ul>
+  <p>Every projection stage is classified in a published <strong>transformation ledger</strong> — <code>lossless / lossy-disclosed / interpretive / unsupported</code> — with the <code>unsupported</code> transformations listed so the refusal is auditable. A renderer can compute nothing and still mislead; the ledger is how it proves it didn’t.</p>
+</section>
+
+<!-- ============================ 8 ============================ -->
+<section id="s8">
+  <div class="sec-head"><span class="sec-num">8</span><h2>Realtime machinery</h2></div>
+
+  <h3>8.1 <span class="sub">·</span> The commit cycle</h3>
+  <p>One one-way loop per commit wave — the frame-scheduler discipline applied to a CMS:</p>
+  <figure>
+    <div class="figwrap">
+    <svg viewBox="0 0 940 210" role="img" aria-label="The six-phase commit cycle: ingest, freeze, derive, commit, notify, observe, with observations looping back as input to the next wave only.">
+      <defs>
+        <marker id="arr2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+        </marker>
+      </defs>
+      <g font-size="12.5" font-family="inherit">
+        <g font-weight="600" text-anchor="middle">
+          <rect x="20"  y="52" width="120" height="46" rx="5" fill="var(--accent)" fill-opacity="0.1" stroke="var(--accent)" stroke-width="1.5"/>
+          <text x="80" y="80" fill="var(--accent-ink)">ingest</text>
+          <rect x="176" y="52" width="120" height="46" rx="5" fill="none" stroke="currentColor" stroke-width="1.3"/>
+          <text x="236" y="80">freeze S₀</text>
+          <rect x="332" y="52" width="120" height="46" rx="5" fill="none" stroke="currentColor" stroke-width="1.3"/>
+          <text x="392" y="80">derive</text>
+          <rect x="488" y="52" width="120" height="46" rx="5" fill="none" stroke="currentColor" stroke-width="1.3"/>
+          <text x="548" y="80">commit S₁</text>
+          <rect x="644" y="52" width="120" height="46" rx="5" fill="none" stroke="currentColor" stroke-width="1.3"/>
+          <text x="704" y="80">notify</text>
+          <rect x="800" y="52" width="120" height="46" rx="5" fill="none" stroke="currentColor" stroke-width="1.3"/>
+          <text x="860" y="80">observe</text>
+        </g>
+        <line x1="140" y1="75" x2="172" y2="75" stroke="currentColor" stroke-width="1.3" marker-end="url(#arr2)"/>
+        <line x1="296" y1="75" x2="328" y2="75" stroke="currentColor" stroke-width="1.3" marker-end="url(#arr2)"/>
+        <line x1="452" y1="75" x2="484" y2="75" stroke="currentColor" stroke-width="1.3" marker-end="url(#arr2)"/>
+        <line x1="608" y1="75" x2="640" y2="75" stroke="currentColor" stroke-width="1.3" marker-end="url(#arr2)"/>
+        <line x1="764" y1="75" x2="796" y2="75" stroke="currentColor" stroke-width="1.3" marker-end="url(#arr2)"/>
+        <!-- phase notes -->
+        <g font-size="10.5" text-anchor="middle" fill="var(--muted)">
+          <text x="80" y="116">contracts land</text>
+          <text x="80" y="129">revisions + receipts</text>
+          <text x="236" y="116">snapshot of Canon</text>
+          <text x="236" y="129">for this wave</text>
+          <text x="392" y="116">pure resolvers</text>
+          <text x="392" y="129">against S₀ only</text>
+          <text x="548" y="116">projection versions</text>
+          <text x="548" y="129">recorded as derived</text>
+          <text x="704" y="116">fingerprint invalidations</text>
+          <text x="704" y="129">fan out through lenses</text>
+          <text x="860" y="116">acks + manifests return</text>
+          <text x="860" y="129">as observed records</text>
+        </g>
+        <!-- loop back -->
+        <path d="M 860 98 L 860 172 L 80 172 L 80 102" fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arr2)"/>
+        <text x="470" y="163" text-anchor="middle" font-size="11" fill="var(--muted)">next wave only — derived output and observations never feed the pass that produced them</text>
+      </g>
+    </svg>
+    </div>
+    <figcaption><strong>No phase reads what a later phase writes.</strong> The dashed return edge is the only feedback, and it crosses a wave boundary — the staging rule that excludes fixed-point loops, applied to content derivation.</figcaption>
+  </figure>
+
+  <h3>8.2 <span class="sub">·</span> Subscriptions are lenses</h3>
+  <p>A subscription is a declarative <strong>allow-list</strong> scope — records, metrics, relationship types, a radius around a subject — composed with the subscriber’s access projection. A lens narrows; it can never widen power. The wire format is the envelope itself: provenance travels with every message, and clients are bound by the no-promotion rule — an <code>observed</code> push can update a chip; it cannot overwrite a <code>declared</code> field in the local model.</p>
+
+  <h3>8.3 <span class="sub">·</span> Invalidation, not state push</h3>
+  <p>Readers hold a <strong>committed snapshot baseline</strong> — server-rendered truth, no-JS truth, deterministic builds. The notify phase pushes invalidation keys; clients re-fetch through access projection. If the live channel fails, the client silently keeps its snapshot and says so: failure degrades to truth, not to a spinner. Every live surface carries a <strong>provenance chip</strong> — the visible end of the consistency state machine:</p>
+  <div class="chip-row" role="img" aria-label="Provenance chip states: live checked 4 seconds ago; snapshot from August 27; 2 revisions since snapshot; local unsent; conflicted, review.">
+    <span class="chip live"><span class="dot"></span>live · checked 4s ago</span>
+    <span class="chip"><span class="dot"></span>snapshot · Aug 27</span>
+    <span class="chip stale"><span class="dot"></span>+2 revisions since snapshot</span>
+    <span class="chip stale"><span class="dot"></span>local · unsent</span>
+    <span class="chip conflict"><span class="dot"></span>conflicted — review</span>
+  </div>
+  <p class="chip-cap">A page that can prove it is not lying is a feature, not a caveat.</p>
+
+  <h3>8.4 <span class="sub">·</span> Presence is observation</h3>
+  <p>Cursors, selections, “Zach is editing,” view counts, soft locks: all <code>observed</code> envelopes with mandatory <code>observed_at</code> + <code>expires_at</code>. The consequences fall out structurally rather than by cleanup jobs:</p>
+  <ul>
+    <li><strong>Soft locks self-release</strong> — an expired presence record may not drive decisions, so an abandoned lock cannot hold content hostage.</li>
+    <li><strong>Ghost cursors are impossible by construction</strong> — an expired cursor is no longer authoritative for rendering.</li>
+    <li>Presence history is retained after expiry for replay, never for authority.</li>
+    <li><strong>Cadence honesty</strong> — presence at seconds, metrics at their real rate, daily aggregates once per visit. Polling a daily aggregate is theater, and the surfaces say so.</li>
+  </ul>
+
+  <h3>8.5 <span class="sub">·</span> Concurrency discipline is derived from invariance</h3>
+  <p>The synthesis at the center of R1: the same typed invariance that governs what a <em>theme</em> may change governs what <em>concurrent editors</em> may merge. One declaration, two enforcement surfaces.</p>
+  <div class="tablewrap"><table class="ledger">
+    <tr><th>Field invariance</th><th>Projection meaning</th><th>Concurrency discipline</th></tr>
+    <tr><td class="keyw"><code>free</code><br><span class="mono" style="font-weight:400;color:var(--muted)">visual · morphological · prose body</span></td><td>themes may restyle freely</td><td>CRDT/OT merge; concurrent edits combine; E1, no ceremony</td></tr>
+    <tr><td class="keyw"><code>bounded</code><br><span class="mono" style="font-weight:400;color:var(--muted)">block order · slot membership · socket population</span></td><td>themes may rearrange within declared bounds</td><td>merge, then validate against admission and cardinality invariants; violation → <code>conflicted</code>, surfaced — never a silent fallback winner</td></tr>
+    <tr><td class="keyw"><code>required</code><br><span class="mono" style="font-weight:400;color:var(--muted)">identity · operations · entitlement · schema refs · routing</span></td><td>no surface may alter</td><td>serialized through a contract; the second concurrent attempt receives outcome <code>conflict</code> + executable recovery</td></tr>
+  </table></div>
+  <div class="law"><p>Silent merge is a granted behavior — granted exactly where meaning is not at stake.</p><span class="who">SES typed invariance, applied to collaboration</span></div>
+
+  <h3>8.6 <span class="sub">·</span> Consistency states</h3>
+  <p>Each client’s relationship to each record is one of six HCML states, and the state — not optimism — decides what is permitted:</p>
+  <figure>
+    <div class="figwrap">
+    <svg viewBox="0 0 940 270" role="img" aria-label="Consistency state machine: Current transitions to Stale-but-safe when a remote commit is observed; converging returns it to Current; overlap on a required field moves it to Conflicted, where publishing freezes but drafting continues; contract resolution returns to Current. Supersession and revocation are separate terminal transitions.">
+      <defs>
+        <marker id="arr3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+        </marker>
+      </defs>
+      <g font-size="12.5" font-family="inherit">
+        <!-- current -->
+        <rect x="30" y="60" width="180" height="72" rx="6" fill="var(--live)" fill-opacity="0.12" stroke="var(--live)" stroke-width="1.6"/>
+        <text x="120" y="88" text-anchor="middle" font-weight="600" fill="var(--live)">Current</text>
+        <text x="120" y="108" text-anchor="middle" font-size="11" fill="var(--muted)">draft ✓ · publish ✓</text>
+
+        <!-- stale -->
+        <rect x="330" y="60" width="200" height="72" rx="6" fill="var(--drift)" fill-opacity="0.12" stroke="var(--drift)" stroke-width="1.6"/>
+        <text x="430" y="88" text-anchor="middle" font-weight="600" fill="var(--drift)">Stale-but-safe</text>
+        <text x="430" y="108" text-anchor="middle" font-size="11" fill="var(--muted)">draft ✓ (disclosed) · publish after converge</text>
+
+        <!-- conflicted -->
+        <rect x="650" y="60" width="200" height="72" rx="6" fill="var(--conflict)" fill-opacity="0.12" stroke="var(--conflict)" stroke-width="1.6"/>
+        <text x="750" y="88" text-anchor="middle" font-weight="600" fill="var(--conflict)">Conflicted</text>
+        <text x="750" y="108" text-anchor="middle" font-size="11" fill="var(--muted)">draft ✓ continues · publish frozen</text>
+
+        <!-- transitions -->
+        <line x1="210" y1="82" x2="326" y2="82" stroke="currentColor" stroke-width="1.2" marker-end="url(#arr3)"/>
+        <text x="268" y="72" text-anchor="middle" font-size="11">remote commit observed</text>
+        <line x1="326" y1="112" x2="210" y2="112" stroke="currentColor" stroke-width="1.2" marker-end="url(#arr3)"/>
+        <text x="268" y="128" text-anchor="middle" font-size="11">converge</text>
+
+        <line x1="530" y1="82" x2="646" y2="82" stroke="currentColor" stroke-width="1.2" marker-end="url(#arr3)"/>
+        <text x="588" y="72" text-anchor="middle" font-size="11">overlap on required field</text>
+        <line x1="646" y1="112" x2="530" y2="112" stroke="currentColor" stroke-width="1.2" marker-end="url(#arr3)"/>
+        <text x="588" y="128" text-anchor="middle" font-size="11">resolve via contract</text>
+
+        <!-- terminal states -->
+        <g font-size="11.5">
+          <rect x="130" y="196" width="170" height="46" rx="6" fill="none" stroke="currentColor" stroke-width="1.1" stroke-dasharray="4 4"/>
+          <text x="215" y="216" text-anchor="middle" font-weight="600">Superseded</text>
+          <text x="215" y="232" text-anchor="middle" fill="var(--muted)">read-only · act on successor</text>
+          <rect x="390" y="196" width="170" height="46" rx="6" fill="none" stroke="currentColor" stroke-width="1.1" stroke-dasharray="4 4"/>
+          <text x="475" y="216" text-anchor="middle" font-weight="600">Revoked</text>
+          <text x="475" y="232" text-anchor="middle" fill="var(--muted)">stop · compensate in-flight</text>
+          <rect x="650" y="196" width="200" height="46" rx="6" fill="none" stroke="currentColor" stroke-width="1.1" stroke-dasharray="4 4"/>
+          <text x="750" y="216" text-anchor="middle" font-weight="600">Unknown</text>
+          <text x="750" y="232" text-anchor="middle" fill="var(--muted)">local-only, disclosed · stop at protected boundary</text>
+        </g>
+        <line x1="150" y1="132" x2="195" y2="192" stroke="currentColor" stroke-width="1.1" stroke-dasharray="4 4" marker-end="url(#arr3)"/>
+        <text x="128" y="168" font-size="10.5" fill="var(--muted)">successor lands</text>
+        <line x1="440" y1="132" x2="465" y2="192" stroke="currentColor" stroke-width="1.1" stroke-dasharray="4 4" marker-end="url(#arr3)"/>
+        <text x="418" y="168" font-size="10.5" fill="var(--muted)" text-anchor="end">authority withdrawn</text>
+        <line x1="750" y1="132" x2="750" y2="192" stroke="currentColor" stroke-width="1.1" stroke-dasharray="4 4" marker-end="url(#arr3)"/>
+        <text x="762" y="168" font-size="10.5" fill="var(--muted)">channel lost</text>
+      </g>
+    </svg>
+    </div>
+    <figcaption><strong>The load-bearing asymmetry:</strong> conflict freezes <em>consequential</em> action while drafting continues. A CMS that blocks typing on conflict is unusable; one that publishes through conflict is lying.</figcaption>
+  </figure>
+
+  <h3>8.7 <span class="sub">·</span> Events are edges, not a firehose</h3>
+  <p>Live signals cross thresholds hysteretically (enter at 0.6, exit at 0.2) and emit one clean edge per crossing: <code>content:trending</code>, <code>content:staleness-warning</code>, <code>presence:entered / left</code>, <code>qualification:blocked / cleared</code>, <code>delivery:drifted / synchronized</code>. Subscribers receive transitions, not ticks.</p>
+
+  <h3>8.8 <span class="sub">·</span> Degradation is governed and asymmetric</h3>
+  <p>Under load, a quality governor sheds <em>cadence</em>, never <em>correctness</em>: projection refresh and notification frequency step down quickly (a few over-budget waves) and recover slowly (a sustained run of clean ones). The contract, qualification, and receipt planes never degrade. Degraded state is itself an observed record — visible on the chip, honest on the status page.</p>
+</section>
+
+<!-- ============================ 9 ============================ -->
+<section id="s9">
+  <div class="sec-head"><span class="sec-num">9</span><h2>The field plane</h2></div>
+  <p>The workspace is a Fundamental field in which records are bodies (identity doctrine <code>id / namespace / kind / host</code>) and typed relations are edges with fast <code>strength</code> and slow <code>memory</code>. Meaning maps to measurable channels:</p>
+  <div class="tablewrap"><table class="ledger">
+    <tr><th>Meaning</th><th>Channel</th><th>Editorial reading</th></tr>
+    <tr><td class="key">importance · priority</td><td class="mono">attention</td><td>what deserves presence now</td></tr>
+    <tr><td class="key">urgency · recency</td><td class="mono">heat</td><td>what is hot, what is cooling</td></tr>
+    <tr><td class="key">confidence</td><td class="mono">coherence</td><td>how settled a claim is</td></tr>
+    <tr><td class="key">uncertainty</td><td class="mono">entropy</td><td>where disorder is accumulating</td></tr>
+    <tr><td class="key">relationship · history</td><td class="mono">memory</td><td>worn paths, long-lived links</td></tr>
+    <tr><td class="key">status</td><td class="mono">phase</td><td>draft gas → published solid</td></tr>
+    <tr><td class="key">hierarchy</td><td class="mono">pressure</td><td>rank and depth</td></tr>
+  </table></div>
+  <p><strong>Metric provenance is typed.</strong> <code>computed</code> lanes the engine writes (attention, recency, staleness); <code>supplied-only</code> lanes only a human may set — <code>confidence</code> is never inferred (<em>a citation is not certainty</em>) and <code>risk</code> is never defaulted to zero (<em>“no risk” is a claim, not a safe blank</em>); <code>designed</code> lanes a pattern references must be supplied or they are flagged inert by lint.</p>
+  <p><strong>Workspace morphology is resolved, not templated</strong> — SPS’s contribution. Each shelf of the editorial UI declares <code>{ purpose, lens, form }</code>, and its container (<code>hero / banner / rail / split / matrix / portals</code>) resolves from semantic purpose <em>plus evidence density</em>, with an evidence tone — <code>earned / steady / fading</code> — reflecting how many records actually satisfy the lens. The layout is a function of how much evidence supports the grouping. There is no generic dashboard shell.</p>
+  <p><strong>Editorial time is five separate senses.</strong> Simulation time ticks (the field); host time is supplied (the platform); world time is declared (<code>publishedAt</code>, embargo instants — declaration beats inference); semantic time is derived (freshness half-lives per content class, imminence ramps toward embargo horizons, retention curves for archives); replay time is reconstructed (audit).</p>
+  <div class="law"><p>Analytics claims sit on the causality ladder — observed → attributed → explained → replayed → predicted — and every surface quotes the highest level its data supports, and no higher.</p><span class="who">“Attention 0.8” is observed. “Readers love this” requires human evidence.</span></div>
+</section>
+
+<!-- ============================ 10 ============================ -->
+<section id="s10">
+  <div class="sec-head"><span class="sec-num">10</span><h2>Access &amp; delivery honesty</h2></div>
+  <ul>
+    <li><strong>Discovery without exposure.</strong> Entitlement-gated content participates in search, relations, and field signals through geometry, metadata, and observations — the text layer is a protected resource behind a <code>staged-access-request</code> state and an entitlement contract.</li>
+    <li><strong>Delivery is observed; drift is explicit.</strong> Topology records declare what each edge and channel <em>should</em> serve; observed manifests report what each <em>does</em> serve. Divergence is <code>ObservationStatus: Drifted</code> with an explicit <code>differences[]</code> list — driving purge contracts, and shown honestly on status surfaces.</li>
+    <li><strong>Gates must be able to fail.</strong> Every health check and CI gate has a declared trigger, a declared evidence requirement, and a demonstrable failure mode. A checker that crashes green, or a validator that no-ops outside its artifact class and exits 0, is a finding, not a gate. Validators report how many checks <em>actually ran</em>.</li>
+    <li><strong>The wallpaper rule applies to the UI.</strong> Any surface that appears live must be derived from real state or declared as decoration — remedies in order: derive, declare, demote, sugar. Determinism is part of honesty: injected clocks, seeded randomness; an unseeded animation claiming to be a replay is a false claim.</li>
+  </ul>
+</section>
+
+<!-- ============================ 11 ============================ -->
+<section id="s11">
+  <div class="sec-head"><span class="sec-num">11</span><h2>Agents &amp; AI</h2></div>
+  <p><strong>Read.</strong> Agents receive <em>semantic slices</em> — radius-bounded, access-filtered neighborhoods with provenance flags traveling with the slice — plus the <code>agent-json</code> projection surface and the compiled corpus. The read facade is safe by shape: there is nothing on it to call that mutates.</p>
+  <p><strong>Write.</strong> Machine output enters as a <strong>Candidate</strong> and never self-promotes. An agent’s draft revision, suggested relation, or generated summary crosses the same EQP evidence and promotion authority as human work, and its provenance is visible for as long as the content lives.</p>
+  <p><strong>Decide.</strong> High-uncertainty editorial decisions — takedowns, disputed corrections, taxonomy changes — may convene a PDP panel: consensus discounted by shared provenance (agreement counts once per independent axis), invalidation conditions pre-committed and asymmetric to pressure, and the human owning the weights, the stakes, and the exit. A model that flips under pressure has produced information about the model, not about the decision.</p>
+  <p><strong>For whom.</strong> Content classes may require an RCP recipient record — a named person, their need in their framing, an obligation with a date. Status is derived, never assigned: <code>active / delivered / lapsed / primitive</code>. A lapsed recipient is retained, never deleted.</p>
+</section>
+
+<!-- ============================ 12 ============================ -->
+<section id="s12">
+  <div class="sec-head"><span class="sec-num">12</span><h2>Versioning &amp; compatibility</h2></div>
+  <p>Five version axes move independently: content identity · content-type schema · theme/visual language · resolver/pipeline · wire protocol. <strong>Equal version numbers imply nothing.</strong> Cross-axis compatibility is a declared conformance record over six dimensions — <code>syntax, schema, behavior, semantics, authority, evidence</code> — never inferred from matching numbers.</p>
+  <p>Schema changes are classed — documentation / additive / conformance-tightening / breaking-semantic / breaking-expression / deprecation — each with required review. Deprecated semantic identities remain resolvable through a declared compatibility window, and a breaking-semantic migration is a qualification event at radius R3+ with its own evidence.</p>
+
+  <h3>12.1 <span class="sub">·</span> Dependency doctrine <span class="sub">(owner directive, 2026-08-28)</span></h3>
+  <p>The system is built <strong>in isolation</strong>. Formal resources and capabilities — SES, SPS, ICP, EQP, IEPE, HCML, Fundamental Engine, rr-rsp, and any reference system later accepted — are consumed <strong>as dependencies</strong>: pinned by version and revision/digest in the resource manifest, imported through declared bindings, never absorbed into this codebase.</p>
+  <ul>
+    <li><strong>Consumption mechanisms</strong> (whichever fits the artifact): a package/crate dependency, a schema-pack import, or a mechanical sync from a pinned upstream revision. A synced copy is a cache of the pin, not a fork.</li>
+    <li><strong>Upstream-first repair.</strong> When a capability is needed, broken, or missing in a dependency, the change is made <em>in the owning project</em>, under that project's own authority and process; this project then re-pins the new revision. Local modification of consumed code or specs is prohibited.</li>
+    <li><strong>Divergence is a deviation</strong> — typed, owner-authorized, bounded, visible, with the upstream fix landing as its reversal trigger. Never a silent patch.</li>
+    <li><strong>A re-pin is a compatibility event</strong>: it carries a declared compatibility statement and may trigger re-qualification at the appropriate radius.</li>
+    <li>Worked example: SES ships no package manifest today. If the implementation needs SES as an installable dependency, packaging is added upstream in <code>semantic-expression-system</code> and pulled — not vendored ad hoc here.</li>
+  </ul>
+</section>
+
+<!-- ============================ 13 ============================ -->
+<section id="s13">
+  <div class="sec-head"><span class="sec-num">13</span><h2>Reference implementation <span class="sub">(non-normative)</span></h2></div>
+  <ul>
+    <li><strong>Store:</strong> Postgres. Revision and receipt tables append-only <em>by grant</em> — the runtime role has no UPDATE or DELETE. Logical decoding feeds the notify phase.</li>
+    <li><strong>Resolver:</strong> one pure TypeScript library (no ambient time, no I/O) shared by server, edge, and client — the same cascade everywhere, held to golden conformance vectors, including a negative vector proving the gate can fail.</li>
+    <li><strong>Wire:</strong> WebSocket lenses with SSE fallback; JSON envelopes; JCS canonicalization for hashing; Ed25519 attestation on promoted projections, with verification keys distributed out-of-band — a key carried alongside untrusted content only authenticates the attacker to itself.</li>
+    <li><strong>Editor:</strong> CRDT (e.g. Yjs) strictly for invariance-<code>free</code> fields; <code>bounded</code> and <code>required</code> fields go through contract RPC. Presence over the observation channel with short expiries.</li>
+    <li><strong>Edge:</strong> projection versions in KV; edges report served-version manifests back as observations; drift drives purge contracts.</li>
+    <li><strong>The project itself</strong> bootstraps under formal-project-bootstrap v0.5.0: <code>PROJECT_INTENT.md</code>, <code>PROJECT_PROFILE.json</code>, a pinned formal-resource manifest (SES, SPS, ICP, EQP, IEPE-001, HCML, Fundamental, rr-rsp — by revision digest), <code>records/*.jsonl</code>, compiled context, and CI gates that demonstrably fail.</li>
+  </ul>
+</section>
+
+<!-- ============================ 14 ============================ -->
+<section id="s14">
+  <div class="sec-head"><span class="sec-num">14</span><h2>Narrowest end-to-end path</h2></div>
+  <p>The first milestone, expressed as exit evidence rather than features:</p>
+  <ol>
+    <li>Canon holds one content type (<strong>Article</strong>: title/media/body/meta slots) and one composition (<strong>Home</strong>: hero + rail sockets) as Schema records.</li>
+    <li><code>content.revise@1</code> lands draft revisions with session receipts.</li>
+    <li>Two editors draft live: body text merges (<code>free</code>), block reorder validates (<code>bounded</code>), a slug conflict freezes publish (<code>required</code>) — <strong>R1 demonstrated</strong>.</li>
+    <li>The qualification panel resolves the <strong>note</strong> profile’s obligations as evidence runs — the incremental RequiredEvidence equation, observable.</li>
+    <li><code>content.promote@1</code> executes with confirm verification, producing a receipt and an attested projection version.</li>
+    <li>The reader page renders from renderer-neutral output under <strong>two themes</strong>, passing projection-equivalence vectors — identical semantics, radically different pixels.</li>
+    <li>The provenance chip cycles <code>snapshot → live → stale → live</code> under induced channel failure — <strong>R3 demonstrated</strong>.</li>
+    <li>An edit to an entitlement-hidden field produces <strong>no invalidation on the public lens</strong> — cache correctness and non-leakage in one test.</li>
+    <li>The <code>llms.txt</code> corpus projection regenerates deterministically, diff-gated in CI.</li>
+  </ol>
+</section>
+
+<!-- ============================ 15 ============================ -->
+<section id="s15">
+  <div class="sec-head"><span class="sec-num">15</span><h2>Traceability</h2></div>
+  <p>Every load-bearing element of this design binds to a concept already established in the source corpus. Nothing here mints a new primitive that could instead be referenced, bound, specialized, or composed.</p>
+  <div class="tablewrap"><table class="ledger">
+    <tr><th>Design element</th><th>Concept</th><th>Source</th></tr>
+    <tr><td>Envelope, provenance lattice, no-promotion rule</td><td>descriptor protocol</td><td class="mono">reflective-rust</td></tr>
+    <tr><td>Four identity classes; hash ≠ compatibility</td><td>runtime identity doctrine</td><td class="mono">reflective-rust</td></tr>
+    <tr><td>Append-only by grants; hash-chained ledger</td><td>custody in the database</td><td class="mono">PDP</td></tr>
+    <tr><td>Multi-axis state; no single status enum</td><td>multi-dimensional maturity</td><td class="mono">CALP / bootstrap</td></tr>
+    <tr><td>Slot/Block/Socket/Composition/Operation type system</td><td>semantic model</td><td class="mono">SES</td></tr>
+    <tr><td>Projection Contracts; equivalence without pixels</td><td>expression governance</td><td class="mono">SES</td></tr>
+    <tr><td>Pure 12-layer resolver; closed failure; field trace</td><td>resolution model</td><td class="mono">SES</td></tr>
+    <tr><td>Contract-gated writes; receipts; blocked ≠ error</td><td>interaction lifecycle</td><td class="mono">ICP</td></tr>
+    <tr><td>Qualification vs promotion; incremental evidence; radius</td><td>evidence discipline</td><td class="mono">EQP</td></tr>
+    <tr><td>Consequence profiles as declared stopping condition</td><td>the formalist’s correction</td><td class="mono">Formalism</td></tr>
+    <tr><td>Consistency states; conflict freezes consequence only</td><td>temporal consistency</td><td class="mono">HCML</td></tr>
+    <tr><td>Candidates never self-promote; uncertainty retained</td><td>shared-state invariants</td><td class="mono">HCML / IEPE</td></tr>
+    <tr><td>Records as bodies; meaning→metric; supplied-only lanes</td><td>semantic layers, metric provenance</td><td class="mono">Fundamental</td></tr>
+    <tr><td>Association ≠ coupling; no haunted feeds</td><td>dimensional coupling</td><td class="mono">Fundamental</td></tr>
+    <tr><td>Evidence-resolved morphology; no dashboard template</td><td>shelf resolver</td><td class="mono">SPS</td></tr>
+    <tr><td>Provenance chips; snapshot-first; cadence honesty</td><td>live-data contract</td><td class="mono">Fundamental</td></tr>
+    <tr><td>Hysteretic events; asymmetric degradation</td><td>event agent, quality governor</td><td class="mono">Fundamental</td></tr>
+    <tr><td>Frozen-snapshot derivation; fingerprint invalidation</td><td>staging model, dependency tracking</td><td class="mono">reflective-rust</td></tr>
+    <tr><td>Transformation ledger; absence vocabulary</td><td>the Observatory</td><td class="mono">Fundamental</td></tr>
+    <tr><td>Discovery without text exposure; reader ≠ detail</td><td>publication boundaries</td><td class="mono">SPS</td></tr>
+    <tr><td>Gates that can fail; validator applicability</td><td>register findings</td><td class="mono">Register / NPS</td></tr>
+    <tr><td>Compiled agent corpus; digest validity</td><td>context compilation</td><td class="mono">IEPE / bootstrap</td></tr>
+    <tr><td>Recipient contracts; derived status</td><td>RCP</td><td class="mono">Register</td></tr>
+    <tr><td>Five senses of time; declaration beats inference</td><td>temporal model</td><td class="mono">Fundamental</td></tr>
+    <tr><td>Causality ladder for analytics claims</td><td>causality and truth</td><td class="mono">Fundamental</td></tr>
+  </table></div>
+</section>
+
+<footer class="footer">
+  <p><span class="mono">scms:design/semantic-cms · declared · project.owner · 2026-08-28</span></p>
+  <p>Canonical source: <span class="mono">semantic-cms/DESIGN.md</span>. This page is a derived projection; it declares that it preserves the design’s structure and claims, transforms prose into typographic and diagrammatic form, omits nothing normative, and introduces presentation only.</p>
+</footer>
+
+</div>

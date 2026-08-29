@@ -1,0 +1,350 @@
+<title>Titan &amp; Infinite-Verse Review</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --paper: #f6f5f1;
+    --surface: #eeece5;
+    --ink: #212939;
+    --ink-strong: #141c2b;
+    --muted: #5d6579;
+    --line: #d8d5ca;
+    --line-soft: #e3e0d6;
+    --accent: #b8391c;
+    --accent-ink: #9c2f16;
+    --accent-tint: #f1e2da;
+    --live: #2c7a4f;
+    --live-tint: #e2ede4;
+    --drift: #92661a;
+    --drift-tint: #f0e9d6;
+    --conflict: #9c2f56;
+    --conflict-tint: #f0e0e7;
+    --dormant: #6b7280;
+    --code-bg: #edebe2;
+    --serif: "Spectral", Georgia, "Times New Roman", serif;
+    --sans: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+    --mono: "IBM Plex Mono", "SF Mono", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #141926; --surface: #1b2232; --ink: #dfdccf; --ink-strong: #f3f0e5;
+      --muted: #979fb4; --line: #323c53; --line-soft: #283044;
+      --accent: #e05933; --accent-ink: #ea7350; --accent-tint: #3b2418;
+      --live: #55b283; --live-tint: #1d3229; --drift: #c99b45; --drift-tint: #362d17;
+      --conflict: #cf7099; --conflict-tint: #38202b; --dormant: #8b93a5; --code-bg: #1a2130;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #141926; --surface: #1b2232; --ink: #dfdccf; --ink-strong: #f3f0e5;
+    --muted: #979fb4; --line: #323c53; --line-soft: #283044;
+    --accent: #e05933; --accent-ink: #ea7350; --accent-tint: #3b2418;
+    --live: #55b283; --live-tint: #1d3229; --drift: #c99b45; --drift-tint: #362d17;
+    --conflict: #cf7099; --conflict-tint: #38202b; --dormant: #8b93a5; --code-bg: #1a2130;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--paper); color: var(--ink);
+    font-family: var(--sans); font-size: 16px; line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+  .shell { max-width: 1020px; margin: 0 auto; padding: 0 28px 96px; }
+  a { color: var(--accent-ink); text-decoration: none; border-bottom: 1px solid transparent; }
+  a:hover, a:focus-visible { border-bottom-color: var(--accent-ink); }
+  a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .masthead { padding: 64px 0 0; }
+  .eyebrow {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--accent-ink);
+  }
+  h1 {
+    font-family: var(--serif); font-weight: 600; color: var(--ink-strong);
+    font-size: clamp(36px, 5.5vw, 54px); line-height: 1.08; margin: 10px 0 14px;
+    letter-spacing: -0.01em; text-wrap: balance;
+  }
+  .standfirst { font-size: 17.5px; color: var(--muted); max-width: 66ch; margin: 0 0 36px; text-wrap: pretty; }
+  .standfirst strong { color: var(--ink); font-weight: 500; }
+
+  .envelope { border: 1px solid var(--line); background: var(--surface); border-radius: 6px; overflow: hidden; margin: 0 0 12px; }
+  .envelope-head {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 10px 16px; border-bottom: 1px solid var(--line);
+    font-family: var(--mono); font-size: 12px; color: var(--muted);
+  }
+  .envelope-head .seal { color: var(--accent-ink); font-weight: 500; }
+  .envelope-body { padding: 14px 16px 16px; overflow-x: auto; }
+  .envelope table { border-collapse: collapse; font-family: var(--mono); font-size: 12.5px; }
+  .envelope td { padding: 3px 0; vertical-align: top; }
+  .envelope td.k { color: var(--muted); padding-right: 28px; white-space: nowrap; }
+  .envelope td.v { color: var(--ink); }
+  .envelope-note { font-size: 13px; color: var(--muted); margin: 0 0 52px; }
+  .envelope-note em { font-style: normal; color: var(--ink); }
+
+  section { margin: 0 0 68px; }
+  .sec-head { display: flex; align-items: baseline; gap: 16px; border-top: 2px solid var(--ink-strong); padding-top: 14px; margin-bottom: 20px; }
+  .sec-num { font-family: var(--serif); font-weight: 600; font-size: 25px; color: var(--accent-ink); font-variant-numeric: tabular-nums; }
+  h2 { font-family: var(--serif); font-weight: 600; font-size: 27px; line-height: 1.15; color: var(--ink-strong); margin: 0; text-wrap: balance; }
+  h3 { font-family: var(--sans); font-weight: 600; font-size: 16.5px; color: var(--ink-strong); margin: 32px 0 10px; }
+  p { max-width: 76ch; margin: 0 0 14px; }
+  ul, ol { max-width: 76ch; padding-left: 1.3em; margin: 0 0 14px; }
+  li { margin: 5px 0; }
+  strong { color: var(--ink-strong); font-weight: 600; }
+
+  code, .mono { font-family: var(--mono); font-size: 0.92em; }
+  p code, li code, td code {
+    background: var(--code-bg); border: 1px solid var(--line-soft);
+    padding: 0.5px 5px; border-radius: 4px; font-size: 0.86em; white-space: nowrap;
+  }
+
+  .law {
+    border-left: 3px solid var(--accent); background: var(--accent-tint);
+    padding: 14px 20px; margin: 22px 0; max-width: 76ch; border-radius: 0 6px 6px 0;
+  }
+  .law p { margin: 0; color: var(--ink-strong); font-family: var(--serif); font-size: 17px; line-height: 1.5; }
+  .law .who { display: block; margin-top: 8px; font-family: var(--sans); font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent-ink); font-weight: 600; }
+
+  .tablewrap { overflow-x: auto; margin: 18px 0; }
+  table.ledger { border-collapse: collapse; width: 100%; font-size: 14px; line-height: 1.5; }
+  table.ledger th {
+    text-align: left; font-size: 11px; font-weight: 600; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--muted);
+    border-bottom: 2px solid var(--ink-strong); padding: 8px 18px 8px 0;
+  }
+  table.ledger td { border-bottom: 1px solid var(--line-soft); padding: 9px 18px 9px 0; vertical-align: top; }
+  table.ledger tr:last-child td { border-bottom: 1px solid var(--line); }
+  table.ledger td.key { font-weight: 600; color: var(--ink-strong); white-space: nowrap; }
+  table.ledger .mono { font-size: 12.5px; }
+
+  /* verdict tags */
+  .tag {
+    display: inline-block; font-family: var(--mono); font-size: 11px; font-weight: 500;
+    border-radius: 4px; padding: 1px 7px; margin-right: 6px; white-space: nowrap;
+    border: 1px solid var(--line); background: var(--surface); color: var(--muted);
+  }
+  .tag.c { border-color: var(--live); background: var(--live-tint); color: var(--live); }
+  .tag.b { border-color: var(--accent); background: var(--accent-tint); color: var(--accent-ink); }
+  .tag.n { border-color: var(--conflict); background: var(--conflict-tint); color: var(--conflict); }
+  .tag.g { border-color: var(--drift); background: var(--drift-tint); color: var(--drift); }
+  .legend { display: flex; flex-wrap: wrap; gap: 14px; margin: 14px 0 6px; font-size: 13.5px; color: var(--muted); }
+  .legend span.tag { margin-right: 4px; }
+
+  /* verdict cards */
+  .verdicts { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 12px; margin: 20px 0; counter-reset: v; }
+  .verdict { border: 1px solid var(--line); border-top: 3px solid var(--accent); border-radius: 6px; padding: 14px 16px; background: var(--surface); }
+  .verdict h4 { margin: 0 0 6px; font-size: 15px; font-weight: 600; color: var(--ink-strong); font-family: var(--sans); }
+  .verdict h4::before { counter-increment: v; content: counter(v) " · "; color: var(--accent-ink); font-family: var(--serif); }
+  .verdict p { font-size: 13.5px; color: var(--muted); margin: 0; }
+
+  .prop-id { font-family: var(--mono); font-weight: 500; color: var(--accent-ink); white-space: nowrap; }
+  .footer { border-top: 2px solid var(--ink-strong); margin-top: 8px; padding-top: 18px; font-size: 13.5px; color: var(--muted); }
+  .footer .mono { font-size: 12px; }
+</style>
+
+<div class="shell">
+
+<header class="masthead">
+  <div class="eyebrow">SCMS-002 · Review · semantic-cms</div>
+  <h1>Titan &amp; Infinite-Verse Review</h1>
+  <p class="standfirst">A comprehensive pass over two deep sibling systems — <strong>Titan/Chroma</strong>, a multi-product platform with a 32-runtime fleet, and <strong>Infinite-Verse</strong>, a semantic cultural knowledge platform — extracting what should inform the Semantic CMS. The six-plane design survives contact; two planes are missing; and sixteen amendments are proposed for owner disposition.</p>
+
+  <div class="envelope" role="group" aria-label="This review, represented as a canonical record envelope">
+    <div class="envelope-head">
+      <span>Envelope · scms-0.1</span>
+      <span class="seal">provenance: declared</span>
+    </div>
+    <div class="envelope-body">
+      <table>
+        <tr><td class="k">subject_id</td><td class="v">scms:review/titan-infinite-verse</td></tr>
+        <tr><td class="k">work_item</td><td class="v">SCMS-002 · Done — proposals await owner disposition</td></tr>
+        <tr><td class="k">source</td><td class="v">research/titan-infinite-verse-review.md · reviewed 2026-08-28</td></tr>
+        <tr><td class="k">method</td><td class="v">four bounded exploration passes over compiled corpora + direct reads · single pass · observed, not adversarially verified</td></tr>
+        <tr><td class="k">source_state</td><td class="v">Infinite-Verse 00e543c1 (dirty), 1 stale submodule (self-reported) · Titan VCS state not inspected</td></tr>
+      </table>
+    </div>
+  </div>
+  <p class="envelope-note">This page is a <em>derived</em> projection of the canonical review in the semantic-cms repository. DESIGN.md is deliberately unchanged — everything here is proposal, not amendment.</p>
+</header>
+
+<!-- ======================= 1 ======================= -->
+<section id="s1">
+  <div class="sec-head"><span class="sec-num">1</span><h2>The two systems</h2></div>
+  <p><strong>Titan ("Chroma")</strong> is a multi-product platform — Snack, Book, FactoryAtlas, FleetMap, IP&nbsp;Navigator, IdentityBridge, Orchestration, Pipeline — over a shared fleet of 32 runtimes in 11 capability groups. Its doctrine inverts the usual question: not <em>who is this user?</em> but <em>what is allowed right now?</em> — collapse resistance, scoped authority, boundary-native architecture, temporal containment. Composition: <code>Product → Runtime → Contract → Broker → Provider → Receipt</code>, with "credential boundary = product boundary" and contracts as "the only allowed language between systems."</p>
+  <p><strong>Infinite-Verse</strong> is a semantic cultural knowledge and experience platform: it "admits authorized physical and digital sources, resolves durable publication and corpus identity, records meaning with provenance and confidence, and powers integrated products through governed projections." Manga Verse is the first domain. It pins the same protocol suite this project pins, plus <strong>iPub</strong> — its immutable publication format over content-addressed bytes, with semantic envelopes attached by reference. It is, in effect, a sibling attempt at this project's thesis: an unusually well-specified contract corpus with a partial implementation.</p>
+  <p><strong>Net relationship:</strong> Infinite-Verse confirms the design's spine and runs ahead of it on qualification and projection governance; Titan supplies the operational machinery — custody, realtime transport, observation, constitutional CI — that the design describes but does not yet specify. The Field plane is the one place the CMS design leads both.</p>
+</section>
+
+<!-- ======================= 2 ======================= -->
+<section id="s2">
+  <div class="sec-head"><span class="sec-num">2</span><h2>Verdict summary</h2></div>
+  <div class="verdicts">
+    <div class="verdict"><h4>The six-plane architecture survives contact</h4><p>Both systems independently converged on the same separations: append-only truth, governed writes, evidence-gated promotion, regenerable projections, disclosed observation. Nothing found contradicts the design's spine.</p></div>
+    <div class="verdict"><h4>Two planes are missing</h4><p>Infinite-Verse demonstrates that <strong>Admission</strong> (what may enter, under what rights) and <strong>Entitlement</strong> (who may see what, at section granularity) are distinct planes — a CMS that skips them grows them accidentally, per-projection.</p></div>
+    <div class="verdict"><h4>Qualification needs a fourth verdict column</h4><p>Both systems learned the same lesson: "could not run" and "never ran" must block promotion exactly like "failed" — and gates must be provably able to fail (vacuous-pass detection, evaluator self-tests).</p></div>
+    <div class="verdict"><h4>Live co-authoring has a second lawful answer</h4><p>Titan's Generative Relationship Protocol shows divergence-first collaboration — permanent legal branches over an immutable DAG, merge as an explicit authored act — which composes with append-only Canon better than silent convergence.</p></div>
+    <div class="verdict"><h4>Live propagation has a proven transport</h4><p>Transactional outbox → LISTEN/NOTIFY fanout → backfill-then-live → <code>last_event_id</code> replay → <code>lagged</code> disclosure. No new infrastructure, no event loss, staleness disclosed as protocol messages.</p></div>
+    <div class="verdict"><h4>Live honesty is richer than the design knows</h4><p>Two-clock freshness with tracked skew, hysteresis on state transitions, presence announced not inferred, UNKNOWN rendered as its own state, and absence carrying a reason code.</p></div>
+  </div>
+</section>
+
+<!-- ======================= 3 ======================= -->
+<section id="s3">
+  <div class="sec-head"><span class="sec-num">3</span><h2>Plane-by-plane findings</h2></div>
+  <div class="legend">
+    <span><span class="tag c">C</span>confirms the design</span>
+    <span><span class="tag b">B</span>better mechanism than the design specifies</span>
+    <span><span class="tag n">N</span>novel, applicable</span>
+    <span><span class="tag g">G</span>generative, not directly applicable</span>
+  </div>
+
+  <h3><span class="tag n">N</span>Plane 0 — Admission (missing from the design)</h3>
+  <p>Infinite-Verse records, for every source intake: custody, a <strong>set</strong> of permitted operations (<code>inspect · normalize · ingest · enrich · train · redistribute</code> — "a physical purchase does not automatically authorize digitization, model training, or redistribution"), rights scope, retention, and identity disposition. Four outcomes, including <strong><code>metadata-only</code></strong> — a source that participates in discovery with zero byte-processing authority. The ingestion rule: <em>"a file becomes a publication in one transaction; it becomes comprehended afterwards, asynchronously, and never blocks becoming readable."</em></p>
+
+  <h3><span class="tag c">C</span><span class="tag b">B</span>Canon</h3>
+  <p><strong>Confirmed:</strong> append-only enforced in the store (triggers, grant-less roles, "no UPDATE or DELETE paths"); JCS→SHA-256 content identity; supersession lineage; hash-linked receipts.</p>
+  <ul>
+    <li><strong>Teaching triggers</strong> — the append-only trigger's exception message states the correct procedure ("re-project into a new revision under a newer ruleset_version"). Enforcement that educates.</li>
+    <li><strong>Identity is minted, never derived.</strong> A per-job mint ledger makes retried commits idempotent while new jobs mint fresh identity for identical bytes; an <code>identity_scheme</code> column with <em>no DEFAULT</em> ("a default would silently label a row nobody classified"). Its inverse discipline in GRP: <strong>hash-input selection as a design act</strong> — IDs exclude timestamps and model output so retries converge. Shared rule: <em>nothing derived from a detector or model output is identity-stable across versions.</em></li>
+    <li><strong>Idempotency conflict detection</strong> — same key + same payload → dedup; same key + <em>different</em> payload → 422. "Prevents silent corruption."</li>
+    <li><strong>Transactional outbox</strong> — the domain write and its event row commit in one transaction; audit INSERT shares the transaction with the state UPDATE, so an optimistic-lock failure rolls back both.</li>
+    <li><strong>Vocabulary version witnesses</strong> on every row (<code>ruleset_version</code>, <code>parser_or_model_version</code>…) — "which rows predate the fix?" becomes a query, not archaeology.</li>
+    <li><strong>Migrations as design records</strong> — 312-line migrations that are ~70% argument, including "What this migration deliberately does NOT do."</li>
+  </ul>
+
+  <h3><span class="tag c">C</span><span class="tag b">B</span>Contracts</h3>
+  <p><strong>Confirmed:</strong> single write door; typed outcomes; executable recovery; optimistic concurrency where the 409 carries what you need to converge (<code>expected_base_digest</code>; the legal next-state list).</p>
+  <ul>
+    <li><strong>The fourth custody clause:</strong> every component declares <em>owns / may consume / may issue / <strong>must never become</strong></em>, with <code>forbidden_reads</code>/<code>forbidden_writes</code> — and the declarations are <strong>derived from the actual route surface</strong> by tooling, flagged for human confirmation. The named failure set: "coordinator → hidden user graph, broker → credential sink, runtime → tenant state holder, provider → identity authority, client → trusted state source."</li>
+    <li><strong>Constitutional CI:</strong> doctrine compiled into greps — "must not persist memory" enforced by grepping for ORM imports; illegal-states tables (illegal state → prevention mechanism → status → evidence).</li>
+    <li><strong>"Absent ≠ false"</strong> as a written consumer rule: additive-only contract versioning where absent fields mean <em>not declared</em>, never a positive assertion — plus an explicit <code>connections_declared</code> "I haven't told you" flag.</li>
+    <li><strong>PATCH tri-state:</strong> absent key ≠ explicit <code>null</code> ≠ <code>{}</code> — assembled key-by-key because a spread collapses them.</li>
+    <li><strong>Client pre-flight three-law:</strong> never looser than the server, never masks a server decision, counts code points — stricter-only is the one direction contracts may deviate.</li>
+  </ul>
+
+  <h3><span class="tag c">C</span><span class="tag b">B</span><span class="tag n">N</span>Qualification</h3>
+  <p><strong>Confirmed:</strong> qualification ≠ promotion — Infinite-Verse attestations carry <code>qualificationAuthority: "qualify-deployment.py"</code> with <code>promotionAuthority: null</code>, structurally separated, with mandatory <code>limitations[]</code>.</p>
+  <div class="law"><p>Promotion over partial coverage asserts more than was established. Full coverage or no promotion — "could not run" and "never ran" block exactly like "failed."</p><span class="who">Infinite-Verse promote-staging.py · the four-column verdict</span></div>
+  <ul>
+    <li><strong>The vacuous-pass gate:</strong> run every evaluator against a populated corpus and an empty one; a gate that can observe absence must not return green on the empty one. Behavioral, not syntactic. Measured impact: <strong>22 phantom passes</strong> before it existed. Half the gate roster ships a self-test twin proving it can fail.</li>
+    <li><strong>Delivery-time qualification</strong> (Titan Book): every citation in a generated response must resolve into the exact evidence set retrieved <em>for this request</em>; one unresolvable citation blocks the whole artifact — never partial. The adversarial challenger is <em>non-blocking</em>. And the <strong>decision is fingerprinted</strong>, not just the artifact — over <code>(namespace, policy_version, outcome, attempts, verified_ids)</code> — so a block is as auditable as a publish, and a policy change provably changes the fingerprint.</li>
+    <li><strong>Two-tier materiality:</strong> machine attachments are non-material (re-detection mints no revision); human-verified work may be <em>promoted to material</em>, which mints a revision — "making editorial work part of publication identity."</li>
+    <li><strong>Freshness as an obligation field:</strong> each obligation names its own invalidation event ("a redeploy invalidates it"). And <strong>qualify what is served</strong>, not what is configured — "config is not the artifact."</li>
+    <li><strong>Content-safe promotion:</strong> "Ancestry lies" — compare content trees, not commit graphs. A promotion-lock race exits <em>could-not-verify</em>, never <em>refused</em>.</li>
+    <li><strong>Prose gates:</strong> claim-reconciliation tables (✅/⚠️/❌/❓ per public claim, "anything not ✅ should not appear in copy") and the <strong>operational promise register</strong> — promises with no code identifier extracted into a machine-checked register, because "verifiable claims fail loudly; promises fail silently."</li>
+    <li><strong>Fabrication lint:</strong> "absent stays absent" — no invented defaults; a guess must be declared as a diagnostic. "This gate is the memory" of five hand-removed fabrications.</li>
+  </ul>
+
+  <h3><span class="tag c">C</span><span class="tag b">B</span>Projection</h3>
+  <p><strong>Confirmed:</strong> stored-vs-derived doctrine stated identically in both systems — "Measured, with provenance and confidence" vs "Regenerable. Never written back into the publication." Six-dimension projection profiles running in production registries. "The UI never reads tables. It requests a view."</p>
+  <ul>
+    <li><strong><code>computed_from</code> lineage:</strong> every projection row carries the digest-set it was computed from; <em>stale</em> is a join against append-only invalidation records; never-computed ≠ stale; stale-while-revalidate only if the marker stays visible. Composes with the design's fingerprint invalidation: fingerprints propagate invalidity, <code>computed_from</code> makes staleness <em>queryable</em>.</li>
+    <li><strong>Declared refresh policy per projection</strong> — eager (writer pays) / lazy-on-read (first reader pays) / scheduled (batch pays), lazy by default — and <strong>human-verification eagerness overrides every policy</strong>: "a human corrects a speaker attribution and the search document still serving the machine's guess an hour later squanders exactly the authority the two-tier model exists to protect."</li>
+    <li><strong>Supersession declared, never inferred</strong> — same scope, same detector class, explicit lineage; "timestamps must not be used to guess an ordering"; human documents never superseded by machine re-runs. <strong>Multiplicity is the default</strong> — disagreement stays visible.</li>
+    <li><strong>One merge function</strong> for reader and owner, with access as a parameter — "so a reader and an owner can never see two different merges of the same documents."</li>
+    <li><strong>Derivative classes, not encodings</strong> — manifests declare <code>thumbnail / preview / reader-medium / reader-large</code>; codecs live downstream so re-encoding can't change content identity.</li>
+  </ul>
+
+  <h3><span class="tag c">C</span><span class="tag n">N</span>Field — the design leads; two additions</h3>
+  <p>Both systems know <em>what</em> to measure (eight normalized page dimensions; a typed signals taxonomy) but neither has a live field — the design's Fundamental-based plane leads. Two additions:</p>
+  <ul>
+    <li><strong>The Library Substrate canvas</strong> is the Field plane's missing evidence layer, already working: 10 z-normalized dimensions, k-means shelves with cohesion, an <strong>evidence floor as a live, unit-labeled control</strong>, and <strong>name qualification</strong> — a curated shelf name applies only when its signature matches <em>and</em> cohesion clears 0.55; otherwise the refusal is rendered with the actual and required numbers and the cluster keeps its machine description ("negative space +1.42σ · dialogue density −0.88σ"). A standing <strong>expectation harness</strong> — "N of 12 assertions hold" — runs tests of <em>meaning</em> over live data. Observations are <strong>revision-scoped with named confounds</strong>: the same work measures differently per edition; "ink coverage must be normalised per revision before clustering."</li>
+    <li><strong>Signals governance</strong> (Titan): server-truth vs client-reported (advisory only) vs derived metrics with <strong>mandatory TTLs</strong> ("permanent behavioral histories are forbidden") — and a <strong>deliberately lossy boundary</strong>: only a coarse verdict crosses out of the Field, never a rich profile; the Field "does not know handles exist." Plus per-field <strong>truth types</strong> (<code>semantic / canonical / operational / abstain</code>) driving both retrieval and re-derivation policy.</li>
+  </ul>
+
+  <h3><span class="tag c">C</span><span class="tag b">B</span><span class="tag n">N</span>Observation</h3>
+  <ul>
+    <li><strong>Presence and transport are two axes</strong> — <code>HOT/ACTIVE/IDLE/STALE/OFFLINE/UNKNOWN</code> × <code>HEALTHY/DEGRADED/UNHEALTHY/OFFLINE/UNKNOWN</code> — with UNKNOWN <em>rendered</em>, not blank: "we don't know" ≠ "not here."</li>
+    <li><strong>Two-clock freshness:</strong> staleness computed against server-issued time with tracked skew — "every 'updated 3s ago' badge you'd otherwise ship is a lie on a skewed client."</li>
+    <li><strong>Presence is announced, not inferred:</strong> a runtime that starts healthy and never transitions is invisible — "'missing' and 'healthy' look identical" (measured: 23 configured, 1 event seen). Heartbeats fire on <em>edges</em> with auto-composed numeric reasons; <code>Degraded</code> is a serving state distinct from <code>Down</code>.</li>
+    <li><strong>Disclosed subscriber staleness:</strong> the event stream emits <code>lagged</code> when a subscriber falls behind — staleness as a protocol message, with catch-up-then-live as the canonical consumer shape.</li>
+    <li><strong>Absence with a reason code:</strong> every scalar is <code>{value, source, confidence, absent_reason}</code> (<code>NO_STORE / NO_WRITER / NOT_CAPTURED</code>); off-ladder observations render <code>(off-ladder)</code> and sort last, visibly. Three absence granularities — <code>empty</code> / <code>absent</code> / <code>error</code> — never merged; named-absence routes stay deep-linkable with <code>declared: false</code> distinguishable from designed absence.</li>
+  </ul>
+
+  <h3><span class="tag n">N</span>Entitlement — underspecified in the design</h3>
+  <p>Infinite-Verse treats entitlement as its own model, twice: <strong>section-level access classes</strong> — every semantic section is <code>open</code> (geometry, metrics, relation topology: "what shelves and similarity run on") or <code>entitled</code> (all text layers, anything "precise enough to reconstruct narrative"), enforced by one shared restriction function "so this route cannot become a second, laxer definition of what open means" — and the <strong>five-record independence rule</strong>: <code>ProviderAssertion ≠ ProviderTransaction ≠ EntitlementClaim ≠ EntitlementProjection ≠ LibraryEntry</code>, evidence flowing one way, claims never destructively merged, projections recomputable-from-claims with a fixture-replay gate. Plus <strong>404-not-403</strong>: absence copy must not confirm existence to someone probing.</p>
+</section>
+
+<!-- ======================= 4 ======================= -->
+<section id="s4">
+  <div class="sec-head"><span class="sec-num">4</span><h2>The realtime obligations, revisited</h2></div>
+
+  <h3>R1 — live co-authoring</h3>
+  <ul>
+    <li><strong>The divergence-first lane.</strong> Neither system uses CRDTs anywhere. GRP's answer — immutable typed nodes, 23 edge types, paths as projections over the DAG, sibling branches structurally invisible to each other, and <strong>merge as an explicit authored act</strong> in five modes (<code>synthesize / replace / augment / overlay / compare_then_merge</code>, with overlay "preserving each voice") — composes with append-only Canon in a way silent convergence cannot. Its <strong>traversable-relationship whitelist</strong> (only 6 of 23 edge types carry context; <code>contradicts</code> is recorded but does not propagate) separates edge <em>semantics</em> from edge <em>reachability</em>. Proposal: CRDT stays for micro-convergence inside a draft's free fields; branch/authored-merge handles document-scale divergence.</li>
+    <li><strong><code>changeCertainty</code>.</strong> Every write outcome carries <code>asserted / derived / indeterminate</code> alongside <code>changed</code> — and <code>indeterminate</code> must carry a retry bound to the <em>original</em> idempotency key. The difference between "your edit didn't save" and "we don't know whether it saved" — only the second has a safe remedy. Companion: <strong><code>receiptSurrogate</code></strong> — receipt-shaped responses that are not receipts travel under a different name, because "a client that constructs one has produced an audit record for an event it did not witness."</li>
+    <li><strong>Rendered-set-bounded deletion.</strong> Deletes are authorized only for records the actor was actually shown; omitting the set means "shown nothing," so nothing may be deleted. Shipped-bug provenance: a diff against a fetched-but-unshown envelope turned one mark into 1 add + 20 deletes, reported as success. And on a stale reorder: deliberately <em>no "try again"</em> — re-sending would discard the other writer's work.</li>
+  </ul>
+
+  <h3>R2 — live propagation</h3>
+  <div class="law"><p>Nothing happens without an emission. The audit log, the dashboard, the dead-letter queue, the SLA monitor, and downstream replicas are all subscribers to the same stream the system needed to emit for its own integrity.</p><span class="who">Titan Pipeline — the transport doctrine</span></div>
+  <p>The proven shape: transactional outbox as the sole emission source → LISTEN/NOTIFY fanout (horizontal-safe, no new infrastructure) → scoped subscriptions → <strong>backfill-burst-then-live</strong> on connect → reconnect with <code>last_event_id</code> replayed from the outbox ("no event loss" as an acceptance criterion) → <code>lagged</code> overflow disclosure. The client seam is a <code>Stream&lt;T&gt;</code> contract that mocks drive with scripted frames, "so realtime code paths run for real long before a socket gateway exists."</p>
+
+  <h3>R3 — live honesty</h3>
+  <p>Two-clock freshness; hysteresis with instrumentation; announce-on-start; UNKNOWN rendered; <strong><code>mockIsSilent</code> as a defect class</strong> — mock data present without a URL-discoverable override ("a screenshot of mock content was verified as 'live mode'"); staleness disclosures on frozen exports; and the compiled-corpus header that names its own payload hash, dirty flags, and STALE INPUT banner — the pattern for this project's own compiled context.</p>
+</section>
+
+<!-- ======================= 5 ======================= -->
+<section id="s5">
+  <div class="sec-head"><span class="sec-num">5</span><h2>Cross-cutting governance</h2></div>
+  <ul>
+    <li><strong>Gates provably able to fail, operationalized:</strong> vacuous-pass detection, self-test twins, gate-enumeration and invocation-coverage gates, and provenance stamps on every run — "a bare '29/29 full coverage' cannot be verified by anyone, including its author a day later."</li>
+    <li><strong>Deviation register with escalation:</strong> violations are permitted <em>if filed</em> — blast radius, rotation, reversal trigger, owner — and an unfiled violation auto-escalates one severity level.</li>
+    <li><strong>Assurance never aggregated:</strong> ten independent dimensions, generated from the registry so the table can't drift, with deliberately no score — "a percentage is how a table like this starts lying."</li>
+    <li><strong>The spec-health register:</strong> a tagged list (<code>GUESS / GAP / THIN / CAVEAT</code>) of exactly where a spec forces a builder to invent — "listed so the invention becomes a decision instead."</li>
+    <li><strong>Doc-vs-code drift typed:</strong> VIOLATION (code wrong) vs INACCURACY (docs wrong), with Built/Partial/Paper self-labels.</li>
+    <li><strong>A naming collision to resolve deliberately:</strong> Titan's "planes" (Record/Event/Workflow/Policy/Retrieval) overlap but differ from this design's six — a bindings entry should align or explicitly diverge; silence would be drift.</li>
+  </ul>
+</section>
+
+<!-- ======================= 6 ======================= -->
+<section id="s6">
+  <div class="sec-head"><span class="sec-num">6</span><h2>Proposed amendments</h2></div>
+  <p>Sixteen proposals, recorded for owner disposition — DESIGN.md is unchanged until you rule on them. Each names its source and target section.</p>
+  <div class="tablewrap"><table class="ledger">
+    <tr><th>#</th><th>Amendment</th><th>Target</th><th>Source</th></tr>
+    <tr><td><span class="prop-id">P1</span></td><td>Add an <strong>Admission plane</strong>: source-admission records with processing-authority sets, rights scope, retention, and the <code>metadata-only</code> outcome; comprehension asynchronous, never blocking readability</td><td class="mono">new §3.0</td><td class="mono">IV</td></tr>
+    <tr><td><span class="prop-id">P2</span></td><td>Specify <strong>Entitlement</strong>: section-level <code>open</code>/<code>entitled</code> classes with one shared restriction function; the five-record independence chain; 404-not-403</td><td class="mono">§10</td><td class="mono">IV</td></tr>
+    <tr><td><span class="prop-id">P3</span></td><td><strong>Four-column qualification verdicts</strong> — could-not-run and not-run block like failure; BLOCKED never collapses; vacuous-pass gate + self-tests required of every evaluator; freshness as per-obligation invalidation; qualify what is served</td><td class="mono">§6</td><td class="mono">IV · Titan</td></tr>
+    <tr><td><span class="prop-id">P4</span></td><td><strong><code>computed_from</code> + declared refresh policy</strong> on every projection; human-verification eagerness override; supersession declared never inferred; multiplicity default</td><td class="mono">§7</td><td class="mono">IV</td></tr>
+    <tr><td><span class="prop-id">P5</span></td><td><strong>Two-tier materiality</strong>: machine attachments non-material; human promotion mints revisions</td><td class="mono">§3, §6</td><td class="mono">IV</td></tr>
+    <tr><td><span class="prop-id">P6</span></td><td>Custody declarations gain <strong>"must never become"</strong> + forbidden reads/writes/calls, derived from actual surfaces; constitutional CI (doctrine-as-greps, illegal-states table)</td><td class="mono">§2</td><td class="mono">Titan</td></tr>
+    <tr><td><span class="prop-id">P7</span></td><td><strong>Divergence-first co-authoring lane</strong>: branch + authored merge (five modes) at document scale; traversable-edge whitelist; CRDT only for intra-draft free-field convergence</td><td class="mono">§8.5</td><td class="mono">Titan GRP</td></tr>
+    <tr><td><span class="prop-id">P8</span></td><td><strong><code>changeCertainty</code></strong> (asserted/derived/indeterminate) on every write outcome + <strong><code>receiptSurrogate</code></strong> for receipt-shaped non-receipts</td><td class="mono">§5</td><td class="mono">IV</td></tr>
+    <tr><td><span class="prop-id">P9</span></td><td><strong>Rendered-set-bounded destructive operations</strong> — deletes authorized only against what the actor was shown</td><td class="mono">§8.5</td><td class="mono">IV</td></tr>
+    <tr><td><span class="prop-id">P10</span></td><td><strong>Specify the R2 transport</strong>: transactional outbox as sole emission source; backfill-then-live; <code>last_event_id</code> replay; <code>lagged</code> disclosure; idempotency-conflict 422 on ingest</td><td class="mono">§8.1–8.3</td><td class="mono">Titan</td></tr>
+    <tr><td><span class="prop-id">P11</span></td><td><strong>Extend Observation</strong>: presence × transport axes; UNKNOWN rendered; hysteresis; announce-on-start; two-clock freshness; <code>absent_reason</code> codes; three absence granularities; named-absence routes</td><td class="mono">§8.4, §8.6</td><td class="mono">Titan · IV</td></tr>
+    <tr><td><span class="prop-id">P12</span></td><td><strong>Delivery-time qualification</strong> for generated/cited content: known-set citation gate (one failure blocks the artifact); non-blocking challenger; fingerprint the decision including policy version</td><td class="mono">§6, §11</td><td class="mono">Titan</td></tr>
+    <tr><td><span class="prop-id">P13</span></td><td><strong>Field evidence governance</strong>: surfaced evidence floor; name qualification with rendered refusals; expectation harness; revision-scoped observations; metric TTLs; lossy verdict-only boundary; truth-type classification</td><td class="mono">§9</td><td class="mono">IV · Titan</td></tr>
+    <tr><td><span class="prop-id">P14</span></td><td><strong>Identity discipline</strong>: mint ledger for retry-idempotent identity; scheme-version columns without DEFAULTs; documented hash-input selection; nothing detector-derived is identity-stable</td><td class="mono">§3.3</td><td class="mono">IV · GRP</td></tr>
+    <tr><td><span class="prop-id">P15</span></td><td><strong>Prose gates</strong>: claim-reconciliation table + operational-promise register in CI; spec-health register beside DESIGN.md; deviation register with auto-escalation</td><td class="mono">§10, §13</td><td class="mono">Titan · IV</td></tr>
+    <tr><td><span class="prop-id">P16</span></td><td><strong>Bindings entry</strong> resolving the Titan "plane" vocabulary collision — align or explicitly diverge</td><td class="mono">bindings</td><td class="mono">review §5</td></tr>
+  </table></div>
+
+  <h3>Candidate resource pins (also awaiting disposition)</h3>
+  <p><code>titan-systems</code> (SYSTEMS_CONTRACT, custody doctrine, fleet-contract/tracker, grounding-gate, canonical-serializer, event-runtime protocol) · <code>infinite-verse</code> (iPub docs 03/17/18/19/20/21, source admission, ingest contract, entitlement model, EQP deployment profile, promotion scripts, key migrations) · <code>grp</code> (node/edge/path types, lineage traversal, merge modes). All as <code>kind: reference</code> — informing, not normative. Infinite-Verse is dirty at review time; pin after commit.</p>
+</section>
+
+<!-- ======================= 7 ======================= -->
+<section id="s7">
+  <div class="sec-head"><span class="sec-num">7</span><h2>Generative, not directly applicable</h2></div>
+  <ul>
+    <li><span class="tag g">G</span><strong>Verified speculative decoding</strong> (FastBLT) — a cheap draft accepted only when an expensive verifier agrees, with proven baseline equivalence: the contract shape for optimistic local rendering with server verification. Its "Non-Claims" section is a doc pattern to steal regardless.</li>
+    <li><span class="tag g">G</span><strong>Eleven streaming renderers over one settling-tail model</strong> (<code>tokenProg</code>) — one progress abstraction, N presentation mappings: streaming visual style as a theme, not a rewrite.</li>
+    <li><span class="tag g">G</span><strong>The single-file offline projection</strong> — a whole app in one HTML file with a UUID→base64 manifest, blob rematerialization, and a strict direct-parent-only frame relay (root never sends upward, because <code>window.top</code> may be foreign) — a serious model for "export this space as one durable offline artifact," security model included, paired with an honest staleness disclosure when the export falls behind.</li>
+    <li><span class="tag g">G</span><strong>Trail decay as a freshness metaphor</strong> — recency rendered as literal visual fade.</li>
+    <li><span class="tag g">G</span><strong>Component contracts shipping their own prompt + specimen</strong> — every block type could carry its authoring prompt and a rendered specimen beside its schema.</li>
+    <li><span class="tag g">G</span><strong>IP-as-content</strong> — patents with lifecycles, coverage-gap flags, and drift detection when architecture changes without IP review: a worked example of a commitment-class content type. And <strong>"no calendar promises in doctrine"</strong> — roadmap artifacts carry dependency order only.</li>
+  </ul>
+</section>
+
+<!-- ======================= 8 ======================= -->
+<section id="s8">
+  <div class="sec-head"><span class="sec-num">8</span><h2>Maturity caveats</h2></div>
+  <p>Both systems' own accounting bounds every claim above. <strong>Titan:</strong> the planes directory doesn't exist; 1 of 32 runtimes carries its mandatory authority doc; the SEC-* policy suite is referenced everywhere and exists nowhere; one safety gate "fails open." What survives its own reality check — and is safest to copy — is the code-backed set: fleet-contract/tracker, grounding-gate, canonical-serializer, event-runtime, the boundary checker, manifest generation. <strong>Infinite-Verse:</strong> its 26-gap implementation register is scrupulous — no <code>work</code> table, manifests not served, the manifest hash not yet a hash; "members of twenty-two implemented conformantly end-to-end: still none." Borrow on the strength of the reasoning, not on scale evidence. <strong>This review</strong> is a single pass, <code>observed</code>, not adversarially verified.</p>
+</section>
+
+<footer class="footer">
+  <p><span class="mono">scms:review/titan-infinite-verse · SCMS-002 · declared · 2026-08-28</span></p>
+  <p>Canonical source: <span class="mono">semantic-cms/research/titan-infinite-verse-review.md</span>. Evidence: <span class="mono">records/evidence.jsonl · scms-evidence-002</span>. The design specification lives in its own artifact; nothing in it changes until the proposals above are dispositioned.</p>
+</footer>
+
+</div>

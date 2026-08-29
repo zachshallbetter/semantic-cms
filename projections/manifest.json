@@ -1,0 +1,29 @@
+{
+  "_comment": "Published-artifact projections of canonical sources. Never hand-edit a projection to fix its source; repair the source, re-render, republish, and update this manifest. check-projection-sync.py enforces the design-spec envelope hash against DESIGN.md.",
+  "projections": [
+    {
+      "file": "projections/design-spec.html",
+      "artifactUrl": "https://claude.ai/code/artifact/bcfb402c-49ad-4095-9eab-17b16deb671c",
+      "source": "DESIGN.md",
+      "sourceSha256": "39264296deec82b925418cf245b830c2d08ccb0346592d7d7a6c52ca2493a239",
+      "syncRule": "envelope source_hash in the HTML must equal sha256(DESIGN.md)",
+      "lastPublished": "2026-08-28"
+    },
+    {
+      "file": "projections/scms-002-review.html",
+      "artifactUrl": "https://claude.ai/code/artifact/3849d7f9-f319-4b85-afad-3a381da5801e",
+      "source": "research/titan-infinite-verse-review.md",
+      "sourceSha256": "dd48cf2a814f8b7bc13236fb1fe5d4335d8fa28292b550092adfe25d26939755",
+      "syncRule": "content-faithful projection; frozen unless the source review changes",
+      "lastPublished": "2026-08-28"
+    },
+    {
+      "file": "projections/scms-004-review.html",
+      "artifactUrl": "https://claude.ai/code/artifact/61191a6a-8293-46c4-bc5e-a6463b227494",
+      "source": "research/titan-node-observatory-tools-review.md",
+      "sourceSha256": "38f58327e67c7edb3e175ad20a735a76cd372eb42c5aad4867071dc94e60bd3a",
+      "syncRule": "content-faithful projection; includes addendum 6.1",
+      "lastPublished": "2026-08-28"
+    }
+  ]
+}

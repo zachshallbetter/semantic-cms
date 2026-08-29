@@ -1,0 +1,44 @@
+name: gates
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  gates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Compiled context reproducible (B1)
+        run: python3 scripts/gen-context.py --check
+
+      - name: Structural validation (C0)
+        run: python3 scripts/validate-bootstrap.py --check-context
+
+      - name: Records append-only — self-test (gate can fail)
+        run: python3 scripts/check-records-append-only.py --self-test
+
+      - name: Records append-only
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE="origin/${{ github.base_ref }}"
+          else
+            BASE="${{ github.event.before }}"
+            git cat-file -e "$BASE" 2>/dev/null || BASE="HEAD~1"
+          fi
+          python3 scripts/check-records-append-only.py --base "$BASE"
+
+      - name: Projection sync — self-test (gate can fail)
+        run: python3 scripts/check-projection-sync.py --self-test
+
+      - name: Projection sync (main only — a design-change PR legitimately drifts until republish)
+        if: github.ref == 'refs/heads/main'
+        run: python3 scripts/check-projection-sync.py
