@@ -1,0 +1,8 @@
+{
+  "name": "@scms/notify",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Subscription fan-out (SCMS-026): decides which subscribers are told of a change, from each subscriber's own accessible dependency set, with silence for those with nothing to hear. Transport, durability, and replay are out of scope (P10 pending). Zero runtime dependencies.",
+  "scripts": { "test": "node --test test/fanout.test.ts" }
+}
