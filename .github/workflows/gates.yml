@@ -96,6 +96,10 @@ jobs:
         run: node --test test/outbox.test.ts
         working-directory: impl/outbox
 
+      - name: Editor view-model (SCMS-040 · what an author sees)
+        run: node --test test/editor.test.ts
+        working-directory: impl/editor
+
       - name: End-to-end spine (SCMS-019 · the composed narrow path)
         run: node --test test/spine.test.ts
         working-directory: impl/e2e

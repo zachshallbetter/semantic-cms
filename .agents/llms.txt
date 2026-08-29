@@ -1,6 +1,6 @@
 # Project Context Index
 > Generator: 0.5.0
-> Source digest: `7aae019744dfea99e0343db6e3219f5f461836c28e40b60f7c724d0a7ccb851f`
+> Source digest: `b3e7a5fe663714539cc3ad7acd50e0466c8a68e17cc25983f47ab778ee0b0db6`
 
 > Generated projection. Canonical sources remain authoritative.
 
@@ -11,7 +11,7 @@
 - `.agents/skills/verify-outcome/SKILL.md` | 599 bytes | `331bcc9c5179eef021d9edf48e76bedcaaef6fed17f97e91c6d20a20f1199117`
 - `.formal-bootstrap.json` | 280 bytes | `7fa912028d7ee4ad128c719342834ec735a28354ad614a13cd9a91599d0e7c0d`
 - `.github/pull_request_template.md` | 1320 bytes | `008c2ede60632b5bbf6ffaa97a95b9972b3ca10804eb712afbf3c436f5651963`
-- `.github/workflows/gates.yml` | 4094 bytes | `453db45edc6198ccf2ba44d27bef2fa0bbb04033f58a996799f63b27418168bc`
+- `.github/workflows/gates.yml` | 4245 bytes | `415406d2ab33206daa41c684dc70900e3109f49f6a0e57a4d6b27d799c616a84`
 - `AGENTS.md` | 6896 bytes | `cd8cbb05cc70b8d03f69bf45026ff70fdee09a264bb29d0ac4bcb4b753685caf`
 - `CONTEXT_SOURCES.json` | 914 bytes | `1a0e0db180b061204f20b4a550f8b634fb2a220569592bd63fed13eb875dda0e`
 - `DESIGN.md` | 35290 bytes | `62603e98c3ac16360001e13396a40e54b671ce4545a5a9cd654f5257a56760c5`
@@ -20,7 +20,7 @@
 - `PROJECT_INTENT.md` | 6368 bytes | `b45adbb652c63b7327a77e70325204c2e8a50033f6d4d6f8e156e402683f4bf1`
 - `PROJECT_PROFILE.json` | 1921 bytes | `a2e82bd569b5897551b55fe21f099baf1d8f7217feaf1fc8e9d7e9d9239b1e81`
 - `README.md` | 1362 bytes | `a5bac3eb91bd706f53ca55b85963b16c2beaef8f42b9ab976f4e89567080cf1e`
-- `SPEC_HEALTH.md` | 12814 bytes | `ba11a1bafcfd1751ed01c19fd358a35df55546dd6c8221814b72667bc82b19a2`
+- `SPEC_HEALTH.md` | 13368 bytes | `ea0585a4078ef98b1e2b7bff5f0f04821b12c62890aa2f29bcf8e9fa5e2fa1fb`
 - `VERSION` | 6 bytes | `a0ad50640139a524f86591157145bf1d4674ea9c065bfea21558f0f7b04430c8`
 - `bindings/PROJECT_BINDINGS.yaml` | 13060 bytes | `7141154bb8cbcfd25e7a96003cb731538aae1a36c70888f401a12b29ff28d04e`
 - `contracts/README.md` | 387 bytes | `574c6218c0c957efb2eb3bfa4bf51fbf3ab0165cc81a033a249d4ba4cc2af78e`
@@ -57,6 +57,11 @@
 - `impl/contracts/test/contracts.test.ts` | 15875 bytes | `7a6a1b33d5eb8d3fec761e0034bece5dac7e08b45a57c9c7180eeaef78447e02`
 - `impl/e2e/package.json` | 459 bytes | `ab4bfaeb07ebf2642e4627e4c5935637798eff08151f210f277c18c76e4def26`
 - `impl/e2e/test/spine.test.ts` | 23101 bytes | `5a339efd504afe02ec7b1dee2dbf0ade32b6ed9630009d32d94d24a5719d3a26`
+- `impl/editor/package.json` | 449 bytes | `9ee677f704cea98277442d667f983a1a06c0e1f31e92b0e180fddd9dae4b5909`
+- `impl/editor/src/viewmodel.ts` | 9552 bytes | `aa9d4e4ca906af1b3e6787998e051c270a5b2c4d0edde2fb6c4543e723871a84`
+- `impl/editor/test/editor.test.ts` | 8234 bytes | `116946032ac4699a71c1e2c521950bead18836802526afeb2e61a9da0de911a4`
+- `impl/editor/web/build-data.ts` | 2885 bytes | `ad81518008937e59f5b3783a232358263f2835752ad24daa4ed885d77d9f6404`
+- `impl/editor/web/data.json` | 111726 bytes | `44fd224f2c476b9c473c9e535100f2120b9a6e7c2307f582bab4715b855936da`
 - `impl/merge/package.json` | 529 bytes | `9926da608e2d8699b2aa28e23c03e2ab9dad83bda18152e5f1a94f0fae723832`
 - `impl/merge/src/bounded.ts` | 6054 bytes | `49e462ecfc190f2a32cd88c92ff5dd8b35746319fc27cba88afb1dca4bb2830d`
 - `impl/merge/test/bounded.test.ts` | 5932 bytes | `bf7e7e68098207ecaf3194cfb8bf7d3dab0250436c565329bf7e2efc19042bf1`
@@ -97,6 +102,7 @@
 - `impl/surface-resolver/src/types.ts` | 5875 bytes | `4af426345fe367e3aea65aac416e8f480403b7922ec1b8e316599600ba3b40b2`
 - `impl/surface-resolver/test/resolver.test.ts` | 8990 bytes | `b045ec1258e3100b663f96134e032d0e7e85c491d66e896a655b877e534905f1`
 - `projections/design-spec.html` | 73902 bytes | `1af8b15cc7eefbd8c8cc05d291b1ade7eb12b63692b4fb6c0bebf21a4d916057`
+- `projections/editor-preview.html` | 137584 bytes | `0a7bbabfd9d12b4cfb3b21149462f999ef1bb359483892ff48590eb0eda70669`
 - `projections/manifest.json` | 2258 bytes | `809f3f4e5f99f6304f94d9400fd72752cc6b2e29f084085390ab71005f407cc9`
 - `projections/scms-002-review.html` | 42693 bytes | `ba08f5b9845e433af80804d65f067635342b388f77056d28ffb781980530fa38`
 - `projections/scms-004-review.html` | 32632 bytes | `abeb96a485acb33ff67b04e1eb8a6062049d9b1e3af0619eeedb57988fd910ae`
@@ -114,7 +120,7 @@
 - `scripts/check-records-append-only.py` | 2614 bytes | `05a1addaf9d271ca01475afef92f8b9fa9b466407bc10b2781b602674b1e541b`
 - `scripts/gen-context.py` | 7015 bytes | `4cab5cf07c5a69e7afd728844393958223495e3c01d339c0c8d6dbde8bb51322`
 - `scripts/validate-bootstrap.py` | 4120 bytes | `b3881974ac4d1259a0fa084c1aa80bfcdc1af4b3873f05c9057697e61bb1fb95`
-- `work/GRAPH.md` | 10839 bytes | `b021e510d70e3e0d5e64f7309d0080442754a88a97d5cb2f81eb127de0a614d4`
+- `work/GRAPH.md` | 10877 bytes | `39ac5537bf935addee270c2817dbb8f139ae098937039e34563544e209e255dd`
 - `work/SCMS-001.md` | 2155 bytes | `99c5bc6ed57cfd3b84eb813d1aadee333af8e706120003d34285cc6e20beffd9`
 - `work/SCMS-002.md` | 2769 bytes | `0fdb32c56443212ade358f5e06c6b45cb9be3b6b8a8bdaa1a7eec61264406a33`
 - `work/SCMS-003.md` | 1448 bytes | `b93754ca3c9f8e039abc83cfdb59c49f86f9dadf4f64da55fc76caf82fec6943`
@@ -144,3 +150,4 @@
 - `work/SCMS-030.md` | 3703 bytes | `d310ce1175be526a23c63b8ba95b6f7e189d2ee21ca36e82292c9ff7760fd018`
 - `work/SCMS-031.md` | 4257 bytes | `bdd6f5b740481337a939452cf8c7dc630d5196c1a9263a076e7b235800425d44`
 - `work/SCMS-032.md` | 3200 bytes | `c6b6cb23fc164e2765e21707b803c9a9e48e9aa830589a0f960fca4a49e151fe`
+- `work/SCMS-040.md` | 3510 bytes | `9ce946711da367dc945ad3d157bfbb17b053fe966d3ad6c92ef8c34a6376ea4a`

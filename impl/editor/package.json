@@ -1,0 +1,8 @@
+{
+  "name": "@scms/editor",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "The editor's view-model (SCMS-040, epic E12): what an author sees, as testable data — publish weighted differently from save, withheld operations carrying their reason, the chip reused rather than reimplemented, and migration findings surfaced where a person can resolve them.",
+  "scripts": { "test": "node --test test/editor.test.ts" }
+}
