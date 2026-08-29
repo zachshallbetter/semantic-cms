@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://semantic-cms.dev/schemas/scms/envelope.schema.json",
+  "title": "SCMS Envelope (scms-0.1)",
+  "description": "The interchange contract for a Canon record. Closed by design: an unknown field is a typed failure, never silently carried. The provenance freshness rule is encoded conditionally — only 'observed' may carry time bounds, and it must.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "subjectId", "compatibility", "provenance", "minimumAccess", "body", "state"],
+  "properties": {
+    "schemaVersion": { "const": "scms-0.1" },
+    "subjectId": { "type": "string", "minLength": 1 },
+    "compatibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["protocol", "subjectSchema"],
+      "properties": {
+        "protocol": { "type": "string" },
+        "subjectSchema": { "type": "string" }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "authority", "source"],
+      "properties": {
+        "kind": { "enum": ["declared", "derived", "observed", "system-certified"] },
+        "authority": { "type": "string", "minLength": 1 },
+        "source": { "type": "string", "minLength": 1 },
+        "sourceHash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "observedAt": { "type": "string", "format": "date-time" },
+        "expiresAt": { "type": "string", "format": "date-time" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "kind": { "const": "observed" } }, "required": ["kind"] },
+          "then": { "required": ["kind", "authority", "source", "observedAt", "expiresAt"] },
+          "else": {
+            "not": { "anyOf": [{ "required": ["observedAt"] }, { "required": ["expiresAt"] }] }
+          }
+        }
+      ]
+    },
+    "minimumAccess": { "enum": ["public", "member", "owner", "admin"] },
+    "body": {
+      "type": "object",
+      "required": ["kind"],
+      "properties": {
+        "kind": { "enum": ["Schema", "Content", "Relation", "Observation", "Topology"] }
+      }
+    },
+    "state": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["semanticMaturity", "evidenceState", "publicationState", "deliveryState"],
+      "description": "Four orthogonal axes. A single 'status' field is prohibited: it would collapse distinctions that mean different things.",
+      "properties": {
+        "semanticMaturity": { "enum": ["draft", "complete", "superseded"] },
+        "evidenceState": { "enum": ["unqualified", "qualified", "stale", "invalidated"] },
+        "publicationState": { "enum": ["unpublished", "promoted", "embargoed", "superseded", "revoked"] },
+        "deliveryState": { "enum": ["unpropagated", "propagating", "synchronized", "drifted"] }
+      }
+    },
+    "revision": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "supersedes": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+  }
+}

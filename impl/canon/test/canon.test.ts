@@ -178,3 +178,68 @@ test("freeze is explicit: no ambient time or randomness in canon sources", async
     assert.ok(!/Date\.now|Math\.random|new Date\(\)/.test(src), `${rel} references ambient time/randomness`);
   }
 });
+
+// ---------------------------------------------------------------------------
+// SCMS-024: the wire-protocol schema and golden canonicalization vectors.
+// ---------------------------------------------------------------------------
+
+const readJson = async (rel: string) => {
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  return JSON.parse(readFileSync(fileURLToPath(new URL(rel, import.meta.url)), "utf8"));
+};
+
+test("the interchange schema is closed and types hashes by pattern", async () => {
+  const schema = await readJson("../../../schemas/scms/envelope.schema.json");
+  assert.equal(schema.properties.schemaVersion.const, "scms-0.1");
+  assert.equal(schema.additionalProperties, false, "an unknown field must be a typed failure");
+  assert.equal(schema.properties.state.additionalProperties, false);
+  assert.equal(schema.properties.provenance.additionalProperties, false);
+  const HASH = "^sha256:[0-9a-f]{64}$";
+  assert.equal(schema.properties.revision.pattern, HASH);
+  assert.equal(schema.properties.supersedes.pattern, HASH);
+  assert.equal(schema.properties.provenance.properties.sourceHash.pattern, HASH);
+  // The four axes are present and no single `status` field exists.
+  assert.deepEqual(Object.keys(schema.properties.state.properties).sort(),
+    ["deliveryState", "evidenceState", "publicationState", "semanticMaturity"]);
+  assert.ok(!("status" in schema.properties), "a single status field is prohibited");
+});
+
+test("golden canonicalization vectors reproduce exactly", async () => {
+  const golden = await readJson("../../../schemas/scms/golden/canonicalization.json");
+  const positives = golden.vectors.filter((v: { negative?: boolean }) => !v.negative);
+  assert.ok(positives.length >= 4);
+  for (const v of positives) {
+    if (v.envelope) {
+      assert.equal(canonicalJson({ ...v.envelope, revision: undefined }), v.canonical, `${v.name}: canonical string`);
+      assert.equal(revisionHash(v.envelope), v.revision, `${v.name}: digest`);
+    } else {
+      assert.equal(canonicalJson(v.input), v.canonical, `${v.name}: canonical string`);
+    }
+  }
+});
+
+test("the negative vector fails, proving the golden check can fail", async () => {
+  const golden = await readJson("../../../schemas/scms/golden/canonicalization.json");
+  const negative = golden.vectors.find((v: { negative?: boolean }) => v.negative);
+  assert.ok(negative, "the suite must ship a negative vector");
+  assert.notEqual(revisionHash(negative.envelope), negative.revision,
+    "the recorded digest is deliberately wrong; a suite reporting it as passing checks nothing");
+});
+
+test("schema and runtime validator agree on the freshness rule", async () => {
+  const schema = await readJson("../../../schemas/scms/envelope.schema.json");
+  // The schema encodes it conditionally; the runtime validator encodes it in code.
+  // Agreement is asserted case-wise (no JSON-Schema library is available here).
+  const conditional = schema.properties.provenance.allOf[0];
+  assert.equal(conditional.if.properties.kind.const, "observed");
+  assert.ok(conditional.then.required.includes("observedAt") && conditional.then.required.includes("expiresAt"));
+  assert.ok(conditional.else.not.anyOf.some((a: { required: string[] }) => a.required.includes("observedAt")));
+
+  const obsMissing = article("o-x", { provenance: { kind: "observed", authority: "a", source: "s" } });
+  assert.ok(validateEnvelope(obsMissing).some((f) => f.code === "observed-missing-time-bounds"));
+  const declWithBounds = article("d-x", {
+    provenance: { kind: "declared", authority: "a", source: "s", expiresAt: "2026-08-28T00:00:00Z" },
+  });
+  assert.ok(validateEnvelope(declWithBounds).some((f) => f.code === "non-observed-carries-time-bounds"));
+});

@@ -1,0 +1,118 @@
+{
+  "_comment": "Golden canonicalization vectors for scms-0.1. Each positive vector records the exact canonical string and digest a conforming implementation must reproduce. The final vector is NEGATIVE: its recorded digest is deliberately wrong, so a check that cannot fail is detectable.",
+  "vectors": [
+    {
+      "name": "scalar-and-key-order",
+      "input": {
+        "b": 2,
+        "a": [
+          {
+            "y": 1,
+            "x": 0
+          }
+        ],
+        "z": null
+      },
+      "canonical": "{\"a\":[{\"x\":0,\"y\":1}],\"b\":2,\"z\":null}"
+    },
+    {
+      "name": "undefined-pruned",
+      "input": {
+        "kept": 1
+      },
+      "canonical": "{\"kept\":1}"
+    },
+    {
+      "name": "envelope-declared",
+      "envelope": {
+        "schemaVersion": "scms-0.1",
+        "subjectId": "art-1",
+        "compatibility": {
+          "protocol": "scms-0.1",
+          "subjectSchema": "article@1"
+        },
+        "provenance": {
+          "kind": "declared",
+          "authority": "project.owner",
+          "source": "golden"
+        },
+        "minimumAccess": "public",
+        "body": {
+          "kind": "Content",
+          "contentKind": "article",
+          "title": "T"
+        },
+        "state": {
+          "semanticMaturity": "complete",
+          "evidenceState": "unqualified",
+          "publicationState": "unpublished",
+          "deliveryState": "unpropagated"
+        }
+      },
+      "canonical": "{\"body\":{\"contentKind\":\"article\",\"kind\":\"Content\",\"title\":\"T\"},\"compatibility\":{\"protocol\":\"scms-0.1\",\"subjectSchema\":\"article@1\"},\"minimumAccess\":\"public\",\"provenance\":{\"authority\":\"project.owner\",\"kind\":\"declared\",\"source\":\"golden\"},\"schemaVersion\":\"scms-0.1\",\"state\":{\"deliveryState\":\"unpropagated\",\"evidenceState\":\"unqualified\",\"publicationState\":\"unpublished\",\"semanticMaturity\":\"complete\"},\"subjectId\":\"art-1\"}",
+      "revision": "sha256:51e8c9f810ac0f2bb77401d62c2fdf310b5941fc21a1f566f8bebf950a7de29b"
+    },
+    {
+      "name": "envelope-observed",
+      "envelope": {
+        "schemaVersion": "scms-0.1",
+        "subjectId": "presence-1",
+        "compatibility": {
+          "protocol": "scms-0.1",
+          "subjectSchema": "presence@1"
+        },
+        "provenance": {
+          "kind": "observed",
+          "authority": "runtime",
+          "source": "golden",
+          "observedAt": "2026-08-28T00:00:00Z",
+          "expiresAt": "2026-08-28T00:00:10Z"
+        },
+        "minimumAccess": "member",
+        "body": {
+          "kind": "Observation",
+          "metric": "presence"
+        },
+        "state": {
+          "semanticMaturity": "complete",
+          "evidenceState": "unqualified",
+          "publicationState": "unpublished",
+          "deliveryState": "unpropagated"
+        }
+      },
+      "canonical": "{\"body\":{\"kind\":\"Observation\",\"metric\":\"presence\"},\"compatibility\":{\"protocol\":\"scms-0.1\",\"subjectSchema\":\"presence@1\"},\"minimumAccess\":\"member\",\"provenance\":{\"authority\":\"runtime\",\"expiresAt\":\"2026-08-28T00:00:10Z\",\"kind\":\"observed\",\"observedAt\":\"2026-08-28T00:00:00Z\",\"source\":\"golden\"},\"schemaVersion\":\"scms-0.1\",\"state\":{\"deliveryState\":\"unpropagated\",\"evidenceState\":\"unqualified\",\"publicationState\":\"unpublished\",\"semanticMaturity\":\"complete\"},\"subjectId\":\"presence-1\"}",
+      "revision": "sha256:e900cdd31bed058d82c4557a6cbd84102e07521099277e19d05da2b6227be89b"
+    },
+    {
+      "name": "NEGATIVE-wrong-digest",
+      "negative": true,
+      "envelope": {
+        "schemaVersion": "scms-0.1",
+        "subjectId": "art-1",
+        "compatibility": {
+          "protocol": "scms-0.1",
+          "subjectSchema": "article@1"
+        },
+        "provenance": {
+          "kind": "declared",
+          "authority": "project.owner",
+          "source": "golden"
+        },
+        "minimumAccess": "public",
+        "body": {
+          "kind": "Content",
+          "contentKind": "article",
+          "title": "T"
+        },
+        "state": {
+          "semanticMaturity": "complete",
+          "evidenceState": "unqualified",
+          "publicationState": "unpublished",
+          "deliveryState": "unpropagated"
+        }
+      },
+      "revision": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "note": "Deliberately wrong. A vector suite that reports this as passing is not checking anything."
+    }
+  ]
+}

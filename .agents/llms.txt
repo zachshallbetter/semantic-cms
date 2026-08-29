@@ -1,6 +1,6 @@
 # Project Context Index
 > Generator: 0.5.0
-> Source digest: `6f21647e5bb4b1140f30e781808de83ce9b6a3f9eaa906b7f1f15a9c9612fad6`
+> Source digest: `4b97d43f06046b721274d7bfd906d1bdd2acf7fad5ba0865ca740f4cba058085`
 
 > Generated projection. Canonical sources remain authoritative.
 
@@ -20,7 +20,7 @@
 - `PROJECT_INTENT.md` | 6368 bytes | `b45adbb652c63b7327a77e70325204c2e8a50033f6d4d6f8e156e402683f4bf1`
 - `PROJECT_PROFILE.json` | 1921 bytes | `a2e82bd569b5897551b55fe21f099baf1d8f7217feaf1fc8e9d7e9d9239b1e81`
 - `README.md` | 1362 bytes | `a5bac3eb91bd706f53ca55b85963b16c2beaef8f42b9ab976f4e89567080cf1e`
-- `SPEC_HEALTH.md` | 6319 bytes | `f6b4d996c4f4e94d298be24f71074f0cfe68cc7d8f6c84435201a74924061077`
+- `SPEC_HEALTH.md` | 6498 bytes | `143bd274c73a33146e3156e15b9b50c27b6f5b39d7684067585cad0bf2733c3b`
 - `VERSION` | 6 bytes | `a0ad50640139a524f86591157145bf1d4674ea9c065bfea21558f0f7b04430c8`
 - `bindings/PROJECT_BINDINGS.yaml` | 13060 bytes | `7141154bb8cbcfd25e7a96003cb731538aae1a36c70888f401a12b29ff28d04e`
 - `contracts/README.md` | 387 bytes | `574c6218c0c957efb2eb3bfa4bf51fbf3ab0165cc81a033a249d4ba4cc2af78e`
@@ -46,7 +46,7 @@
 - `impl/canon/src/envelope.ts` | 5142 bytes | `e796d7c89dad9e020c10ae22a4f0d1b6d05dfbbc63e9f2676b7a920e21cc9361`
 - `impl/canon/src/freeze.ts` | 3307 bytes | `0a1fef995a284828820af1829c51cd9ea60d8eb13bceae8b5d0454422c221420`
 - `impl/canon/src/journal.ts` | 6387 bytes | `3e40b551e64a1383e9e0bb8adc9fd187dcb973d9ad228a391b770fc929fd3d71`
-- `impl/canon/test/canon.test.ts` | 9201 bytes | `90cda58cba57cf78113bf0111b0695343aad69703cd8b61ef630907ad5596c18`
+- `impl/canon/test/canon.test.ts` | 12978 bytes | `e871a5d04c225adf094ed3c8902b1c57c1f0c60463f78994a617037ec3d09dab`
 - `impl/contracts/package.json` | 523 bytes | `6d406f716f087cd21aa5d5577f48568fd7d53143a16d679d1321957c64ebb7b5`
 - `impl/contracts/src/icp.ts` | 3014 bytes | `259b882a9924277ded341bd8512a1055e93089a613d0ab3926e92effddd08ed7`
 - `impl/contracts/src/runtime.ts` | 8766 bytes | `ebdb0fc61bc7dbbf7dfa5fb85ab3b282bd2aa668ee23b5120fae912c6290039e`
@@ -90,13 +90,15 @@
 - `schemas/agent-message.schema.json` | 2269 bytes | `88c346d6ce2cf34d3bba9f35e2ef54e77776707b125b22bbc4ecc910ac33bedc`
 - `schemas/context-lock.schema.json` | 2526 bytes | `395e44e6dcc74b3169463d96e5db4836befdd1cae8ffc19857645c4e8ea5993b`
 - `schemas/formal-resource-manifest.schema.json` | 1676 bytes | `465c3eae445d530087e1149d7f14e267400b32df00fa5b506e0b3af278a9b928`
+- `schemas/scms/envelope.schema.json` | 3053 bytes | `ee103a203c4b09cb8770ed9ab67930f9c8c5c03504cd9afb59e1e6252806fa77`
+- `schemas/scms/golden/canonicalization.json` | 4487 bytes | `92a7f51bdac1aaeb503cd9fd1c65af38c43531bdd6d38bac9e140eb71d7bf8fa`
 - `schemas/work-disposition.schema.json` | 2062 bytes | `a0426bb2095e37891627c5b3de78266863522bf36e5305dc0ba525e9617d2987`
 - `scripts/check-canon-write-boundary.py` | 3233 bytes | `b9873a1a0d1e923db2801fed29d2e5c8fc8bfebb47202f618dca0351e663f66c`
 - `scripts/check-projection-sync.py` | 3585 bytes | `cceb026b05da54d231f6bbb2da42ff1cc9cb4fb785c3218631653105e61b1c06`
 - `scripts/check-records-append-only.py` | 2614 bytes | `05a1addaf9d271ca01475afef92f8b9fa9b466407bc10b2781b602674b1e541b`
 - `scripts/gen-context.py` | 7015 bytes | `4cab5cf07c5a69e7afd728844393958223495e3c01d339c0c8d6dbde8bb51322`
 - `scripts/validate-bootstrap.py` | 4120 bytes | `b3881974ac4d1259a0fa084c1aa80bfcdc1af4b3873f05c9057697e61bb1fb95`
-- `work/GRAPH.md` | 6895 bytes | `451865db640ff8746666c26d95091111175fc8c7b367c4214ef9b022add31bf4`
+- `work/GRAPH.md` | 7070 bytes | `4295937f1147397c3cab0cb37ab375dde5666e000f6a4677f992584c41b9934b`
 - `work/SCMS-001.md` | 2155 bytes | `99c5bc6ed57cfd3b84eb813d1aadee333af8e706120003d34285cc6e20beffd9`
 - `work/SCMS-002.md` | 2769 bytes | `0fdb32c56443212ade358f5e06c6b45cb9be3b6b8a8bdaa1a7eec61264406a33`
 - `work/SCMS-003.md` | 1448 bytes | `b93754ca3c9f8e039abc83cfdb59c49f86f9dadf4f64da55fc76caf82fec6943`
@@ -118,3 +120,4 @@
 - `work/SCMS-021.md` | 3831 bytes | `1271ff7d0bb6e5313ee422a7a54048d71e7c305343de896b94f11fac42bc08a2`
 - `work/SCMS-022.md` | 2582 bytes | `b50e8d577ebdf015d703bf5049970950c73f75aaf7cce6c4fa4e125af73d3281`
 - `work/SCMS-023.md` | 2642 bytes | `561a68746db0ef1896ca4651da34c3cd5a472635ba6f7528849a1635b1136555`
+- `work/SCMS-024.md` | 2768 bytes | `a9041c5640185342eede80b7bed4001a920c7ab70c39c79d5b29dea9acee3236`

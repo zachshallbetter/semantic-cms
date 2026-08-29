@@ -1,6 +1,6 @@
 # PROJECT COMPILED CONTEXT
 Generator: 0.5.0
-Source digest: 6f21647e5bb4b1140f30e781808de83ce9b6a3f9eaa906b7f1f15a9c9612fad6
+Source digest: 4b97d43f06046b721274d7bfd906d1bdd2acf7fad5ba0865ca740f4cba058085
 
 > Generated projection. Canonical sources remain authoritative.
 
@@ -1409,7 +1409,7 @@ decision record) — never by deletion.
 | SH-9 | THIN | Import/migration | No pipeline from existing corpora (zachshallbetter.com archive, markdown trees) into Canon; the Admission plane (P1) is pending. | First import: the zach-core archive (pending rcp-001 confirmation) through the Admission record shape; markdown ingest canonicalized via the round-trip core (P24). |
 | SH-10 | THIN | Backup & recovery | No RPO/RTO; no operational promises exist yet, so the promise register (P15) has nothing to check. | Declare with the E1 slice: nightly logical backup, RPO 24h → 1h post-MVP, RTO 4h; each promise entered in the register with its verifying artifact. |
 | SH-11 | CAVEAT | GPL boundary | open-knowledge consumed as a service (P25) — process-boundary isolation believed sufficient; not yet reviewed by counsel. | Keep strict service boundary (no linking, no vendoring); counsel review before any distribution of a combined work. |
-| SH-12 | GUESS | Wire protocol concretes | `scms-0.1` is named but no schema files exist for the envelope/bodies; JCS+SHA-256 named but no golden vectors. | E1 slice deliverable: `schemas/scms/` JSON Schemas (`additionalProperties: false`, hash-pattern-typed) + golden canonicalization vectors incl. a negative vector. |
+| ~~SH-12~~ | **RESOLVED** | Wire protocol concretes | *Closed by SCMS-024:* `schemas/scms/envelope.schema.json` (closed, hash-pattern-typed, freshness rule encoded conditionally) and `schemas/scms/golden/canonicalization.json` (4 positive vectors + 1 negative proving the check can fail). Residual limitation, recorded not hidden: no JSON-Schema library is available under the zero-dependency policy, so the schema document is not meta-validated and schema/runtime agreement is asserted case-wise. |
 
 ## Claim register
 
@@ -3734,6 +3734,71 @@ test("freeze is explicit: no ambient time or randomness in canon sources", async
     const src = readFileSync(fileURLToPath(new URL(rel, import.meta.url)), "utf8");
     assert.ok(!/Date\.now|Math\.random|new Date\(\)/.test(src), `${rel} references ambient time/randomness`);
   }
+});
+
+// ---------------------------------------------------------------------------
+// SCMS-024: the wire-protocol schema and golden canonicalization vectors.
+// ---------------------------------------------------------------------------
+
+const readJson = async (rel: string) => {
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  return JSON.parse(readFileSync(fileURLToPath(new URL(rel, import.meta.url)), "utf8"));
+};
+
+test("the interchange schema is closed and types hashes by pattern", async () => {
+  const schema = await readJson("../../../schemas/scms/envelope.schema.json");
+  assert.equal(schema.properties.schemaVersion.const, "scms-0.1");
+  assert.equal(schema.additionalProperties, false, "an unknown field must be a typed failure");
+  assert.equal(schema.properties.state.additionalProperties, false);
+  assert.equal(schema.properties.provenance.additionalProperties, false);
+  const HASH = "^sha256:[0-9a-f]{64}$";
+  assert.equal(schema.properties.revision.pattern, HASH);
+  assert.equal(schema.properties.supersedes.pattern, HASH);
+  assert.equal(schema.properties.provenance.properties.sourceHash.pattern, HASH);
+  // The four axes are present and no single `status` field exists.
+  assert.deepEqual(Object.keys(schema.properties.state.properties).sort(),
+    ["deliveryState", "evidenceState", "publicationState", "semanticMaturity"]);
+  assert.ok(!("status" in schema.properties), "a single status field is prohibited");
+});
+
+test("golden canonicalization vectors reproduce exactly", async () => {
+  const golden = await readJson("../../../schemas/scms/golden/canonicalization.json");
+  const positives = golden.vectors.filter((v: { negative?: boolean }) => !v.negative);
+  assert.ok(positives.length >= 4);
+  for (const v of positives) {
+    if (v.envelope) {
+      assert.equal(canonicalJson({ ...v.envelope, revision: undefined }), v.canonical, `${v.name}: canonical string`);
+      assert.equal(revisionHash(v.envelope), v.revision, `${v.name}: digest`);
+    } else {
+      assert.equal(canonicalJson(v.input), v.canonical, `${v.name}: canonical string`);
+    }
+  }
+});
+
+test("the negative vector fails, proving the golden check can fail", async () => {
+  const golden = await readJson("../../../schemas/scms/golden/canonicalization.json");
+  const negative = golden.vectors.find((v: { negative?: boolean }) => v.negative);
+  assert.ok(negative, "the suite must ship a negative vector");
+  assert.notEqual(revisionHash(negative.envelope), negative.revision,
+    "the recorded digest is deliberately wrong; a suite reporting it as passing checks nothing");
+});
+
+test("schema and runtime validator agree on the freshness rule", async () => {
+  const schema = await readJson("../../../schemas/scms/envelope.schema.json");
+  // The schema encodes it conditionally; the runtime validator encodes it in code.
+  // Agreement is asserted case-wise (no JSON-Schema library is available here).
+  const conditional = schema.properties.provenance.allOf[0];
+  assert.equal(conditional.if.properties.kind.const, "observed");
+  assert.ok(conditional.then.required.includes("observedAt") && conditional.then.required.includes("expiresAt"));
+  assert.ok(conditional.else.not.anyOf.some((a: { required: string[] }) => a.required.includes("observedAt")));
+
+  const obsMissing = article("o-x", { provenance: { kind: "observed", authority: "a", source: "s" } });
+  assert.ok(validateEnvelope(obsMissing).some((f) => f.code === "observed-missing-time-bounds"));
+  const declWithBounds = article("d-x", {
+    provenance: { kind: "declared", authority: "a", source: "s", expiresAt: "2026-08-28T00:00:00Z" },
+  });
+  assert.ok(validateEnvelope(declWithBounds).some((f) => f.code === "non-observed-carries-time-bounds"));
 });
 
 
@@ -10575,6 +10640,202 @@ FILE: schemas/formal-resource-manifest.schema.json
 
 
 ========================================================================
+FILE: schemas/scms/envelope.schema.json
+========================================================================
+
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://semantic-cms.dev/schemas/scms/envelope.schema.json",
+  "title": "SCMS Envelope (scms-0.1)",
+  "description": "The interchange contract for a Canon record. Closed by design: an unknown field is a typed failure, never silently carried. The provenance freshness rule is encoded conditionally — only 'observed' may carry time bounds, and it must.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "subjectId", "compatibility", "provenance", "minimumAccess", "body", "state"],
+  "properties": {
+    "schemaVersion": { "const": "scms-0.1" },
+    "subjectId": { "type": "string", "minLength": 1 },
+    "compatibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["protocol", "subjectSchema"],
+      "properties": {
+        "protocol": { "type": "string" },
+        "subjectSchema": { "type": "string" }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "authority", "source"],
+      "properties": {
+        "kind": { "enum": ["declared", "derived", "observed", "system-certified"] },
+        "authority": { "type": "string", "minLength": 1 },
+        "source": { "type": "string", "minLength": 1 },
+        "sourceHash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "observedAt": { "type": "string", "format": "date-time" },
+        "expiresAt": { "type": "string", "format": "date-time" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "kind": { "const": "observed" } }, "required": ["kind"] },
+          "then": { "required": ["kind", "authority", "source", "observedAt", "expiresAt"] },
+          "else": {
+            "not": { "anyOf": [{ "required": ["observedAt"] }, { "required": ["expiresAt"] }] }
+          }
+        }
+      ]
+    },
+    "minimumAccess": { "enum": ["public", "member", "owner", "admin"] },
+    "body": {
+      "type": "object",
+      "required": ["kind"],
+      "properties": {
+        "kind": { "enum": ["Schema", "Content", "Relation", "Observation", "Topology"] }
+      }
+    },
+    "state": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["semanticMaturity", "evidenceState", "publicationState", "deliveryState"],
+      "description": "Four orthogonal axes. A single 'status' field is prohibited: it would collapse distinctions that mean different things.",
+      "properties": {
+        "semanticMaturity": { "enum": ["draft", "complete", "superseded"] },
+        "evidenceState": { "enum": ["unqualified", "qualified", "stale", "invalidated"] },
+        "publicationState": { "enum": ["unpublished", "promoted", "embargoed", "superseded", "revoked"] },
+        "deliveryState": { "enum": ["unpropagated", "propagating", "synchronized", "drifted"] }
+      }
+    },
+    "revision": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "supersedes": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+  }
+}
+
+
+========================================================================
+FILE: schemas/scms/golden/canonicalization.json
+========================================================================
+
+{
+  "_comment": "Golden canonicalization vectors for scms-0.1. Each positive vector records the exact canonical string and digest a conforming implementation must reproduce. The final vector is NEGATIVE: its recorded digest is deliberately wrong, so a check that cannot fail is detectable.",
+  "vectors": [
+    {
+      "name": "scalar-and-key-order",
+      "input": {
+        "b": 2,
+        "a": [
+          {
+            "y": 1,
+            "x": 0
+          }
+        ],
+        "z": null
+      },
+      "canonical": "{\"a\":[{\"x\":0,\"y\":1}],\"b\":2,\"z\":null}"
+    },
+    {
+      "name": "undefined-pruned",
+      "input": {
+        "kept": 1
+      },
+      "canonical": "{\"kept\":1}"
+    },
+    {
+      "name": "envelope-declared",
+      "envelope": {
+        "schemaVersion": "scms-0.1",
+        "subjectId": "art-1",
+        "compatibility": {
+          "protocol": "scms-0.1",
+          "subjectSchema": "article@1"
+        },
+        "provenance": {
+          "kind": "declared",
+          "authority": "project.owner",
+          "source": "golden"
+        },
+        "minimumAccess": "public",
+        "body": {
+          "kind": "Content",
+          "contentKind": "article",
+          "title": "T"
+        },
+        "state": {
+          "semanticMaturity": "complete",
+          "evidenceState": "unqualified",
+          "publicationState": "unpublished",
+          "deliveryState": "unpropagated"
+        }
+      },
+      "canonical": "{\"body\":{\"contentKind\":\"article\",\"kind\":\"Content\",\"title\":\"T\"},\"compatibility\":{\"protocol\":\"scms-0.1\",\"subjectSchema\":\"article@1\"},\"minimumAccess\":\"public\",\"provenance\":{\"authority\":\"project.owner\",\"kind\":\"declared\",\"source\":\"golden\"},\"schemaVersion\":\"scms-0.1\",\"state\":{\"deliveryState\":\"unpropagated\",\"evidenceState\":\"unqualified\",\"publicationState\":\"unpublished\",\"semanticMaturity\":\"complete\"},\"subjectId\":\"art-1\"}",
+      "revision": "sha256:51e8c9f810ac0f2bb77401d62c2fdf310b5941fc21a1f566f8bebf950a7de29b"
+    },
+    {
+      "name": "envelope-observed",
+      "envelope": {
+        "schemaVersion": "scms-0.1",
+        "subjectId": "presence-1",
+        "compatibility": {
+          "protocol": "scms-0.1",
+          "subjectSchema": "presence@1"
+        },
+        "provenance": {
+          "kind": "observed",
+          "authority": "runtime",
+          "source": "golden",
+          "observedAt": "2026-08-28T00:00:00Z",
+          "expiresAt": "2026-08-28T00:00:10Z"
+        },
+        "minimumAccess": "member",
+        "body": {
+          "kind": "Observation",
+          "metric": "presence"
+        },
+        "state": {
+          "semanticMaturity": "complete",
+          "evidenceState": "unqualified",
+          "publicationState": "unpublished",
+          "deliveryState": "unpropagated"
+        }
+      },
+      "canonical": "{\"body\":{\"kind\":\"Observation\",\"metric\":\"presence\"},\"compatibility\":{\"protocol\":\"scms-0.1\",\"subjectSchema\":\"presence@1\"},\"minimumAccess\":\"member\",\"provenance\":{\"authority\":\"runtime\",\"expiresAt\":\"2026-08-28T00:00:10Z\",\"kind\":\"observed\",\"observedAt\":\"2026-08-28T00:00:00Z\",\"source\":\"golden\"},\"schemaVersion\":\"scms-0.1\",\"state\":{\"deliveryState\":\"unpropagated\",\"evidenceState\":\"unqualified\",\"publicationState\":\"unpublished\",\"semanticMaturity\":\"complete\"},\"subjectId\":\"presence-1\"}",
+      "revision": "sha256:e900cdd31bed058d82c4557a6cbd84102e07521099277e19d05da2b6227be89b"
+    },
+    {
+      "name": "NEGATIVE-wrong-digest",
+      "negative": true,
+      "envelope": {
+        "schemaVersion": "scms-0.1",
+        "subjectId": "art-1",
+        "compatibility": {
+          "protocol": "scms-0.1",
+          "subjectSchema": "article@1"
+        },
+        "provenance": {
+          "kind": "declared",
+          "authority": "project.owner",
+          "source": "golden"
+        },
+        "minimumAccess": "public",
+        "body": {
+          "kind": "Content",
+          "contentKind": "article",
+          "title": "T"
+        },
+        "state": {
+          "semanticMaturity": "complete",
+          "evidenceState": "unqualified",
+          "publicationState": "unpublished",
+          "deliveryState": "unpropagated"
+        }
+      },
+      "revision": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "note": "Deliberately wrong. A vector suite that reports this as passing is not checking anything."
+    }
+  ]
+}
+
+
+========================================================================
 FILE: schemas/work-disposition.schema.json
 ========================================================================
 
@@ -11372,6 +11633,7 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-021 | The bounded merge lane: merge, then validate (§14 step 3, partial) | E1 | Done — awaiting owner verification | records/evidence.jsonl · scms-evidence-021 |
 | SCMS-022 | Declared schemas become load-bearing in the write path | E1 | Done — awaiting owner verification | records/evidence.jsonl · scms-evidence-022 |
 | SCMS-023 | Constitutional gate: no Canon mutation outside the contract runtime | E1 | Done — awaiting owner verification | records/evidence.jsonl · scms-evidence-023 |
+| SCMS-024 | Wire-protocol schema + golden canonicalization vectors (closes SH-12) | E1 | Done — awaiting owner verification | records/evidence.jsonl · scms-evidence-024 |
 | SCMS-018 | R1 live co-authoring — **free lane only** (convergent merge) | E1 | **Blocked** — awaiting disposition of P7/P22 on PR #28 | records/blockers · scms-blocker-001 |
 | SCMS-010 | S4 cross-domain portability: a materially unrelated project (outside this repository, per owner doctrine 2026-08-28) consumes @semantic-systems/surface unmodified | external | Backlog — executes outside scms; scms records the conformance result | — |
 
@@ -12668,4 +12930,56 @@ and the same family as the two defects just closed (SCMS-020, SCMS-022).
 
 **Done — Implemented + Tested; the §5 rule now has a checker that can fail.**
 Evidence: records/evidence.jsonl · scms-evidence-023. Claim released.
+
+
+========================================================================
+FILE: work/SCMS-024.md
+========================================================================
+
+# SCMS-024 — Wire-protocol schema and golden canonicalization vectors (closes SH-12)
+
+**Intent ref:** PROJECT_INTENT.md · **Epic:** E1 · **Closes:** SPEC_HEALTH SH-12
+**Assigned by:** coordinator goal, on re-deriving the frontier.
+**Effect class:** E1
+**State:** Ready → Claimed → Done (closing state at bottom)
+
+## The gap
+
+SPEC_HEALTH SH-12 names the E1 slice deliverable: *"`schemas/scms/` JSON Schemas
+(`additionalProperties: false`, hash-pattern-typed) + golden canonicalization vectors incl. a
+negative vector."* SCMS-011 delivered the envelope as TypeScript types and a runtime validator,
+but no interchange schema and no goldens. The wire protocol `scms-0.1` is named in every
+envelope and defined nowhere a second implementation could read.
+
+## Ready predicate
+
+- **Scope:** (1) `schemas/scms/envelope.schema.json` — the interchange contract, closed
+  (`additionalProperties: false`), hash-pattern-typed (`^sha256:[0-9a-f]{64}$`), encoding the
+  provenance freshness rule conditionally; (2) `schemas/scms/golden/canonicalization.json` —
+  input → canonical string → digest vectors, **including a negative vector** whose recorded
+  digest is deliberately wrong; (3) a vector suite asserting the goldens reproduce, the
+  negative one fails, and the schema and the runtime validator agree on a shared case set.
+- **Exclusions:** no JSON-Schema *library* (zero-dependency policy) — full meta-validation of
+  the schema is not performed and the limitation is recorded; no new envelope fields; no
+  DESIGN.md change.
+- **Dependencies (satisfied):** SCMS-011 envelope + canonicalJson + revisionHash.
+- **Acceptance:**
+  1. The schema parses, is closed, and types hashes by pattern.
+  2. Every positive golden reproduces its canonical string and digest exactly.
+  3. The negative golden **fails** as recorded — proving the vector check can fail.
+  4. Schema and runtime validator agree on a shared valid/invalid case set (the freshness rule
+     in particular).
+  5. Canonicalization is order-independent and prunes undefined, per the goldens.
+- **Evidence requirements:** `node --test` in scms-evidence-024, **Implemented + Tested**.
+  NOT established: meta-validation of the schema document; cross-language reproduction.
+- **Target:** `schemas/scms/`, `impl/canon/test/`, `.github/workflows/gates.yml`, `records/*`,
+  `work/GRAPH.md`, `SPEC_HEALTH.md` (SH-12 resolved).
+- **Stop conditions:** (a) agreement would need a schema library → record the limitation and
+  assert agreement case-wise instead; (b) a golden cannot be reproduced → stop, that is a
+  canonicalization defect, not a vector problem.
+
+## Closing state
+
+**Done — Implemented + Tested; SH-12 closed.**
+Evidence: records/evidence.jsonl · scms-evidence-024. Claim released.
 
