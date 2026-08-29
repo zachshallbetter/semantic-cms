@@ -1,6 +1,6 @@
 # Project Context Index
 > Generator: 0.5.0
-> Source digest: `f0d51efec6eceee394d8d7187664686b7d8be5ded9eb0ca013b55c68b49efa5a`
+> Source digest: `9bcb4b3f0823b84a18513384cf6b81ad2ee1a2b13495554a9ee371b9883d49a5`
 
 > Generated projection. Canonical sources remain authoritative.
 
@@ -41,6 +41,15 @@
 - `docs/NEGATIVE_KNOWLEDGE.md` | 1005 bytes | `cb1e5e5b1f3748fc9f879ca9e5e3914a043c44c707ee082dc3fee1878a79889f`
 - `docs/RECOVERY.md` | 1115 bytes | `b084f0a4bbad4012bd9d2525a07239e38ff4f563bbdefbd8491518fec14882e9`
 - `docs/SKILLS_INDEX.md` | 763 bytes | `05da80f8e5564e351603f467963cf5820c5ddaf78187566c2da7d1abae2754a5`
+- `docs/UI/01-SEMANTIC-CMS.md` | 5152 bytes | `1d0e4dfd01fc33d224d0f57cb45c4bb82d61b1de0e6971cc0f82538a07ba5ab2`
+- `docs/UI/02-MENTAL-MODEL.md` | 1986 bytes | `a63caba2b79118138fd53d2e372a9f93c284ca9be4b6a54311fb22d3c817a081`
+- `docs/UI/03-IN-USE.md` | 2712 bytes | `1d0fe92ba08b7265300711c10e527e8698c1ec9ff158f28b99b867c94e497946`
+- `docs/UI/04-UNIQUENESS.md` | 2293 bytes | `bb5fa37d1d65501fa71c2b4d16b5dc15f803d365b6bc29de05fd06c6a30584ea`
+- `docs/UI/05-UI-VISUAL-LANGUAGE.md` | 3884 bytes | `31a1f19c5e896e2ec206b72ed8f489679d00d440e041d8518f06fd5f37c2bf47`
+- `docs/UI/06-INTERACTION-PRINCIPLES.md` | 1950 bytes | `aa6259cd98df41cd5e6eed47eba933fd82e1c737f0609b8636824844762b71c3`
+- `docs/UI/07-CANON-SURFACE-EXPRESSION-INTERACTION.md` | 2041 bytes | `c303e8894664bb5a7dad310e2ed3bba5d63115ffea1e24702fd9665c15079087`
+- `docs/UI/08-GLOSSARY.md` | 1961 bytes | `f67ed25ea07978e6ee7bde24746ed71f84dc8d75ef362c0fdfffb50787a4ae54`
+- `docs/UI/README.md` | 1709 bytes | `92aa724ee6c14ab7612d70890a8c364a46e8f9d8a49fcc842817a9a3f5e19ce8`
 - `docs/WORK_GRAPH.md` | 1790 bytes | `427012a108e0b551cf656690da51c74675d0aa99cb138b8d4cf61bfa32691a22`
 - `fixtures/zach-core-manifest.json` | 169185 bytes | `d9d1effba80c14a8cdbb7a5de78b17cdfc2df497cb068114413c91a11e7a8c08`
 - `impl/authoring/package.json` | 408 bytes | `36ebd0b3643d55846911fd21083b88813998b8e65bcc99e65429168b4b33fb5c`
@@ -152,7 +161,7 @@
 - `scripts/gen-context.py` | 8036 bytes | `819eb2f67a5ec3943bae509d78eebfd690febff6b157a75fafa05f1b047848fa`
 - `scripts/next-id.py` | 5685 bytes | `ab97cb462db8ae3850b778efe400df47c751180742723deeafd67d84073dcadf`
 - `scripts/validate-bootstrap.py` | 4120 bytes | `b3881974ac4d1259a0fa084c1aa80bfcdc1af4b3873f05c9057697e61bb1fb95`
-- `work/GRAPH.md` | 17240 bytes | `3cb99dbf0692429accd7092bc0fec5d29817e6e0675232444551af3792a002c5`
+- `work/GRAPH.md` | 18803 bytes | `aa6136c35948303a37a03a579e90cd1958dcafa30d35d71452ed09036dcba858`
 - `work/SCMS-001.md` | 2155 bytes | `99c5bc6ed57cfd3b84eb813d1aadee333af8e706120003d34285cc6e20beffd9`
 - `work/SCMS-002.md` | 2769 bytes | `0fdb32c56443212ade358f5e06c6b45cb9be3b6b8a8bdaa1a7eec61264406a33`
 - `work/SCMS-003.md` | 1448 bytes | `b93754ca3c9f8e039abc83cfdb59c49f86f9dadf4f64da55fc76caf82fec6943`
@@ -198,3 +207,12 @@
 - `work/SCMS-054.md` | 3527 bytes | `b8f69fc860a2fef7cdf1f9f1a9347eb3a11daf2bc3aeb1092e5b9d753caad982`
 - `work/SCMS-056.md` | 2461 bytes | `a82ab9e5430465fa6465d8acd76c5c67f2743ce790f4c6e47c218109fb26925b`
 - `work/SCMS-057.md` | 3800 bytes | `9484423ef3f2648ecaba2eb841a7f162a5324fffe8ae1218e33edb1f2e31b0e8`
+- `work/SCMS-069.md` | 2077 bytes | `8beb3ce1aa17089a2c26f7a5b11f2da28ec6667b9f344e3775b025519ef3a2b1`
+- `work/SCMS-070.md` | 1445 bytes | `318d85ef3e6882d27368e4bb9d053174fb3c6a940ab23bcff7a61eaf18b2b68c`
+- `work/SCMS-071.md` | 1479 bytes | `866a9aec8cc5cc787a08a99ba0f7f44a2d332c96b98fd102a3742c96c569d65a`
+- `work/SCMS-072.md` | 2018 bytes | `82ed7874e9f5b17d706e771dbe0d1457d79a6209e199556facfb9f02dc647c3a`
+- `work/SCMS-073.md` | 2057 bytes | `185fd06bf74a2526de6833fc8ef4a8538bca07bb664a54b140cefe07aebd52fe`
+- `work/SCMS-074.md` | 1707 bytes | `18ccff56255e620a3a034d41c5a9f0fc591aca061e79015eb430d8dedf1a4f0a`
+- `work/SCMS-075.md` | 2874 bytes | `a026555f0ed19f980bde09654124fa47889a997d00988f314299cbd59969f7db`
+- `work/SCMS-076.md` | 1897 bytes | `1c8df249bbaee9ae5b29172884460cc93c914656eb6b8ea4291efc7f7735fa97`
+- `work/SCMS-077.md` | 2394 bytes | `ccd37bfdb7ac656c93fa3295ba9e35b968a4d39e2cc8df3587f96d7431c88617`

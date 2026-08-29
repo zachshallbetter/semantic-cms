@@ -9,14 +9,14 @@
     "repositories": [
       {
         "path": ".",
-        "commit": "c50ca5a1776f04166d7b18676bbcd368e8aee2af",
+        "commit": "dab1e5072312a1e1ee6d00322b1667694edf0c7f",
         "branch": "main",
         "dirty": true,
         "remote": "https://github.com/zachshallbetter/semantic-cms.git"
       }
     ]
   },
-  "aggregateSourceDigest": "f0d51efec6eceee394d8d7187664686b7d8be5ded9eb0ca013b55c68b49efa5a",
+  "aggregateSourceDigest": "9bcb4b3f0823b84a18513384cf6b81ad2ee1a2b13495554a9ee371b9883d49a5",
   "sources": [
     {
       "path": ".agents/skills/compile-context/SKILL.md",
@@ -202,6 +202,51 @@
       "path": "docs/SKILLS_INDEX.md",
       "bytes": 763,
       "sha256": "05da80f8e5564e351603f467963cf5820c5ddaf78187566c2da7d1abae2754a5"
+    },
+    {
+      "path": "docs/UI/01-SEMANTIC-CMS.md",
+      "bytes": 5152,
+      "sha256": "1d0e4dfd01fc33d224d0f57cb45c4bb82d61b1de0e6971cc0f82538a07ba5ab2"
+    },
+    {
+      "path": "docs/UI/02-MENTAL-MODEL.md",
+      "bytes": 1986,
+      "sha256": "a63caba2b79118138fd53d2e372a9f93c284ca9be4b6a54311fb22d3c817a081"
+    },
+    {
+      "path": "docs/UI/03-IN-USE.md",
+      "bytes": 2712,
+      "sha256": "1d0fe92ba08b7265300711c10e527e8698c1ec9ff158f28b99b867c94e497946"
+    },
+    {
+      "path": "docs/UI/04-UNIQUENESS.md",
+      "bytes": 2293,
+      "sha256": "bb5fa37d1d65501fa71c2b4d16b5dc15f803d365b6bc29de05fd06c6a30584ea"
+    },
+    {
+      "path": "docs/UI/05-UI-VISUAL-LANGUAGE.md",
+      "bytes": 3884,
+      "sha256": "31a1f19c5e896e2ec206b72ed8f489679d00d440e041d8518f06fd5f37c2bf47"
+    },
+    {
+      "path": "docs/UI/06-INTERACTION-PRINCIPLES.md",
+      "bytes": 1950,
+      "sha256": "aa6259cd98df41cd5e6eed47eba933fd82e1c737f0609b8636824844762b71c3"
+    },
+    {
+      "path": "docs/UI/07-CANON-SURFACE-EXPRESSION-INTERACTION.md",
+      "bytes": 2041,
+      "sha256": "c303e8894664bb5a7dad310e2ed3bba5d63115ffea1e24702fd9665c15079087"
+    },
+    {
+      "path": "docs/UI/08-GLOSSARY.md",
+      "bytes": 1961,
+      "sha256": "f67ed25ea07978e6ee7bde24746ed71f84dc8d75ef362c0fdfffb50787a4ae54"
+    },
+    {
+      "path": "docs/UI/README.md",
+      "bytes": 1709,
+      "sha256": "92aa724ee6c14ab7612d70890a8c364a46e8f9d8a49fcc842817a9a3f5e19ce8"
     },
     {
       "path": "docs/WORK_GRAPH.md",
@@ -760,8 +805,8 @@
     },
     {
       "path": "work/GRAPH.md",
-      "bytes": 17240,
-      "sha256": "3cb99dbf0692429accd7092bc0fec5d29817e6e0675232444551af3792a002c5"
+      "bytes": 18803,
+      "sha256": "aa6136c35948303a37a03a579e90cd1958dcafa30d35d71452ed09036dcba858"
     },
     {
       "path": "work/SCMS-001.md",
@@ -987,6 +1032,51 @@
       "path": "work/SCMS-057.md",
       "bytes": 3800,
       "sha256": "9484423ef3f2648ecaba2eb841a7f162a5324fffe8ae1218e33edb1f2e31b0e8"
+    },
+    {
+      "path": "work/SCMS-069.md",
+      "bytes": 2077,
+      "sha256": "8beb3ce1aa17089a2c26f7a5b11f2da28ec6667b9f344e3775b025519ef3a2b1"
+    },
+    {
+      "path": "work/SCMS-070.md",
+      "bytes": 1445,
+      "sha256": "318d85ef3e6882d27368e4bb9d053174fb3c6a940ab23bcff7a61eaf18b2b68c"
+    },
+    {
+      "path": "work/SCMS-071.md",
+      "bytes": 1479,
+      "sha256": "866a9aec8cc5cc787a08a99ba0f7f44a2d332c96b98fd102a3742c96c569d65a"
+    },
+    {
+      "path": "work/SCMS-072.md",
+      "bytes": 2018,
+      "sha256": "82ed7874e9f5b17d706e771dbe0d1457d79a6209e199556facfb9f02dc647c3a"
+    },
+    {
+      "path": "work/SCMS-073.md",
+      "bytes": 2057,
+      "sha256": "185fd06bf74a2526de6833fc8ef4a8538bca07bb664a54b140cefe07aebd52fe"
+    },
+    {
+      "path": "work/SCMS-074.md",
+      "bytes": 1707,
+      "sha256": "18ccff56255e620a3a034d41c5a9f0fc591aca061e79015eb430d8dedf1a4f0a"
+    },
+    {
+      "path": "work/SCMS-075.md",
+      "bytes": 2874,
+      "sha256": "a026555f0ed19f980bde09654124fa47889a997d00988f314299cbd59969f7db"
+    },
+    {
+      "path": "work/SCMS-076.md",
+      "bytes": 1897,
+      "sha256": "1c8df249bbaee9ae5b29172884460cc93c914656eb6b8ea4291efc7f7735fa97"
+    },
+    {
+      "path": "work/SCMS-077.md",
+      "bytes": 2394,
+      "sha256": "ccd37bfdb7ac656c93fa3295ba9e35b968a4d39e2cc8df3587f96d7431c88617"
     }
   ]
 }

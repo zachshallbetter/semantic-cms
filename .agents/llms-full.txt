@@ -1,6 +1,6 @@
 # PROJECT COMPILED CONTEXT
 Generator: 0.5.0
-Source digest: f0d51efec6eceee394d8d7187664686b7d8be5ded9eb0ca013b55c68b49efa5a
+Source digest: 9bcb4b3f0823b84a18513384cf6b81ad2ee1a2b13495554a9ee371b9883d49a5
 
 > Generated projection. Canonical sources remain authoritative.
 
@@ -3185,6 +3185,759 @@ This file is navigational only. Each skill's own `SKILL.md` is authoritative for
 | `compile-context` | Regenerate and verify deterministic non-normative project context. |
 
 Do not copy skill bodies into this index or into other doctrine merely to make them easier to find.
+
+
+========================================================================
+FILE: docs/UI/01-SEMANTIC-CMS.md
+========================================================================
+
+# What Is a Semantic CMS?
+
+A Semantic CMS is a content system in which the primary thing being managed is not a collection of pages, documents, or database rows. It manages a structured, evolving body of meaning.
+
+A conventional CMS begins with artifacts such as pages, articles, images, categories, and navigation. A Semantic CMS begins one level beneath those artifacts: identity, content, meaning, structure, relationships, evidence, state, authority, provenance, operations, and observations.
+
+Pages, feeds, search results, applications, notifications, agent context, APIs, and other experiences are derived from that semantic substrate.
+
+## Core proposition
+
+> Content is canonical semantic state. What people and machines encounter is a governed projection of that state.
+
+## Canon instead of pages
+
+At the foundation is a canonical record graph. An article, person, organization, image, concept, collection, relationship, entitlement, schema, or other meaningful object has stable identity and explicit structure.
+
+Relationships are data, not merely hyperlinks. A record may be written by a person, reference another work, belong to a collection, contradict a claim, depend on a source, or participate in a larger concept neighborhood.
+
+## Meaning and presentation are separate
+
+A Semantic CMS does not define an article by its visual layout. It defines semantic participation such as title, introduction, primary media, body, supporting material, actions, and relationships.
+
+Presentation is separate. One expression may be editorial, another dense and operational, another accessible and linear, another machine-readable. Protected meaning remains stable while expression varies.
+
+## Surface resolution
+
+The system does not expose the entire semantic graph every time. A semantic surface resolves a bounded question:
+
+> What matters here, for this purpose, for this participant, at this time, under these access constraints?
+
+Conceptually:
+
+```text
+Canonical state
+      ↓
+Access projection
+      ↓
+Semantic surface resolution
+      ↓
+Expression
+      ↓
+Representation
+```
+
+A surface may organize a subject into primary, supporting, contextual, contradictory, historical, evidentiary, unknown, or action-oriented participation. That result is still not a webpage. It is a renderer-neutral semantic surface.
+
+## Context changes participation, not truth
+
+The same canonical object can produce different valid surfaces under different purposes.
+
+- Read: emphasize content and nearby context.
+- Edit: emphasize editable structure, revisions, and obligations.
+- Understand: emphasize relations, evidence, contradictions, and concepts.
+- Qualify: emphasize required evidence and unresolved conditions.
+- Monitor: emphasize delivery, freshness, drift, and propagation.
+
+The object has not changed. The question being asked of the system has changed.
+
+## Multidimensional state
+
+A Semantic CMS does not collapse content into a single status field. A record can simultaneously be semantically complete, evidence-stale, promoted, and delivery-drifted. Those are different truths and remain separately inspectable.
+
+Likewise, unknown, absent, hidden, unavailable, unsupported, and withheld are not interchangeable.
+
+## Provenance
+
+Information retains where it came from and what kind of claim it represents.
+
+- Declared — explicitly asserted by the owning authority.
+- Derived — mechanically produced from identified inputs.
+- Observed — measured from a running system and time-bounded.
+- System-certified — emitted by a trusted pipeline from validated inputs.
+
+These classes do not silently promote into one another.
+
+## Governed change
+
+Reading and deriving are easy. Persistent change is explicit.
+
+```text
+Actor
+  ↓
+Operation
+  ↓
+Authority / validation
+  ↓
+Mutation
+  ↓
+New revision
+  ↓
+Receipt
+```
+
+The system can therefore explain who changed something, what changed, from which revision, under what authority, and with what resulting state.
+
+## Publishing
+
+Publishing is not equivalent to saving. A candidate may be complete and qualified without being promoted. Qualification asks whether the required evidence is sufficient; promotion asks whether the appropriate authority chooses to make the consequence real.
+
+## Realtime
+
+Realtime has three obligations:
+
+- R1 — live co-authoring.
+- R2 — live propagation.
+- R3 — live honesty.
+
+The third is the constraint: the system should accurately disclose what is actually current rather than merely appearing instant.
+
+## Static content
+
+Static content is not a separate subsystem. An About page or policy page is semantic content whose canonical state changes infrequently. Static describes delivery behavior, not a different kind of truth.
+
+## Agents and AI
+
+Agents consume bounded semantic surfaces with provenance and access already applied. They can propose candidates, but machine output does not become canonical merely because it was generated. Human and machine contributions participate in the same authority and provenance model.
+
+## Short definition
+
+> A Semantic CMS is a system for governing canonical meaning and deriving contextual experiences from it.
+
+
+========================================================================
+FILE: docs/UI/02-MENTAL-MODEL.md
+========================================================================
+
+# Mental Model
+
+These concepts are easiest to understand progressively.
+
+## Level 1 — Four questions
+
+1. **What is true?** → Canon
+2. **What matters here?** → Surface
+3. **How should it appear?** → Expression
+4. **What is allowed to happen?** → Interaction
+
+This is the primary learning model.
+
+```text
+Truth → Relevance → Expression → Action
+```
+
+## Level 2 — Familiar contrast
+
+A conventional CMS says:
+
+```text
+Here is a page.
+Edit the page.
+Publish the page.
+```
+
+A Semantic CMS says:
+
+```text
+Here is the meaning.
+Resolve what matters for this context.
+Express it appropriately.
+Govern any consequential change.
+```
+
+## Level 3 — One example
+
+For an article:
+
+- Canon: the article, author, evidence, relations, revision, and publication state.
+- Surface: what matters to the current reader, editor, reviewer, or operator.
+- Expression: how that semantic surface is presented.
+- Interaction: what operations may cross into consequential change.
+
+## Plain-language vocabulary
+
+| Formal term | Plain language |
+|---|---|
+| Canon | what the system says is true |
+| Surface | what matters here |
+| Expression | how it appears |
+| Representation | what someone actually encounters |
+| Provenance | where this came from |
+| Qualification | whether there is enough evidence |
+| Promotion | making the consequence real |
+| Consistency | how current this view is |
+| Withheld | something may exist, but access does not permit participation |
+| Resolution trace | why this is here |
+
+## Progressive disclosure
+
+Most users should not need protocol vocabulary. Product copy should explain meaning rather than implementation.
+
+Examples:
+
+- `ResolvedSurface` → “Why you’re seeing this”
+- `stale-but-safe` → “This view is 1 revision behind”
+- `withheld` → “Available with additional access”
+- `qualification inconclusive` → “Not enough evidence yet”
+
+The formal terms remain available for technical inspection, auditing, conformance, and development.
+
+
+========================================================================
+FILE: docs/UI/03-IN-USE.md
+========================================================================
+
+# What It Looks Like in Use
+
+The application behaves less like a fixed set of CMS modules and more like a workspace that resolves the semantic state relevant to what the user is doing.
+
+## Operate
+
+A user may begin with a purpose such as `operate`. The system resolves active work, unresolved conditions, ready candidates, delivery issues, and recent change. This is not necessarily a fixed dashboard; it is a surface produced from current state.
+
+## Focus
+
+Selecting an object changes the semantic center. The system can then resolve that subject for a specific purpose.
+
+For `edit`, the surface may emphasize editable structure, supporting assets, unresolved obligations, relationships, and available operations.
+
+For `understand`, the same subject may emphasize evidence, contradictions, people, concepts, and history.
+
+For `monitor`, it may emphasize delivery state, propagation, freshness, and drift.
+
+## Traverse relationships
+
+Users can move through meaning rather than only through route hierarchies:
+
+```text
+Article
+   ↓
+Researcher
+   ↓
+Study
+   ↓
+Concept
+   ↓
+Collection
+```
+
+## Search as resolution
+
+Search can become a request for a semantic surface rather than a list of matching rows.
+
+Examples:
+
+- everything related to a subject that changed this month and has unresolved evidence;
+- published material affected by a revised source;
+- records that reference superseded evidence;
+- work needing attention under the current user’s authority.
+
+## Compare
+
+Comparison is not limited to side-by-side fields. A comparison surface may identify shared concepts, distinct claims, disagreement, missing evidence, and unknown relationships while retaining the basis for each distinction.
+
+## Time travel
+
+A temporal surface can reconstruct what the system knew, what was promoted, and what was observed at a prior point in time. History becomes semantic reconstruction rather than merely an undo list.
+
+## AI participation
+
+An agent can receive the same resolved semantic participation as a human, expressed in machine-readable form. It reasons over bounded, provenance-bearing context and produces candidates rather than silently mutating canonical state.
+
+## Typical flow
+
+```text
+OPERATE
+What needs me?
+     ↓
+FOCUS
+Why does this need attention?
+     ↓
+UNDERSTAND
+What is connected to this?
+     ↓
+COMPARE
+How do these sources differ?
+     ↓
+EDIT
+Revise the affected material.
+     ↓
+QUALIFY
+Is this supportable?
+     ↓
+PROMOTE
+Make this revision consequential.
+     ↓
+MONITOR
+Did it actually propagate?
+     ↓
+TRACE
+What happened and why?
+```
+
+These purposes do not have to map one-to-one to application modules. They are different ways of resolving the same semantic system.
+
+
+========================================================================
+FILE: docs/UI/04-UNIQUENESS.md
+========================================================================
+
+# Why the Model Is Distinctive
+
+The individual ingredients are not unique by themselves. Structured content, headless delivery, knowledge graphs, realtime collaboration, provenance, policy systems, AI assistance, and event systems all exist elsewhere.
+
+The distinction is in the decomposition and the guarantees produced by combining them without collapsing their responsibilities.
+
+## The uncommon separation
+
+```text
+Truth
+  ≠ Access
+
+Access
+  ≠ Participation
+
+Participation
+  ≠ Expression
+
+Expression
+  ≠ Representation
+
+Representation
+  ≠ Interaction
+
+Interaction
+  ≠ Authority
+
+Authority
+  ≠ Evidence
+
+Evidence
+  ≠ Observation
+
+Observation
+  ≠ Truth
+```
+
+The architecture supplies explicit transitions between those layers.
+
+## Surface resolution as a first-class layer
+
+Most headless systems separate content from presentation. This model additionally separates canonical truth from contextual participation.
+
+The system can formally answer:
+
+> Which of the available semantic objects and relationships should participate in this experience, for this purpose, actor, access level, time, and context?
+
+That decision is deterministic, inspectable, and renderer-neutral.
+
+## Explainable dynamic organization
+
+A surfaced item can retain a participation basis: subject, relation, traversal depth, eligibility, access, grouping, and priority. The explanation is an artifact of the resolver rather than a post-hoc narrative.
+
+## Access before candidacy
+
+Unauthorized state is projected away before it can influence surface resolution. It cannot alter membership, ranking, counts, dependencies, explanation, or fingerprints for a viewer who cannot observe it.
+
+## Realtime as epistemic honesty
+
+The model treats realtime as knowledge validity, not merely delivery speed. A view can be current, stale-but-safe, conflicted, superseded, revoked, or unknown.
+
+## One semantic substrate for humans and machines
+
+Humans and agents can consume the same semantic participation decision through different expressions rather than relying on separate frontend and RAG interpretations.
+
+## Dynamic experience without dynamic truth
+
+The core capability is:
+
+> The system can dynamically reorganize what humans and machines encounter without dynamically rewriting what it claims to be true.
+
+
+========================================================================
+FILE: docs/UI/05-UI-VISUAL-LANGUAGE.md
+========================================================================
+
+# UI Visual Language
+
+The UI should make the architecture understandable through visual grammar rather than protocol terminology.
+
+Six recurring visual ideas can carry most of the model:
+
+- **Focus** — what we are dealing with.
+- **Field** — what surrounds it.
+- **Lens** — why we are looking.
+- **Threads** — how things relate.
+- **Strata** — how it changed.
+- **Pulse** — how current it is.
+
+## 1. Focus + Field
+
+The current subject is visually central. Related semantic material appears around it as a contextual field.
+
+Changing purpose reorganizes the field while the subject remains stable. This teaches: the object is the same; what matters around it changes.
+
+## 2. Semantic depth
+
+Use depth to distinguish layers:
+
+```text
+CURRENT SURFACE
+things that matter now
+
+RELATED FIELD
+things available nearby
+
+CANON
+underlying semantic state
+```
+
+The user can move outward for context or inward for provenance and source identity.
+
+## 3. Relationship threads
+
+Typed relations should be tangible and inspectable. Threads may stay quiet until selected, then reveal relation type, source, revision, and provenance.
+
+## 4. Provenance marks
+
+Use a compact recurring mark vocabulary:
+
+```text
+● declared
+◇ derived
+◉ observed
+◆ certified
+```
+
+The mark answers “where did this come from?” without requiring constant labels.
+
+## 5. State as independent tracks
+
+Avoid one giant status badge. Show independent state dimensions such as content, evidence, publication, and delivery.
+
+## 6. Freshness pulse
+
+Realtime surfaces should expose currentness explicitly:
+
+```text
+● LIVE      checked 3s
+◐ STALE     revision +2
+○ SNAPSHOT  Aug 29 · 12:41
+◇ LOCAL     unsent
+```
+
+## 7. Why this?
+
+Every dynamically surfaced object should support a universal explanatory gesture: “Why this?” The reveal shows the actual relation path, eligibility, grouping, and priority that caused participation.
+
+## 8. Semantic halos
+
+Use subtle temporary visual emphasis for the role an object has in the current surface:
+
+```text
+primary
+supporting
+context
+attention
+unknown
+withheld
+stale
+```
+
+The role is contextual, not permanent metadata.
+
+## 9. Withheld information as bounded absence
+
+Where disclosure is permitted, inaccessible material can be shown as bounded presence without exposing protected content. Where disclosure is not permitted, it should not participate at all.
+
+## 10. History as strata
+
+Represent history as accumulated semantic strata rather than a flat revision list. Scrubbing backward reconstructs the state of the system at that coordinate.
+
+## 11. Qualification as evidence structure
+
+Show readiness as a constellation or support structure of evidence rather than a generic progress bar. Users should be able to see what supports readiness and where uncertainty remains.
+
+## 12. Propagation as ripples
+
+After promotion, show propagation outward from the canonical revision to derived projections and delivery destinations. Drift becomes a visible divergence rather than a hidden operational condition.
+
+## 13. Context as a lens
+
+Expose the current purpose simply, for example:
+
+```text
+Read   Edit   Understand   Qualify   Monitor
+```
+
+Changing the lens changes the surrounding semantic surface without pretending the user has moved to a different underlying object.
+
+## 14. Semantic zoom
+
+Zoom can change semantic granularity:
+
+```text
+Publication
+  ↓
+Collection
+  ↓
+Article
+  ↓
+Section
+  ↓
+Claim
+  ↓
+Evidence
+```
+
+Zooming inward increases granularity. Zooming outward increases relational context.
+
+## 15. Peel-apart inspection
+
+When deeper explanation is needed, the UI can reveal the experience as layers:
+
+```text
+REPRESENTATION — what you are seeing
+EXPRESSION     — how it took form
+SURFACE        — why this is here
+CANON          — what is true
+```
+
+This gives users a direct visual explanation of the system’s architecture.
+
+
+========================================================================
+FILE: docs/UI/06-INTERACTION-PRINCIPLES.md
+========================================================================
+
+# Interaction Principles
+
+## Simple interaction, inspectable truth
+
+Complexity should live in the system, not in constant user ceremony. Ordinary work should remain direct, while deeper state, provenance, and evidence are available when needed.
+
+## Content first
+
+The semantic object should dominate the interaction. Administrative chrome should not become the primary mental model.
+
+## Navigate by intent and meaning
+
+Users should increasingly be able to navigate through questions such as:
+
+- what needs attention?
+- what relates to this?
+- what changed?
+- what supports this?
+- what contradicts this?
+- what is ready?
+- what is uncertain?
+- what happened?
+- what can I do about it?
+
+## The same subject, different purpose
+
+Moving between Edit, Understand, Qualify, Monitor, Compare, Trace, and similar purposes should change the surface around the subject without implying that the subject itself changed.
+
+## Explain dynamic behavior
+
+If the application reorganizes itself contextually, the user must always have a dependable way to inspect why an item appeared, disappeared, moved, or changed role.
+
+## Conflict freezes consequence, not drafting
+
+Users should continue ordinary drafting where safe. Consequential operations should stop when required meaning is conflicted.
+
+## Do not imply more freshness than exists
+
+A surface should show whether it is live, stale, snapshot-based, local, conflicted, or unknown rather than using generic “online” indicators.
+
+## Absence has meaning
+
+Do not flatten unknown, withheld, absent, unavailable, unsupported, or hidden into one empty state.
+
+## Relationships do not automatically cause behavior
+
+A relation may inform a surface but does not automatically create recommendation, ranking, promotion, or action.
+
+## Humans and agents use the same semantic substrate
+
+A human interface and a machine-facing interface may be radically different expressions of the same resolved semantic participation.
+
+
+========================================================================
+FILE: docs/UI/07-CANON-SURFACE-EXPRESSION-INTERACTION.md
+========================================================================
+
+# Canon, Surface, Expression, Representation, Interaction
+
+This decomposition is the conceptual backbone of the system.
+
+## Canon — what exists
+
+Canon owns stable semantic identity and state: records, revisions, relations, provenance, entitlement declarations, and other authoritative domain facts.
+
+Canon does not own layout, current presentation, or transient observational state.
+
+## Access — what may be known
+
+Access projection narrows canonical state before semantic participation is resolved. Inaccessible state must not affect a viewer’s resulting surface when that state is outside the viewer’s observable scope.
+
+## Surface — what matters here
+
+A surface is a bounded contextual selection and organization of semantic state.
+
+It can resolve:
+
+- subject;
+- purpose;
+- context;
+- lens;
+- eligibility;
+- membership;
+- grouping;
+- ordering;
+- semantic priority;
+- operation exposure;
+- dependencies;
+- explanation.
+
+A surface does not own graphical morphology or rendering.
+
+## Expression — how it may appear
+
+Expression determines how semantic structure can be realized while preserving required meaning, operation identity, accessibility, and other protected invariants.
+
+Expression may vary radically without changing the underlying surface.
+
+## Representation — what is encountered
+
+Representation is the actual delivered experience: visual, textual, spoken, machine-readable, printed, or another accessible form.
+
+## Interaction — what may happen
+
+Interaction governs consequential operations. Exposure of an operation does not imply permission, enablement, execution, or success.
+
+Persistent mutation leaves the read/derivation path, crosses a governed interaction boundary, produces a receipt, and creates new canonical state.
+
+## Complete loop
+
+```text
+CANON
+what exists
+   ↓
+ACCESS
+what may be known
+   ↓
+SURFACE
+what matters here
+   ↓
+EXPRESSION
+how it may appear
+   ↓
+REPRESENTATION
+what is encountered
+   ↓
+INTERACTION
+what may happen
+   ↓
+CONTRACT
+what is authorized to change
+   ↓
+CANON
+```
+
+
+========================================================================
+FILE: docs/UI/08-GLOSSARY.md
+========================================================================
+
+# Glossary
+
+| Term | Plain-language meaning | Formal role |
+|---|---|---|
+| Canon | What the system says is true | Authoritative semantic state |
+| Subject | What we are currently dealing with | Semantic center of a resolution |
+| Surface | What matters here | Bounded contextual participation of semantic state |
+| Purpose | Why we are looking | Declared intent of a surface |
+| Lens | What we are considering | Restrictive/traversal rules over accessible state |
+| Context | The situation around the request | Actor, task, session, time, selection, observations |
+| Eligibility | Whether something may participate | Derived participation decision |
+| Membership | What participates | Included semantic subjects and their basis |
+| Priority | What matters more within this surface | Semantic emphasis, not visual size |
+| Expression | How it may appear | Governed realization of semantic structure |
+| Representation | What someone actually encounters | Delivered accessible artifact |
+| Provenance | Where this came from | Declared, derived, observed, certified source class |
+| Relation | How semantic objects are associated | Typed edge; non-causal by default |
+| Observation | What was measured | Time-bounded recorded state |
+| Qualification | Whether enough evidence exists | Evidence sufficiency decision |
+| Promotion | Making the consequence real | Authorized publication/state transition |
+| Consistency | How current this view is | Current, stale, conflicted, superseded, etc. |
+| Withheld | Exists within disclosure policy but cannot participate fully | Access-bounded eligibility outcome |
+| Resolution trace | Why this is here | Mechanical explanation of surface resolution |
+| Fingerprint | What this resolved output depends on | Deterministic digest over observable dependencies and request inputs |
+| Operation | What action may be exposed | Stable semantic action identity |
+| Interaction | What may happen | Governed consequential process |
+
+
+========================================================================
+FILE: docs/UI/README.md
+========================================================================
+
+# Semantic CMS Concepts Bundle
+
+Version: 0.1.0
+Status: Concept bundle / project-facing explanatory package
+
+This package consolidates the conceptual model developed around the Semantic CMS, with emphasis on how the system is understood and used rather than on protocol internals.
+
+## Core idea
+
+A Semantic CMS manages canonical meaning rather than pages. It keeps one governed source of truth, resolves what matters for a given context, allows that meaning to take different forms, and ensures consequential change occurs through explicit governed interaction.
+
+The simplest model is:
+
+```text
+WHAT EXISTS
+   Canon
+     ↓
+WHAT MATTERS HERE
+   Surface
+     ↓
+HOW IT APPEARS
+   Expression
+     ↓
+WHAT IS ENCOUNTERED
+   Representation
+     ↓
+WHAT MAY CHANGE
+   Interaction
+     ↓
+   Canon
+```
+
+A shorter product-level phrase is:
+
+> Truth → Relevance → Expression → Action
+
+## Documents
+
+- `docs/01-SEMANTIC-CMS.md` — what a Semantic CMS is and how it is used.
+- `docs/02-MENTAL-MODEL.md` — the progressive explanation model for users, designers, developers, and stakeholders.
+- `docs/03-IN-USE.md` — what working in the system can feel like.
+- `docs/04-UNIQUENESS.md` — what is distinctive about the architecture.
+- `docs/05-UI-VISUAL-LANGUAGE.md` — a visual grammar for making the concepts legible in-product.
+- `docs/06-INTERACTION-PRINCIPLES.md` — governing product interaction principles.
+- `docs/07-CANON-SURFACE-EXPRESSION-INTERACTION.md` — the core decomposition and boundaries.
+- `docs/08-GLOSSARY.md` — plain-language and formal vocabulary side by side.
+
+This package is explanatory. It does not supersede the canonical Semantic CMS design or any pinned formal resource.
 
 
 ========================================================================
@@ -26216,6 +26969,15 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-066 | A migration runner | E13 | Ready — zach-core re-runs a declarative schema file and has none either, so this is a gap inherited rather than solved | — |
 | SCMS-067 | Work-graph integrity gate; reconcile SPEC_HEALTH against the graph | E0 | Partly done — the integrity gate is in CI and caught a dangling evidence reference; the SPEC_HEALTH reconciliation is still open | records/evidence.jsonl · scms-evidence-067 |
 | SCMS-068 | Document review and audit (2026-08-29) | E0 | Done — 8 findings; 4 register corrections applied; DESIGN.md needed none | records/evidence.jsonl · scms-evidence-068 |
+| SCMS-069 | A gate between the claim register and the work graph | E0 | Ready — audit finding 8; the structural cause of two of its four corrections | work/SCMS-069.md |
+| SCMS-070 | Done items carry a work file or a stated exemption | E0 | Ready — audit finding 6; markers for the twelve, never retroactive predicates | work/SCMS-070.md |
+| SCMS-071 | Evidence addenda need a citation path | E0 | Ready — audit finding 7; three orphans are currently write-only | work/SCMS-071.md |
+| SCMS-072 | Evidence tone (SPS's evidence-density half) | E5 | Ready — owner design direction; the half of `morphologyFor` that went to neither SSS nor the recipe | work/SCMS-072.md |
+| SCMS-073 | Embargoes | E3 | Ready — owner design direction; E3 because publishing early is unrecoverable, and it must not read a wall clock | work/SCMS-073.md |
+| SCMS-074 | Entitlement classes: entitled groups and staged access | E4 | **Registered, not scheduled** — P2 unratified, SH-2 open, and nothing to entitle yet | work/SCMS-074.md |
+| SCMS-075 | Link liveness as a Field signal, not a qualification gate | E5 | Ready — depends on SH-22's disposition; blocks 78% of articles today while checking 5 references | work/SCMS-075.md |
+| SCMS-076 | Declared content types for `project` and `role` | E1 | Ready — 17 records currently have no structural conformance at all | work/SCMS-076.md |
+| SCMS-077 | Run the editing workload and disposition P7 | E1 | **Blocked on SCMS-045** — running it first would count autosave races as concurrent authorship | work/SCMS-077.md |
 | SCMS-044 | Route the editor through the surface pipeline it currently bypasses | E12 | Done — SH-16 closed; two duplicate access checks removed; awaiting owner verification | records/evidence.jsonl · scms-evidence-044 |
 | SCMS-018 | R1 live co-authoring — **free lane only** (convergent merge) | E1 | **Blocked on P7 only** — P22 was accepted 2026-08-28; P7 is deferred with a revisit condition the owner has since named (settle it from the editor workload) | records/blockers · scms-blocker-001 |
 | SCMS-010 | S4 cross-domain portability: a materially unrelated project (outside this repository, per owner doctrine 2026-08-28) consumes @semantic-systems/surface unmodified | external | Backlog — executes outside scms; scms records the conformance result | — |
@@ -29150,4 +29912,366 @@ No auth, no migration runner, no connection pooling, no production database.
 ## Closing state
 
 **Done — the database refuses what the design says it must, and says so in fifteen checks.**
+
+
+========================================================================
+FILE: work/SCMS-069.md
+========================================================================
+
+# SCMS-069 — A gate between the claim register and the work graph
+
+**Intent ref:** PROJECT_INTENT.md · **Epic:** E0 · **Effect class:** E1
+**Assigned by:** SCMS-068's audit, finding 8 — the structural one.
+
+## The gap
+
+`SPEC_HEALTH.md`'s claim register and `work/GRAPH.md` describe overlapping reality, and **nothing
+relates them.** `check-work-graph.py` validates the graph's internal consistency and says nothing
+about whether the claims agree with it.
+
+Two of the audit's four corrections shared that cause. The clearest: a claim row read *"blocked on
+P7/P22"* for a day after P22 was accepted, while the graph row for the same work had already been
+corrected. One register knew; the other did not; nothing compared them.
+
+## Ready predicate
+
+- **Scope:** a gate asserting that every claim row citing `SCMS-NNN` cites an item whose graph state
+  is consistent with the rung claimed.
+- **The narrow, decidable rule** — deliberately not "does this prose match reality", which is not
+  mechanically decidable:
+  1. A claim at an **Implemented** or **Tested** rung must cite at least one item whose state is
+     `Done`. A claim resting entirely on Ready or Blocked work is a claim about intentions.
+  2. A claim citing a **Blocked** item must itself be marked partial, blocked, or NOT established.
+  3. Every `SCMS-NNN` cited in the register must exist in the graph. (Already true; asserting it
+     stops it silently ceasing to be.)
+- **Exclusions:** no natural-language comparison, no attempt to judge whether cited evidence
+  *supports* a claim — that is what the adversarial passes are for, and a gate pretending to do it
+  would be worse than none.
+- **Acceptance:** the gate ships with a self-test proving each of the three rules fires; run against
+  today's register it either passes or names a real inconsistency; wired into CI.
+- **Stop conditions:** if the rules produce false positives on honest rows, stop and narrow them —
+  a gate people learn to ignore certifies nothing (the same reasoning that kept
+  `check-declaration-parity.py` to leaf fields).
+
+
+========================================================================
+FILE: work/SCMS-070.md
+========================================================================
+
+# SCMS-070 — Done items carry a work file or a stated exemption
+
+**Intent ref:** PROJECT_INTENT.md · **Epic:** E0 · **Effect class:** E1
+**Assigned by:** SCMS-068's audit, finding 6.
+
+## The gap
+
+**12 of 67 items are Done with no work file.** The Ready-predicate discipline held for the first
+forty items and thinned as the pace rose.
+
+## The thing this must NOT do
+
+It must not force retroactive predicates. A Ready predicate is valuable *because it was written
+before the work*, when it could still constrain what got built; composed afterwards from what
+happened, it produces a document that looks like governance and functions as decoration. This
+project has enough declarations that nothing consumes.
+
+## Ready predicate
+
+- **Scope:** extend `check-work-graph.py` so a `Done` row must have either a `work/SCMS-NNN.md` file
+  **or** an explicit exemption marker in the row stating why not.
+- **The twelve existing items get markers, not fabricated predicates.** A truthful annotation —
+  *"no predicate written; discipline lapsed 2026-08-29, see scms-evidence-068"* — is honest in a way
+  an invented predicate is not.
+- **Exclusions:** no requirement on Ready or Blocked rows; no attempt to check a predicate's
+  *quality*, which is unmeasurable.
+- **Acceptance:** the gate fails on a Done row with neither file nor marker, with a self-test
+  proving it; the twelve existing rows carry accurate markers; new work lands with a file.
+
+
+========================================================================
+FILE: work/SCMS-071.md
+========================================================================
+
+# SCMS-071 — Evidence addenda need a citation path
+
+**Intent ref:** PROJECT_INTENT.md · **Epic:** E0 · **Effect class:** E1
+**Assigned by:** SCMS-068's audit, finding 7.
+
+## The gap
+
+`scms-evidence-004a`, `-037a` and `-040a` are addenda that **nothing references.** Their content is
+real — `-037a` records the write-boundary violation CI caught in the site server, which is a
+genuinely useful finding — but the graph cites the parent id, so the addendum is unreachable from
+any register. It is write-only.
+
+## Ready predicate
+
+- **Scope:** decide the convention and enforce it. Two candidates:
+  1. A graph row cites every evidence record for its item, addenda included; the gate checks that
+     an `-a` suffixed record is cited wherever its parent is.
+  2. Addenda are abolished — a follow-up finding gets its own sequential id and its own row.
+- **Recommendation:** (2). The `-a` suffix exists because I wanted to attach a finding to work that
+  was already recorded, and a sequential id with a `supersedes`/`extends` field does that without
+  inventing a second identifier grammar. Fewer kinds of identifier is worth more than the
+  convenience.
+- **Exclusions:** do not rewrite the three existing records — records are append-only. Give them a
+  citation path and stop minting new ones.
+- **Acceptance:** the convention is stated in `AGENTS.md`, the three existing addenda are reachable
+  from the graph, and `check-work-graph.py` fails if a new orphan appears.
+
+
+========================================================================
+FILE: work/SCMS-072.md
+========================================================================
+
+# SCMS-072 — Evidence tone
+
+**Intent ref:** PROJECT_INTENT.md · **Epic:** E5 (Field) · **Effect class:** E1
+**Assigned by:** owner design direction, 2026-08-29 — the page builder's inspector shows
+`Evidence Tone: steady`, and nothing implements it.
+
+## What it is
+
+SPS's `morphologyFor` had two halves. SCMS-008 decomposed them: **selection** went to SSS, and
+**container form** went to the expression recipe. The half that went to neither is *evidence
+density* — SPS's observation that a grouping's form should reflect **how much evidence actually
+satisfies its lens**, surfaced as a tone: `earned` / `steady` / `fading`.
+
+It is the honest answer to a real problem: a shelf declaring "recent work" with one stale item and a
+shelf with twelve fresh ones are the same shelf structurally, and should not look the same.
+
+## Ready predicate
+
+- **Scope:** compute an evidence tone for a resolved group from its members' evidence state and
+  recency, and expose it on the surface panel (SCMS-047 already renders that panel).
+- **The boundary that matters:** tone is a **semantic** property, so it belongs to SSS's output, not
+  to an expression. SSS-INV-008 forbids semantic priority prescribing graphical presentation, and
+  the same applies here — the surface may say `fading`, and only an adapter decides whether that
+  means smaller, greyer, later, or spoken last.
+- **Exclusions:** no morphology selection driven by tone in this slice — that is the SES recipe's
+  business and would recreate the coupling SCMS-008 separated.
+- **Dependencies:** SH-7 is open (the Field plane is the least concrete plane), so tone must be
+  computable from what exists — evidence state and observation timestamps — rather than from
+  unbuilt metrics.
+- **Acceptance:** a group whose members are qualified and recently observed reads `earned`; one
+  whose evidence has expired reads `fading`; the tone appears on the Surface panel; and a vector
+  asserts no expression's morphology changes as a *direct function* of tone.
+
+
+========================================================================
+FILE: work/SCMS-073.md
+========================================================================
+
+# SCMS-073 — Embargoes
+
+**Intent ref:** PROJECT_INTENT.md · **Epic:** E3 · **Effect class:** E3
+**Assigned by:** owner design direction, 2026-08-29 — `Embargoes` is a nav section in the mockups.
+
+## What it is
+
+A promotion that takes effect at a declared future instant. DESIGN.md already names the pieces:
+§9's editorial time makes **world time declared** (`publishedAt`, *"embargo instants — declaration
+beats inference"*) and semantic time derived, with *"imminence ramps toward embargo horizons"*.
+
+## Why it is E3 and not a scheduling feature
+
+An embargo is a **consequential commitment made in advance**. Publishing early is the failure mode,
+and it is unrecoverable in the way that matters — a reader who saw it, saw it. So it inherits
+promotion's effect class rather than sitting beside it as a convenience.
+
+## Ready predicate
+
+- **Scope:** an embargo instant on a promotion; the publication axis moves only at or after that
+  instant; the reader surface excludes an embargoed record until then.
+- **The rule this must not break:** no ambient time. Every resolver and evaluator in this system
+  takes an explicit clock, and an embargo is the first thing that genuinely *wants* to read a wall
+  clock. It must not. The temporal coordinate is already in `SurfaceContext` (§21) — an embargo is
+  evaluated against the caller's declared `at`, exactly as replay is.
+- **Exclusions:** no scheduler, no background job. A record becomes visible because a later
+  resolution is asked at a later coordinate, not because something woke up.
+- **Acceptance:** an embargoed record resolves as absent before its instant and present at or after
+  it, at the same access; the publication axis is not moved early; a vector resolves the same
+  snapshot at two coordinates and gets two different surfaces; and no code path reads
+  `Date.now()`.
+- **Stop conditions:** if excluding an embargoed record requires the resolver to know *why* it is
+  absent in a way a reader could detect, stop — that is a disclosure question (§5), not a
+  scheduling one.
+
+
+========================================================================
+FILE: work/SCMS-074.md
+========================================================================
+
+# SCMS-074 — Entitlement classes: entitled groups and staged access
+
+**Intent ref:** PROJECT_INTENT.md · **Epic:** E4 · **Effect class:** E1
+**Assigned by:** owner design direction, 2026-08-29 — the inspector shows `Entitled Groups` and
+`Staged Access`, and P2 proposed the model.
+
+## Where this stands
+
+**P2 is proposed and not ratified**, and SCMS-039 recommended accepting only its 404-not-403 half —
+which is already true at the resolver, the editor and the site — and deferring section-level
+entitlement classes *until entitled content exists*. None does.
+
+This ticket exists so the concept is registered rather than remembered. **It should not be built
+until there is something to entitle**, or it becomes a plane with nothing in it.
+
+## Ready predicate — for whenever it is scheduled
+
+- **Scope:** section-level `open` / `entitled` classes with a **single shared restriction
+  function**, per P2; entitled-group membership; staged access as a declared, time-bounded grant.
+- **The property that must hold:** one restriction function, used everywhere. P2's five-record
+  independence chain exists because entitlement checked in two places is entitlement checked
+  differently in two places — the failure this project has committed with access (NR-scms-004,
+  NR-scms-006) and with authority (NR-scms-005).
+- **Dependencies:** owner ratification of P2; and SH-2, since entitled groups presuppose an identity
+  model that does not exist.
+- **Acceptance:** an entitled section is absent — not redacted — for an unentitled reader, at every
+  surface and in every expression; the restriction function has exactly one implementation, asserted
+  by a vector that fails if a second appears.
+
+
+========================================================================
+FILE: work/SCMS-075.md
+========================================================================
+
+# SCMS-075 — Link liveness as a Field signal, not a qualification gate
+
+**Intent ref:** PROJECT_INTENT.md · **Epic:** E5 (Field) · **Effect class:** E1
+**Assigned by:** the SH-22 discussion, 2026-08-29.
+
+## The problem this solves
+
+`ob/links-resolve` currently reports external URLs as `INCONCLUSIVE`, which is a coverage gap, which
+blocks the article. **78% of the owner's corpus has at least one external URL** — 541 URLs across
+119 domains — so 78% of articles cannot be promoted, while the check verifies **five** internal
+references in total across 215 entries.
+
+That is the wrong gate in both directions: it blocks almost everything while checking almost
+nothing.
+
+## Why liveness cannot be a gate
+
+Making qualification depend on the reachability of 119 third-party domains would:
+
+1. **Break determinism.** Every resolver and evaluator here is reproducible — explicit clocks, frozen
+   snapshots, stable fingerprints. An evaluator doing network I/O means the same article qualifies
+   on Tuesday and fails on Wednesday because someone else's server was down. The attestation would
+   stop being a statement about the content and become one about the internet at an instant.
+2. **Make publication silently expire.** A live URL dies later. Gating on it means published work
+   becomes retroactively unqualified through no act of the author's.
+3. **Be a disclosure.** 119 domains would learn this content is being processed, and roughly when.
+
+## What it should be instead
+
+The Field plane is built for exactly this: signals that decay and are re-observed. §9 already types
+metric provenance and §8.4 already requires observations to carry `observedAt` and `expiresAt`.
+
+Link health is an **observation about a subject**, which SCMS-046 established is a signal, not a
+participant — so it can reach the editor without becoming part of the record or entering a reader
+surface.
+
+## Ready predicate
+
+- **Scope:** a link-health observation per subject — reachable / unreachable / unchecked, with
+  `observedAt` and `expiresAt` — surfaced on the entry in the editor.
+- **Exclusions:** it does **not** feed qualification, and no obligation may depend on it. That is the
+  whole point of the split.
+- **Dependencies:** SH-22's disposition. If the owner narrows `ob/links-resolve` to internal
+  references, this becomes the home for the external half. If they remove the obligation, this is
+  the only place the information lives.
+- **Acceptance:** a subject with an unreachable link shows it in the editor with the observation's
+  age; the observation expires by construction; no attestation, disposition or promotion outcome
+  changes as a function of it, asserted by a vector.
+- **Stop conditions:** network access is required and is a real cost — if checking is not wanted at
+  all, this ticket closes as declined rather than being built and left unused.
+
+
+========================================================================
+FILE: work/SCMS-076.md
+========================================================================
+
+# SCMS-076 — Declared content types for `project` and `role`
+
+**Intent ref:** PROJECT_INTENT.md · **Epic:** E1 · **Effect class:** E1
+**Assigned by:** SCMS-068's audit — the corrected claim row names this gap.
+
+## The gap
+
+The claim *"declared content types are enforced"* now carries the honest qualifier **"where
+declared"** — and `ARTICLE_TYPE` is the only one. The corpus contains **9 projects and 8 roles**,
+and `ob/schema-valid` returns `NOT_APPLICABLE` for both:
+
+```ts
+if (body.contentKind !== "article" && body.contentKind !== "note") {
+  return { result: "NOT_APPLICABLE", detail: `no declared type for kind '${body.contentKind}'` };
+}
+```
+
+`NOT_APPLICABLE` is honest — it says a check does not apply rather than pretending it passed — but it
+means 17 real records have no structural conformance at all.
+
+## Ready predicate
+
+- **Scope:** `PROJECT_TYPE` and `ROLE_TYPE` derived from what the corpus actually carries, not from
+  what seems reasonable. Roles have `company`, `period`, `skills`; projects have `link`, `status`,
+  `chips`.
+- **The rule SCMS-054 established:** a declared type describes the content that exists, not a subset
+  someone remembered. `ARTICLE_TYPE` omitted `summary` and every migrated article failed
+  `schema-valid` as a result.
+- **Exclusions:** do not invent slots the corpus does not use, and do not make optional what the
+  corpus always carries — a type that admits everything enforces nothing.
+- **Acceptance:** every one of the 215 records passes `schema-valid` against its declared type, or
+  fails for a reason that is *true of the content*; `NOT_APPLICABLE` no longer appears for any kind
+  in the corpus; the import still lands all 215 with `validateBody` threaded.
+- **Stop conditions:** if a real record cannot satisfy a reasonable type, that is a finding about the
+  content, not a licence to weaken the type — record it and stop.
+
+
+========================================================================
+FILE: work/SCMS-077.md
+========================================================================
+
+# SCMS-077 — Run the editing workload and disposition P7
+
+**Intent ref:** PROJECT_INTENT.md · **Epic:** E1 · **Effect class:** E1
+**Assigned by:** owner — *"you can also handle P7 by migrating my content using the editor in
+preview when that is built."*
+
+## What P7 is waiting for
+
+§8.5 deferred divergence-first branching with a stated revisit condition:
+
+> *"a real architectural commitment that should be made against a real editing workload rather than
+> a fixture… Revisit once the first migration is carrying real edits."*
+
+The owner has since named how to satisfy it: run the migration **through the editor**. The
+instrument exists — SCMS-042 records a P7 observation per edit with its lane and overlap, and
+SCMS-043 wired it to the running editor.
+
+## The ordering that matters
+
+**SCMS-045 (the working copy) must land first.** Today every landed autosave is a revision, so the
+free-lane overlap statistic would count autosave races as concurrent authorship. With buffering,
+only *commits* are revisions, and the overlap figure measures what §8.5 actually asked about.
+
+Running the workload first would produce a number that looks like evidence and is not.
+
+## Ready predicate
+
+- **Scope:** carry real edits through the editor; accumulate P7 observations; produce a
+  recommendation grounded in what the workload showed.
+- **The recommendation is not the disposition.** Accepting or continuing to defer P7 changes what
+  the system claims to be, and that signature is the owner's (§12.1).
+- **Dependencies:** SCMS-045 landed; the editor running against real content (done).
+- **Acceptance:** `summarizeP7` reports enough overlapping free-lane edits to be read rather than
+  guessed at — the instrument already refuses to be decided from too little and says so; the
+  recommendation states what was observed, how much, and what it does *not* establish.
+- **Prior art to weigh:** `stone-oven/docs/architecture-gaps.md` is the owner's own pre-mortem
+  arguing that a raw `<<<<<<< HEAD` conflict wall would break an authoring experience. That is
+  evidence for the decision, and it is a designer's prediction rather than the observation §8.5
+  asked for — the recommendation should treat it as such.
+- **Stop conditions:** if real editing produces too few overlaps to read, say so and leave P7
+  deferred. An under-powered number presented as evidence is worse than none.
 
