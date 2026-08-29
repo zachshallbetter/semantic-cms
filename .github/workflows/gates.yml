@@ -104,6 +104,10 @@ jobs:
         run: node --test test/*.test.ts
         working-directory: impl/transport
 
+      - name: Site as expression (SCMS-037 · S3-checked reader rendering)
+        run: node --test test/*.test.ts
+        working-directory: impl/site
+
       - name: End-to-end spine (SCMS-019 · the composed narrow path)
         run: node --test test/spine.test.ts
         working-directory: impl/e2e

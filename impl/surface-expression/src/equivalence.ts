@@ -13,6 +13,8 @@
 import type { ResolvedSurface } from "../../surface-resolver/src/types.ts";
 import type { ExpressionArtifact } from "./expressions.ts";
 
+const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 export interface EquivalenceFinding {
   property:
     | "member-identity" | "semantic-grouping" | "required-priority"
@@ -107,9 +109,16 @@ export function checkEquivalence(
 
   // 5. Access constraints — nothing above the surface's access level may appear
   //    in any emitted representation.
+  // Identity-wise, not substring-wise. A subject id is a token, and a bare
+  // `includes` reports a leak whenever one id happens to occur inside ordinary
+  // markup — the owner's corpus contains the slug `ma`, which appears inside
+  // words, attributes and class names in any HTML. That false positive is worse
+  // than a miss: the obvious way to silence it is to weaken the check, and a
+  // weakened access check still reads as protection (NR-scms-011).
   for (const token of forbiddenTokens) {
+    const boundary = new RegExp(`(^|[^A-Za-z0-9_-])${escapeRegExp(token)}([^A-Za-z0-9_-]|$)`);
     for (const [label, art] of [["A", a], ["B", b]] as const) {
-      if (art.output.includes(token) || art.presentedOrder.includes(token)) {
+      if (boundary.test(art.output) || art.presentedOrder.includes(token)) {
         findings.push({ property: "access-constraint", detail: `${label} leaked '${token}'` });
       }
     }

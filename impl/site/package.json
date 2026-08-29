@@ -1,0 +1,8 @@
+{
+  "name": "@scms/site",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "The site as a reader expression of Canon (SCMS-037, epic E8): a third expression adapter held to the same S3 equivalence contract as structural-web and linear-voice, with feeds and sitemap derived from the page's own surface.",
+  "scripts": { "test": "node --test test/*.test.ts" }
+}

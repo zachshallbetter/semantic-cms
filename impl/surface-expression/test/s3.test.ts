@@ -163,3 +163,36 @@ test("withheld operation is exposed-as-withheld in both modalities, never droppe
     { id: "edit", exposure: "withheld" },
   );
 });
+
+// ── The access check is identity-wise, not substring-wise (NR-scms-011) ─────
+
+test("a short subject id occurring inside markup is not reported as a leak", () => {
+  // The owner's corpus contains the slug `ma`, which appears inside class
+  // names, attributes and ordinary words in any HTML. A substring scan called
+  // that a leak on both expressions at once — an obvious tell that the checker,
+  // not the expressions, was wrong.
+  const s = surface();
+  const a = expressStructural(s);
+  const b = expressLinear(s);
+  assert.ok(a.output.includes("ma") || a.output.includes("data-"),
+    "the literal characters do occur, so this vector is not vacuous");
+
+  const result = checkEquivalence(s, a, b, ["ma"]);
+  assert.deepEqual(result.findings.filter((f) => f.property === "access-constraint"), [],
+    "a coincidental substring must not be reported as an access leak");
+});
+
+test("a genuine leak of a forbidden identity still fires", () => {
+  // The control for the vector above. Without this, the fix could have been a
+  // silent removal of the check.
+  const s = surface();
+  const a = expressStructural(s);
+  const b = expressLinear(s);
+  const present = a.presentedOrder[0];
+  assert.ok(present, "the expression presents at least one subject");
+
+  const result = checkEquivalence(s, a, b, [present]);
+  assert.ok(result.findings.some((f) => f.property === "access-constraint"),
+    `a forbidden identity actually present ('${present}') must be reported`);
+  assert.equal(result.equivalent, false);
+});

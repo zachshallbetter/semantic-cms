@@ -1,6 +1,6 @@
 # PROJECT COMPILED CONTEXT
 Generator: 0.5.0
-Source digest: 0f4cb95b2f492172cd02d8a79ca9b052c40f510abec06d39e446d8514c6fefda
+Source digest: 72132336e9dd8293f9c44ae2209c5e253e516dbad082b51925e216f8713efd30
 
 > Generated projection. Canonical sources remain authoritative.
 
@@ -252,6 +252,10 @@ jobs:
       - name: Transport — wire, replay, and derived freshness (SCMS-033/034/035)
         run: node --test test/*.test.ts
         working-directory: impl/transport
+
+      - name: Site as expression (SCMS-037 · S3-checked reader rendering)
+        run: node --test test/*.test.ts
+        working-directory: impl/site
 
       - name: End-to-end spine (SCMS-019 · the composed narrow path)
         run: node --test test/spine.test.ts
@@ -1503,6 +1507,7 @@ above its rung.
 | Editing content does not destroy it | **Implemented + Tested** | SCMS-042 / NR-scms-008: a slot-level edit preserves its siblings, removal is explicit rather than by omission, and the receipt names the exact field that moved. Before this, editing an article's body silently deleted its title and summary while reporting success | Vectors for every write path against realistically-nested bodies, not flat fixtures |
 | No gate reads its deciding input from the caller | **Implemented + Tested** | SCMS-036: evidence and attestations are Canon records; a forged disposition is not read, forged evidence is not consulted, and a borrowed attestation is not expressible | Evaluator independence (SH-13), which is policy rather than repair |
 | A person can actually edit through the system | **Implemented + verified by interaction** | SCMS-043: the editor runs, imports through `content.create@1`, saves through `content.revise@1`, and records a P7 observation per edit. Verified by making an edit in a browser, not by vectors — a lower rung than the rest of this register | Vectors over the server; the owner's own editing session; and routing it through the surface pipeline it currently bypasses (SH-16) |
+| The site is an expression of Canon, not a client of it | **Implemented + Tested** | SCMS-037: the reader-web renderer is a third expression adapter held to the S3 equivalence contract against the voice expression of the same surface — identical members, order and operation exposure, differing morphology. Real pages, feeds and sitemap over the real corpus, with no private entry reachable | A deploy, caching and invalidation, and a measured render budget |
 | The published artifacts match their canonical sources | **Tested** | scripts/check-projection-sync.py in CI, with a self-test | — |
 | The system is empirically useful | **NOT established** — but no longer untested against reality | SCMS-028: a real 215-entry corpus maps into Canon and resolves, and the mapping found a genuine modelling collapse in the owner's live data (dual-vocabulary `status`, 22 findings). That establishes the *mapping*, not usefulness: nothing is deployed, no human has used the result, rcp-001 remains an active obligation | A person doing real work through it — which needs the authoring surface (E12/SH-8) and a deployment |
 
@@ -16146,6 +16151,594 @@ test("no finding references expression: sockets say what may participate, not ho
 
 
 ========================================================================
+FILE: impl/site/package.json
+========================================================================
+
+{
+  "name": "@scms/site",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "The site as a reader expression of Canon (SCMS-037, epic E8): a third expression adapter held to the same S3 equivalence contract as structural-web and linear-voice, with feeds and sitemap derived from the page's own surface.",
+  "scripts": { "test": "node --test test/*.test.ts" }
+}
+
+
+========================================================================
+FILE: impl/site/server/serve.ts
+========================================================================
+
+/**
+ * The site, running (SCMS-037, epic E8).
+ *
+ * Serves zachshallbetter.com's real reader routes from Canon. This is the
+ * consolidation's reader half: the site is not a client that fetches content,
+ * it is an expression of resolved surfaces.
+ *
+ * **Public access only, and deliberately.** There is no authentication here and
+ * none is implied — every request resolves at `public`, so the question "who is
+ * asking" never arises. The owner's view lives in the editor, a separate process
+ * with its own gate. A flag here that switched to owner access would be an
+ * authorization decision made by a query parameter, which is exactly the shape
+ * of NR-scms-005.
+ *
+ * Nothing is deployed by running this.
+ */
+import { createServer } from "node:http";
+import type { ServerResponse } from "node:http";
+import { readFileSync, existsSync, readdirSync } from "node:fs";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+import { CanonJournal } from "../../canon/src/journal.ts";
+import { freeze } from "../../canon/src/freeze.ts";
+import { migrateAll } from "../../migrate/src/zach-core.ts";
+import type { SourceEntry } from "../../migrate/src/zach-core.ts";
+import { READER_ROUTES, renderRoute, isRouteFailure, siteMap } from "../../reader/src/routes.ts";
+import type { RenderedRoute } from "../../reader/src/routes.ts";
+import { expressReaderWeb } from "../src/express.ts";
+import type { Hydrator } from "../src/express.ts";
+import { renderRss, renderSitemap } from "../src/feeds.ts";
+import { renderShell } from "../src/page.ts";
+
+const HERE = dirname(fileURLToPath(import.meta.url));
+const arg = (n: string, d: string) => {
+  const i = process.argv.indexOf(`--${n}`);
+  return i >= 0 && process.argv[i + 1] ? process.argv[i + 1] : d;
+};
+const CONTENT_DIR = arg("content", join(process.env.HOME ?? "", "Projects/zach-core/content"));
+const PORT = Number(arg("port", "8789"));
+const ORIGIN = arg("origin", `http://localhost:${PORT}`);
+const SITE_TITLE = "Zach Shallbetter";
+
+/** Prose comes from the owner's checkout at runtime; the repo holds only digests. */
+function loadBodies(): Map<string, string> {
+  const out = new Map<string, string>();
+  if (!existsSync(CONTENT_DIR)) return out;
+  for (const kind of readdirSync(CONTENT_DIR)) {
+    let files: string[] = [];
+    try { files = readdirSync(join(CONTENT_DIR, kind)).filter((f) => f.endsWith(".md")); } catch { continue; }
+    for (const f of files) {
+      const raw = readFileSync(join(CONTENT_DIR, kind, f), "utf8");
+      const m = /^---\r?\n[\s\S]*?\r?\n---\r?\n?/.exec(raw);
+      out.set(f.replace(/\.md$/, ""), m ? raw.slice(m[0].length) : raw);
+    }
+  }
+  return out;
+}
+
+const manifest = JSON.parse(
+  readFileSync(join(HERE, "../../../fixtures/zach-core-manifest.json"), "utf8")) as { entries: SourceEntry[] };
+const prose = loadBodies();
+const migrated = migrateAll(manifest.entries.map((e) => ({
+  ...e, body: prose.get(String(e.frontmatter.slug ?? "")) ?? undefined,
+})));
+
+const journal = new CanonJournal();
+for (const e of [...migrated.content, ...migrated.relations]) journal.append(e, "migration");
+const snapshot = freeze(journal, "site");
+
+const byId = new Map(journal.current().map((e) => [e.envelope.subjectId, e]));
+const hydrate: Hydrator = (subject) => {
+  const e = byId.get(subject);
+  if (!e) return undefined;
+  const b = e.envelope.body as unknown as {
+    contentKind: string; slots?: Record<string, Array<{ value?: unknown }>>;
+  };
+  const str = (k: string) => {
+    const v = b.slots?.[k]?.[0]?.value;
+    return typeof v === "string" ? v : undefined;
+  };
+  return { title: str("title"), summary: str("summary"), body: str("body") ?? null, kind: b.contentKind };
+};
+
+const routeFor = (p: string) => READER_ROUTES.find((r) => r.path === p)!;
+
+function page(rendered: RenderedRoute, title: string): string {
+  const art = expressReaderWeb(rendered.surface, hydrate);
+  return renderShell({
+    title: `${title} · ${SITE_TITLE}`, siteTitle: SITE_TITLE, body: art.output,
+    provenance: { snapshot: rendered.surface.sourceSnapshot, fingerprint: rendered.surface.fingerprint },
+  });
+}
+
+const send = (res: ServerResponse, code: number, type: string, body: string) => {
+  res.writeHead(code, { "content-type": type });
+  res.end(body);
+};
+
+const server = createServer((req, res) => {
+  const url = new URL(req.url ?? "/", ORIGIN);
+  const path = url.pathname.replace(/\/$/, "") || "/";
+
+  const notFound = () => send(res, 404, "text/html; charset=utf-8", renderShell({
+    title: `Not found · ${SITE_TITLE}`, siteTitle: SITE_TITLE,
+    body: '<h1>Not found</h1><p class="dek">No such page.</p>',
+  }));
+
+  if (path === "/" || path === "/writing" || path === "/work") {
+    const target = path === "/" ? "/writing" : path;
+    const r = renderRoute(snapshot, routeFor(target), "public");
+    if (isRouteFailure(r)) return notFound();
+    return send(res, 200, "text/html; charset=utf-8",
+      page(r as RenderedRoute, target === "/writing" ? "Writing" : "Work"));
+  }
+
+  const detail = /^\/(writing|work)\/(.+)$/.exec(path);
+  if (detail) {
+    const r = renderRoute(snapshot, routeFor(`/${detail[1]}/[slug]`), "public", decodeURIComponent(detail[2]));
+    // A private subject fails here exactly as it fails for any reader: the page
+    // has no path to it, so 404 is the truth rather than a policy.
+    if (isRouteFailure(r)) return notFound();
+    const rendered = r as RenderedRoute;
+    return send(res, 200, "text/html; charset=utf-8",
+      page(rendered, hydrate(rendered.subjects[0])?.title ?? detail[2]));
+  }
+
+  if (path === "/rss.xml") {
+    const r = renderRoute(snapshot, routeFor("/writing"), "public");
+    if (isRouteFailure(r)) return notFound();
+    return send(res, 200, "application/rss+xml; charset=utf-8",
+      renderRss(r as RenderedRoute, hydrate,
+        { siteTitle: SITE_TITLE, origin: ORIGIN, builtAt: new Date().toISOString() }));
+  }
+
+  if (path === "/sitemap.xml") {
+    return send(res, 200, "application/xml; charset=utf-8",
+      renderSitemap(siteMap(snapshot, "public"), { origin: ORIGIN }));
+  }
+
+  return notFound();
+});
+
+server.listen(PORT, () => {
+  const pub = migrated.content.filter((e) => e.minimumAccess === "public").length;
+  process.stdout.write(
+    `Site on ${ORIGIN}\n`
+    + `  ${migrated.content.length} entries in Canon, ${pub} reachable at public access\n`
+    + `  bodies from ${CONTENT_DIR}: ${prose.size}\n`
+    + `  public access only — no auth here, and none implied\n`);
+});
+
+
+========================================================================
+FILE: impl/site/src/express.ts
+========================================================================
+
+/**
+ * Expression C — reader-web (SCMS-037, epic E8).
+ *
+ * The site as an expression of Canon, not a client that queries it. This is the
+ * consolidation the owner directed — one project, CMS as substrate and site as
+ * reader expression — made real for the pages a visitor actually loads.
+ *
+ * It is deliberately a **third expression adapter** alongside `structural-web`
+ * and `linear-voice`, not a bespoke renderer. SH-16 was the editor hand-writing
+ * its own page and thereby collapsing
+ * `CANON != SURFACE != EXPRESSION != REPRESENTATION`; building the site the same
+ * way would repeat that with a wider blast radius. Being an adapter means the
+ * S3 equivalence checker can hold this renderer to the same contract as the
+ * other two: same members, same order, same operation exposure, while morphology
+ * stays free.
+ *
+ * Content arrives through an injected `Hydrator` called only for subjects the
+ * surface already admitted — look up, never look around. That is the same
+ * discipline `deriveFeed` holds, and it is what makes the non-leak property
+ * structural rather than careful.
+ */
+import type { ResolvedSurface } from "../../surface-resolver/src/types.ts";
+import type { ExpressionArtifact } from "../../surface-expression/src/expressions.ts";
+
+export interface Article {
+  title?: string;
+  summary?: string;
+  body?: string | null;
+  kind?: string;
+}
+
+/** Supplies display material for ONE subject. Injected, so hydration cannot browse. */
+export type Hydrator = (subject: string) => Article | undefined;
+
+const esc = (s: unknown) =>
+  String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+/**
+ * Morphology for this adapter. Free by SSS-INV-008/009 — the surface says a
+ * group is `primary`, and it is this adapter's business alone whether that
+ * becomes a full article or a card.
+ */
+const FORM: Record<string, string> = {
+  primary: "article-body",
+  supporting: "related-cards",
+  context: "context-notes",
+  collection: "index-list",
+};
+
+export function expressReaderWeb(surface: ResolvedSurface, hydrate: Hydrator): ExpressionArtifact {
+  const morphology: Record<string, string> = {};
+  const presentedGroups: Record<string, string[]> = {};
+  const presentedOrder: string[] = [];
+  const parts: string[] = [];
+
+  for (const group of surface.groups) {
+    const form = FORM[group.id] ?? "stack";
+    morphology[group.id] = form;
+    presentedGroups[group.id] = group.members.map((m) => m.subject);
+
+    parts.push(`<section class="g g--${esc(form)}" data-group="${esc(group.id)}" data-role="${esc(group.role)}">`);
+    for (const m of group.members) {
+      presentedOrder.push(m.subject);
+      const a = hydrate(m.subject);
+      const href = `/${a?.kind === "project" || a?.kind === "role" ? "work" : "writing"}/${esc(m.subject)}`;
+
+      if (form === "article-body") {
+        parts.push(`  <article data-subject="${esc(m.subject)}">`);
+        parts.push(`    <h1>${esc(a?.title ?? m.subject)}</h1>`);
+        if (a?.summary) parts.push(`    <p class="dek">${esc(a.summary)}</p>`);
+        if (a?.body) parts.push(`    <div class="prose">${esc(a.body)}</div>`);
+        parts.push(`  </article>`);
+      } else {
+        parts.push(`  <a class="card" href="${href}" data-subject="${esc(m.subject)}">`);
+        parts.push(`    <h2>${esc(a?.title ?? m.subject)}</h2>`);
+        if (a?.summary) parts.push(`    <p>${esc(a.summary)}</p>`);
+        parts.push(`  </a>`);
+      }
+    }
+    parts.push(`</section>`);
+  }
+
+  // A withheld operation is rendered disabled, never dropped — the same SES rule
+  // the other two adapters follow. A reader surface usually exposes none, and
+  // the empty nav is still emitted so the contract is visible rather than
+  // conditional.
+  const exposedOperations = surface.operations.map((op) => ({ id: op.id, exposure: op.exposure }));
+  parts.push(`<nav data-operations>`);
+  for (const op of surface.operations) {
+    const disabled = op.exposure === "withheld" || op.exposure === "unavailable";
+    parts.push(
+      `  <button data-operation="${esc(op.id)}" data-exposure="${esc(op.exposure)}"` +
+      `${disabled ? ' disabled aria-disabled="true"' : ""}>${esc(op.id)}</button>`);
+  }
+  parts.push(`</nav>`);
+
+  return {
+    expression: "reader-web",
+    modality: "visual-2d",
+    morphology,
+    output: parts.join("\n"),
+    exposedOperations,
+    presentedOrder,
+    presentedGroups,
+    explanationRef: surface.resolutionId,
+  };
+}
+
+
+========================================================================
+FILE: impl/site/src/feeds.ts
+========================================================================
+
+/**
+ * Feeds and sitemap, derived from the page's own surface (SCMS-037).
+ *
+ * SCMS-030 established the rule and this applies it to real wire formats:
+ * **a feed is an expression of the same ResolvedSurface as its page, never a
+ * second query.** These functions take a rendered route and a hydrator. They
+ * take no snapshot and no access level, so they make no access decision and
+ * have no route to a subject the page would not show. The parameter list is the
+ * guarantee.
+ */
+import type { RenderedRoute } from "../../reader/src/routes.ts";
+import type { Hydrator } from "./express.ts";
+
+const esc = (s: unknown) =>
+  String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&apos;");
+
+export interface FeedOptions {
+  siteTitle: string;
+  origin: string;
+  /** Explicit clock — no ambient time, so the output is reproducible. */
+  builtAt: string;
+}
+
+function pathFor(subject: string, hydrate: Hydrator): string {
+  const kind = hydrate(subject)?.kind;
+  return `/${kind === "project" || kind === "role" ? "work" : "writing"}/${subject}`;
+}
+
+export function renderRss(rendered: RenderedRoute, hydrate: Hydrator, opts: FeedOptions): string {
+  const items = rendered.surface.groups.flatMap((g) => g.members).map((m) => {
+    const a = hydrate(m.subject);
+    const link = `${opts.origin}${pathFor(m.subject, hydrate)}`;
+    return [
+      "    <item>",
+      `      <title>${esc(a?.title ?? m.subject)}</title>`,
+      `      <link>${esc(link)}</link>`,
+      `      <guid isPermaLink="true">${esc(link)}</guid>`,
+      ...(a?.summary ? [`      <description>${esc(a.summary)}</description>`] : []),
+      "    </item>",
+    ].join("\n");
+  });
+
+  return [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<rss version="2.0">',
+    "  <channel>",
+    `    <title>${esc(opts.siteTitle)}</title>`,
+    `    <link>${esc(opts.origin)}</link>`,
+    `    <lastBuildDate>${esc(opts.builtAt)}</lastBuildDate>`,
+    ...items,
+    "  </channel>",
+    "</rss>",
+  ].join("\n");
+}
+
+export function renderSitemap(paths: string[], opts: Pick<FeedOptions, "origin">): string {
+  return [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+    ...paths.map((p) => `  <url><loc>${esc(opts.origin + p)}</loc></url>`),
+    "</urlset>",
+  ].join("\n");
+}
+
+
+========================================================================
+FILE: impl/site/src/page.ts
+========================================================================
+
+/**
+ * The document shell (SCMS-037).
+ *
+ * Separated from the adapter on purpose: `expressReaderWeb` decides what the
+ * surface becomes, and this decides only what wraps it. Keeping the shell out
+ * of the adapter is what lets the equivalence checker compare the adapter's
+ * output against a voice expression without the comparison drowning in chrome.
+ */
+export interface ShellOptions {
+  title: string;
+  siteTitle: string;
+  /** Rendered by an expression adapter — never hand-authored here. */
+  body: string;
+  /** Shown in the footer: what this page is derived from. */
+  provenance?: { snapshot: string; fingerprint: string };
+}
+
+const esc = (s: unknown) =>
+  String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+const CSS = `
+:root{--ground:#FBFBF9;--ink:#1A1A18;--muted:#5F6360;--rule:#E2E2DC;--accent:#3A5A46;--surface:#FFF}
+@media (prefers-color-scheme:dark){:root{--ground:#111311;--ink:#E8E8E3;--muted:#989D98;--rule:#262A26;--accent:#8FBFA2;--surface:#171A17}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);
+  font:16px/1.6 ui-serif,Georgia,"Times New Roman",serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:44rem;margin:0 auto;padding:2.5rem 1.5rem 5rem}
+header.site{border-bottom:1px solid var(--rule);padding-bottom:1rem;margin-bottom:2.5rem;
+  display:flex;gap:1.25rem;align-items:baseline;flex-wrap:wrap}
+header.site a{color:inherit;text-decoration:none;font-family:ui-sans-serif,system-ui,sans-serif;font-size:.9rem}
+header.site a:hover{color:var(--accent)}
+header.site .brand{font-weight:600;letter-spacing:-.01em}
+h1{font-size:2rem;line-height:1.15;margin:0 0 .5rem;text-wrap:balance;letter-spacing:-.015em}
+h2{font-size:1.15rem;margin:0 0 .25rem;letter-spacing:-.01em}
+.dek{color:var(--muted);font-size:1.05rem;margin:0 0 2rem}
+.prose{white-space:pre-wrap}
+.g--index-list{display:flex;flex-direction:column;gap:.25rem}
+a.card{display:block;padding:1rem 1.1rem;margin:0 0 .25rem;border:1px solid var(--rule);
+  border-radius:.5rem;background:var(--surface);color:inherit;text-decoration:none}
+a.card:hover{border-color:var(--accent)}
+a.card p{margin:.35rem 0 0;color:var(--muted);font-size:.95rem}
+nav[data-operations]{display:none}
+nav[data-operations]:has(button){display:flex;gap:.5rem;margin-top:2rem}
+footer.prov{margin-top:4rem;padding-top:1rem;border-top:1px solid var(--rule);
+  color:var(--muted);font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace}
+a:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+`;
+
+export function renderShell(o: ShellOptions): string {
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${esc(o.title)}</title>
+<link rel="alternate" type="application/rss+xml" href="/rss.xml">
+<style>${CSS}</style>
+</head>
+<body>
+<div class="wrap">
+<header class="site">
+  <a class="brand" href="/">${esc(o.siteTitle)}</a>
+  <a href="/writing">Writing</a>
+  <a href="/work">Work</a>
+</header>
+${o.body}
+${o.provenance
+  ? `<footer class="prov">rendered from Canon · snapshot ${esc(o.provenance.snapshot)} · surface ${esc(o.provenance.fingerprint.slice(0, 16))}</footer>`
+  : ""}
+</div>
+</body>
+</html>`;
+}
+
+
+========================================================================
+FILE: impl/site/test/site.test.ts
+========================================================================
+
+/**
+ * SCMS-037 vectors: the site as an expression, over the owner's real archive.
+ */
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { CanonJournal } from "../../canon/src/journal.ts";
+import { freeze } from "../../canon/src/freeze.ts";
+import { migrateAll } from "../../migrate/src/zach-core.ts";
+import type { SourceEntry } from "../../migrate/src/zach-core.ts";
+import { READER_ROUTES, renderRoute, isRouteFailure, siteMap } from "../../reader/src/routes.ts";
+import type { RenderedRoute } from "../../reader/src/routes.ts";
+import { expressLinear } from "../../surface-expression/src/expressions.ts";
+import { checkEquivalence } from "../../surface-expression/src/equivalence.ts";
+import { expressReaderWeb } from "../src/express.ts";
+import type { Hydrator } from "../src/express.ts";
+import { renderRss, renderSitemap } from "../src/feeds.ts";
+import { renderShell } from "../src/page.ts";
+
+const manifest = JSON.parse(readFileSync(
+  fileURLToPath(new URL("../../../fixtures/zach-core-manifest.json", import.meta.url)), "utf8"),
+) as { entries: SourceEntry[] };
+const migrated = migrateAll(manifest.entries);
+const journal = new CanonJournal();
+for (const e of [...migrated.content, ...migrated.relations]) journal.append(e, "migration");
+const snapshot = freeze(journal, "site-wave-0");
+
+const privateSubjects = new Set(
+  migrated.content.filter((e) => e.minimumAccess === "owner").map((e) => e.subjectId));
+
+const byId = new Map(journal.current().map((e) => [e.envelope.subjectId, e]));
+const hydrate: Hydrator = (subject) => {
+  const e = byId.get(subject);
+  if (!e) return undefined;
+  const b = e.envelope.body as unknown as {
+    contentKind: string; slots?: Record<string, Array<{ value?: unknown }>>;
+  };
+  const str = (k: string) => {
+    const v = b.slots?.[k]?.[0]?.value;
+    return typeof v === "string" ? v : undefined;
+  };
+  return { title: str("title"), summary: str("summary"), body: str("body") ?? null, kind: b.contentKind };
+};
+
+const route = (p: string) => READER_ROUTES.find((r) => r.path === p)!;
+const render = (p: string, access: "public" | "owner", subject?: string): RenderedRoute => {
+  const r = renderRoute(snapshot, route(p), access, subject);
+  assert.ok(!isRouteFailure(r), `${p} failed`);
+  return r as RenderedRoute;
+};
+
+test("the site renders the real corpus as an expression, not a hand-written page", () => {
+  const rendered = render("/writing", "public");
+  const art = expressReaderWeb(rendered.surface, hydrate);
+  assert.equal(art.expression, "reader-web");
+  assert.equal(art.presentedOrder.length, rendered.subjects.length);
+  assert.ok(art.output.includes("<a class=\"card\""), "the index renders real cards");
+  // Real authored titles, not slugs.
+  const titled = rendered.subjects.filter((s) => {
+    const t = hydrate(s)?.title;
+    return t && t !== s && art.output.includes(t.slice(0, 12).replace(/[&<>"]/g, ""));
+  });
+  assert.ok(titled.length > 0, "authored titles reached the page");
+});
+
+test("the site's renderer satisfies the SAME equivalence contract as the other adapters", () => {
+  // The point of building it as an adapter: it can be held to S3 rather than
+  // trusted. Compared against the voice expression of the same surface.
+  const rendered = render("/work", "public");
+  const web = expressReaderWeb(rendered.surface, hydrate);
+  const voice = expressLinear(rendered.surface);
+
+  const result = checkEquivalence(rendered.surface, web, voice, [...privateSubjects]);
+  assert.deepEqual(result.findings, [], "equivalence findings must be empty");
+  assert.equal(result.equivalent, true);
+  assert.equal(result.materiallyDifferent, true, "and the two must genuinely differ in shape");
+});
+
+test("hydration is member-driven — the page cannot reach past its surface", () => {
+  const rendered = render("/writing", "public");
+  const asked: string[] = [];
+  expressReaderWeb(rendered.surface, (s) => { asked.push(s); return hydrate(s); });
+  assert.deepEqual([...new Set(asked)].sort(), [...new Set(rendered.subjects)].sort());
+});
+
+test("no private entry appears in any rendered page, feed, or sitemap", () => {
+  const builtAt = "2026-08-29T00:00:00Z";
+  const opts = { siteTitle: "Zach Shallbetter", origin: "https://zachshallbetter.com", builtAt };
+
+  for (const path of ["/writing", "/work"]) {
+    const rendered = render(path, "public");
+    const art = expressReaderWeb(rendered.surface, hydrate);
+    const page = renderShell({ title: path, siteTitle: opts.siteTitle, body: art.output });
+    const rss = renderRss(rendered, hydrate, opts);
+
+    for (const s of privateSubjects) {
+      const token = new RegExp(`(^|[^a-z0-9-])${s}([^a-z0-9-]|$)`);
+      assert.ok(!token.test(page), `${path} page leaked ${s}`);
+      assert.ok(!token.test(rss), `${path} feed leaked ${s}`);
+    }
+    // Control: a public subject IS present, so the scan is meaningful.
+    assert.ok(rendered.subjects.some((s) => page.includes(s)));
+  }
+
+  const map = renderSitemap(siteMap(snapshot, "public"), opts);
+  for (const s of privateSubjects) {
+    assert.ok(!new RegExp(`/${s}<`).test(map), `sitemap leaked ${s}`);
+  }
+});
+
+test("the feed makes no access decision — it takes neither snapshot nor access level", () => {
+  const rendered = render("/writing", "public");
+  const asked: string[] = [];
+  const rss = renderRss(rendered, (s) => { asked.push(s); return hydrate(s); },
+    { siteTitle: "T", origin: "https://example.test", builtAt: "2026-08-29T00:00:00Z" });
+  assert.deepEqual([...new Set(asked)].sort(), [...new Set(rendered.subjects)].sort(),
+    "the feed asked for exactly the page's members");
+  assert.ok(rss.startsWith('<?xml version="1.0"'));
+  assert.equal((rss.match(/<item>/g) ?? []).length, rendered.subjects.length);
+});
+
+test("a detail page renders the article body and its real relation", () => {
+  const rendered = render("/work/[slug]", "public", "cursed-crypt");
+  const art = expressReaderWeb(rendered.surface, hydrate);
+  assert.ok(art.presentedOrder.includes("cursed-crypt"));
+  assert.ok(art.presentedOrder.includes("founder-cpo"), "the declared relation reached the page");
+  assert.ok(art.output.includes("<article"), "the focused subject renders as an article");
+  assert.notDeepEqual(art.morphology, {}, "and the adapter chose its own container forms");
+});
+
+test("the owner's view differs from the public view by exactly the private set", () => {
+  const pub = new Set(render("/writing", "public").subjects);
+  const owner = new Set(render("/writing", "owner").subjects);
+  for (const s of pub) assert.ok(owner.has(s));
+  const extra = [...owner].filter((s) => !pub.has(s));
+  assert.ok(extra.length > 0);
+  for (const s of extra) assert.ok(privateSubjects.has(s));
+});
+
+test("the page states what it was derived from", () => {
+  const rendered = render("/writing", "public");
+  const art = expressReaderWeb(rendered.surface, hydrate);
+  const page = renderShell({
+    title: "Writing", siteTitle: "Zach Shallbetter", body: art.output,
+    provenance: { snapshot: rendered.surface.sourceSnapshot, fingerprint: rendered.surface.fingerprint },
+  });
+  assert.ok(page.includes("rendered from Canon"));
+  assert.ok(page.includes(rendered.surface.sourceSnapshot));
+});
+
+
+========================================================================
 FILE: impl/surface-expression/package.json
 ========================================================================
 
@@ -16179,6 +16772,8 @@ FILE: impl/surface-expression/src/equivalence.ts
  */
 import type { ResolvedSurface } from "../../surface-resolver/src/types.ts";
 import type { ExpressionArtifact } from "./expressions.ts";
+
+const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 export interface EquivalenceFinding {
   property:
@@ -16274,9 +16869,16 @@ export function checkEquivalence(
 
   // 5. Access constraints — nothing above the surface's access level may appear
   //    in any emitted representation.
+  // Identity-wise, not substring-wise. A subject id is a token, and a bare
+  // `includes` reports a leak whenever one id happens to occur inside ordinary
+  // markup — the owner's corpus contains the slug `ma`, which appears inside
+  // words, attributes and class names in any HTML. That false positive is worse
+  // than a miss: the obvious way to silence it is to weaken the check, and a
+  // weakened access check still reads as protection (NR-scms-011).
   for (const token of forbiddenTokens) {
+    const boundary = new RegExp(`(^|[^A-Za-z0-9_-])${escapeRegExp(token)}([^A-Za-z0-9_-]|$)`);
     for (const [label, art] of [["A", a], ["B", b]] as const) {
-      if (art.output.includes(token) || art.presentedOrder.includes(token)) {
+      if (boundary.test(art.output) || art.presentedOrder.includes(token)) {
         findings.push({ property: "access-constraint", detail: `${label} leaked '${token}'` });
       }
     }
@@ -16636,6 +17238,39 @@ test("withheld operation is exposed-as-withheld in both modalities, never droppe
     a.exposedOperations.find((o) => o.id === "edit"),
     { id: "edit", exposure: "withheld" },
   );
+});
+
+// ── The access check is identity-wise, not substring-wise (NR-scms-011) ─────
+
+test("a short subject id occurring inside markup is not reported as a leak", () => {
+  // The owner's corpus contains the slug `ma`, which appears inside class
+  // names, attributes and ordinary words in any HTML. A substring scan called
+  // that a leak on both expressions at once — an obvious tell that the checker,
+  // not the expressions, was wrong.
+  const s = surface();
+  const a = expressStructural(s);
+  const b = expressLinear(s);
+  assert.ok(a.output.includes("ma") || a.output.includes("data-"),
+    "the literal characters do occur, so this vector is not vacuous");
+
+  const result = checkEquivalence(s, a, b, ["ma"]);
+  assert.deepEqual(result.findings.filter((f) => f.property === "access-constraint"), [],
+    "a coincidental substring must not be reported as an access leak");
+});
+
+test("a genuine leak of a forbidden identity still fires", () => {
+  // The control for the vector above. Without this, the fix could have been a
+  // silent removal of the check.
+  const s = surface();
+  const a = expressStructural(s);
+  const b = expressLinear(s);
+  const present = a.presentedOrder[0];
+  assert.ok(present, "the expression presents at least one subject");
+
+  const result = checkEquivalence(s, a, b, [present]);
+  assert.ok(result.findings.some((f) => f.property === "access-constraint"),
+    `a forbidden identity actually present ('${present}') must be reported`);
+  assert.equal(result.equivalent, false);
 });
 
 
@@ -22288,7 +22923,7 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-034 | Replay by last_event_id, no event loss, lagged disclosure (R2) | E5 | Done — landed with SCMS-033 | records/evidence.jsonl · scms-evidence-033 |
 | SCMS-035 | The provenance chip driven by a real transport (R2 meets R3) | E6 | Done — freshness derived, not asserted; NR-scms-009 fixed; SH-17 raised | records/evidence.jsonl · scms-evidence-035 |
 | SCMS-036 | Evidence and attestations as Canon records | E3 | Done — forgery closed; SH-13 (self-attestation) remains owner policy | records/evidence.jsonl · scms-evidence-036 |
-| SCMS-037 | The site renders from Canon (consolidation, no deploy) | E8 | Ready — completes E8 up to the deploy decision, which stays the owner's | — |
+| SCMS-037 | The site renders from Canon (consolidation, no deploy) | E8 | Done — third expression adapter, S3-checked; NR-scms-011 fixed; awaiting owner verification | records/evidence.jsonl · scms-evidence-037 |
 | SCMS-038 | Independent adversarial verification of the load-bearing claims | E0 | Ready — nothing has ever been marked Verified; targets the new authority gate first | — |
 | SCMS-039 | Recommended dispositions for the 25 open proposals on PR #28 | E0 | Ready — recommendations only; ratification is owner authority and will NOT be exercised | — |
 | SCMS-040 | The editor in preview: a usable authoring surface over real content | E12 | Done — SH-8 closed; preview published; awaiting owner verification | records/evidence.jsonl · scms-evidence-040 |
@@ -24200,6 +24835,84 @@ system's ethics. This item closes forgery; it does not pretend to close self-att
 ## Closing state
 
 **Done — no gate in the system now reads its own deciding input from the caller.**
+
+
+========================================================================
+FILE: work/SCMS-037.md
+========================================================================
+
+# SCMS-037 — The site renders from Canon
+
+**Intent ref:** PROJECT_INTENT.md · **Epic:** E8 · **Effect class:** E1
+**Assigned by:** owner directive — *"We should be migrating both projects to a singular new one."*
+**State:** Ready → Claimed → Done (closing state at bottom)
+
+## The gap
+
+SCMS-028 landed the corpus; SCMS-030 declared the reader routes and proved they resolve. Nothing
+rendered a page a browser could load, so the consolidation's reader half existed as route
+declarations and vectors rather than as a site.
+
+## The decision that carries the weight
+
+**The site's renderer is a third expression adapter, not a bespoke page builder.**
+
+The tempting build is a template that reads Canon and writes HTML. That is exactly what SH-16 was:
+the editor hand-writing its own page, collapsing `CANON ≠ SURFACE ≠ EXPRESSION ≠ REPRESENTATION`
+at the one place a person actually looks. Repeating it for the site would have a wider blast radius
+and would be harder to unpick later.
+
+So `expressReaderWeb` returns an `ExpressionArtifact`, the same type `structural-web` and
+`linear-voice` return. The consequence is not stylistic: **the S3 equivalence checker can hold the
+site's renderer to the same contract as the other two.** A vector compares the site's rendering of a
+real surface against the *voice* expression of that same surface and requires identical members,
+identical order, and identical operation exposure, while requiring morphology to differ. The site
+cannot quietly drop a subject, reorder for aesthetics, or hide a withheld operation, because a
+conformance instrument that already existed now covers it.
+
+Content arrives through an injected `Hydrator` called only for surface members — look up, never
+look around, the same discipline `deriveFeed` holds. Feeds and sitemap take a rendered route and a
+hydrator, and take **no snapshot and no access level**, so they make no access decision and have no
+route to a subject the page would not show.
+
+## What this found
+
+**NR-scms-011 — the equivalence checker had a false positive that would have been "fixed" by
+weakening it.** Its access-constraint check used `output.includes(token)`, and the corpus contains
+the two-character slug `ma`, which occurs inside class names, attributes and ordinary words in any
+HTML. The checker reported both expressions leaking simultaneously — the tell that the instrument,
+not the expressions, was wrong. This is the *second* time this substring bug has appeared: I fixed
+it in my own reader vectors during SCMS-030 and did not look for it in the shared instrument.
+Now token-wise, with a vector proving a coincidental substring is not reported **and** a control
+proving a genuine leak still fires.
+
+## Acceptance — all met
+
+1. The real corpus renders as pages a browser loads: index, detail, RSS, sitemap.
+2. The renderer passes S3 equivalence against the voice expression of the same surface.
+3. Hydration is member-driven, asserted by recording every subject the hydrator was asked for.
+4. No private entry appears in any page, feed, or sitemap; controls prove each scan can fail.
+5. A private detail URL 404s — the page has no path to it, so that is the truth, not a policy.
+6. The owner's view differs from the public view by exactly the private set.
+7. Each page states the snapshot and surface fingerprint it was derived from.
+
+## Corpus observations, left alone
+
+For `cursed-crypt` the body text is the summary repeated — that duplication is in the source file,
+not the renderer, and deduping it silently would be an edit to the owner's content. Same posture as
+the stray `---` the Medium imports carry. Both are visible in the editor, which is where they can
+be decided about.
+
+## What this does NOT establish
+
+Nothing is deployed. There is no authentication in the site server and none is implied — every
+request resolves at `public`, so "who is asking" never arises; the owner's view lives in the editor,
+a separate process with its own gate. No caching, no cache invalidation, no measured render budget.
+The deploy decision remains the owner's.
+
+## Closing state
+
+**Done — the site is an expression of Canon, and a conformance instrument says so.**
 
 
 ========================================================================
