@@ -9,14 +9,14 @@
     "repositories": [
       {
         "path": ".",
-        "commit": "60402b9d0b62c5530ab0553b2e311f4316531e0c",
+        "commit": "c50ca5a1776f04166d7b18676bbcd368e8aee2af",
         "branch": "main",
         "dirty": true,
         "remote": "https://github.com/zachshallbetter/semantic-cms.git"
       }
     ]
   },
-  "aggregateSourceDigest": "34ec9475a30e9a76a6a0811efacc271083d9bd90bd7f7ea0bbf6ca1aca1bce39",
+  "aggregateSourceDigest": "f0d51efec6eceee394d8d7187664686b7d8be5ded9eb0ca013b55c68b49efa5a",
   "sources": [
     {
       "path": ".agents/skills/compile-context/SKILL.md",
@@ -100,8 +100,8 @@
     },
     {
       "path": "SPEC_HEALTH.md",
-      "bytes": 22623,
-      "sha256": "a1f1a90a251345a9bb85d608a5004e2f3dd1ff9fdfabef63e41f79dae528db43"
+      "bytes": 25154,
+      "sha256": "cd5f332e8db0bef7981c2e4592689bd96b527933a1ff033bbfbac2e11519fe15"
     },
     {
       "path": "VERSION",
@@ -664,6 +664,11 @@
       "sha256": "5827c88d68d8e336de1664335a22fc6705f06db11d521b98db58fe5a1cc58849"
     },
     {
+      "path": "research/audit-2026-08-29.md",
+      "bytes": 5930,
+      "sha256": "f9d7fb98f2bdfd7a47668e1266dd497fec83febb9009d26997cf019fbd9df5c0"
+    },
+    {
       "path": "research/editor-survey.md",
       "bytes": 12613,
       "sha256": "8f382169801c1afc9ae7d61afd49115e4af95c5f4d5b7ee389866b96345d470d"
@@ -755,8 +760,8 @@
     },
     {
       "path": "work/GRAPH.md",
-      "bytes": 17058,
-      "sha256": "ecff06a83cc7d2a1f8c06d04a100d76912cc5ea05ea8319e5ef1e0ee05de3a52"
+      "bytes": 17240,
+      "sha256": "3cb99dbf0692429accd7092bc0fec5d29817e6e0675232444551af3792a002c5"
     },
     {
       "path": "work/SCMS-001.md",
