@@ -270,7 +270,8 @@
         <tr><td class="k">authority</td><td class="v">project.owner</td></tr>
         <tr><td class="k">source</td><td class="v">DESIGN.md · 2026-08-28</td></tr>
         <tr><td class="k">source_hash</td><td class="v hash">sha256:39264296deec82b925418cf245b830c2d08ccb0346592d7d7a6c52ca2493a239</td></tr>
-        <tr><td class="k">status</td><td class="v">documented · not implemented · not tested · not empirically validated</td></tr>
+        <tr><td class="k">status</td><td class="v">documented · first slice implemented+tested (impl/surface-resolver, SCMS-008) · not empirically validated</td></tr>
+        <tr><td class="k">adopted</td><td class="v">sss:protocol/semantic-surface v0.1.0 — pinned + bound 2026-08-28 (bindings; v2 text hunk on PR #28)</td></tr>
       </table>
     </div>
   </div>
@@ -544,6 +545,10 @@
     <li><strong>Fingerprint-scoped invalidation.</strong> Every derived artifact records fine-grained dependency edges on its <em>access-projected</em> inputs and receives a structural fingerprint independent of execution order. A change to a field a given projection could not observe produces <strong>no invalidation for it</strong> — simultaneously the correct caching model and a side-channel guarantee: invalidation timing cannot leak hidden edits.</li>
   </ul>
   <p>Every projection stage is classified in a published <strong>transformation ledger</strong> — <code>lossless / lossy-disclosed / interpretive / unsupported</code> — with the <code>unsupported</code> transformations listed so the refusal is auditable. A renderer can compute nothing and still mislead; the ledger is how it proves it didn’t.</p>
+
+  <h3>7.1 <span class="sub">·</span> Surface resolution <span class="sub">(adopted 2026-08-28 · SCMS-008)</span></h3>
+  <p>Between access projection and expression sits the <strong>surface</strong>: <code>Resolve(D, P, Q, C, L, A, T) → ResolvedSurface</code> — purpose-bound semantic participation (eligibility, membership, grouping, semantic priority, operation exposure, trace, fingerprint) under the pinned <strong>Semantic Surface System</strong> (<code>sss:protocol/semantic-surface</code> v0.1.0). The governing separation: <code>CANON ≠ SURFACE ≠ EXPRESSION ≠ REPRESENTATION</code> — the surface says <em>what matters here and why</em>; SES says <em>how it may appear</em>. SPS’s evidence-resolved morphology decomposes accordingly: selection and evidence tone are surface semantics, the container form is an expression recipe over them. Surface resolution runs read-only inside the derive phase; access projection precedes candidacy; agent semantic slices (§11) are ResolvedSurfaces; eligibility outcomes <code>eligible/ineligible/unknown/withheld/unsupported</code> join §3.5’s non-collapsible vocabulary. Implemented and tested at <code>impl/surface-resolver</code> (11 vectors, including the hidden-state non-leak). Full treatment, with real resolver output: <a href="https://claude.ai/code/artifact/7f0f7cd1-9220-422c-a0db-e63c4383922a">The Surface Seam</a>.</p>
+  <p style="font-size:13.5px;color:var(--muted)">Canonical sources for this subsection: bindings/PROJECT_BINDINGS.yaml and FORMAL_RESOURCE_MANIFEST.json (main); the equivalent DESIGN.md text is the <span class="mono">[SSS]</span> hunk awaiting disposition on PR #28.</p>
 </section>
 
 <!-- ============================ 8 ============================ -->
@@ -828,7 +833,7 @@
 
 <footer class="footer">
   <p><span class="mono">scms:design/semantic-cms · declared · project.owner · 2026-08-28</span></p>
-  <p>Canonical source: <span class="mono">semantic-cms/DESIGN.md</span>. This page is a derived projection; it declares that it preserves the design’s structure and claims, transforms prose into typographic and diagrammatic form, omits nothing normative, and introduces presentation only.</p>
+  <p>Canonical sources: <span class="mono">semantic-cms/DESIGN.md</span> (v1), plus — for §7.1 only — <span class="mono">bindings/PROJECT_BINDINGS.yaml</span> and <span class="mono">FORMAL_RESOURCE_MANIFEST.json</span> (the SSS adoption, canonical on main while the v2 text awaits disposition). This page is a derived projection; it preserves the design’s structure and claims, transforms prose into typographic and diagrammatic form, omits nothing normative, and introduces presentation only.</p>
 </footer>
 
 </div>
