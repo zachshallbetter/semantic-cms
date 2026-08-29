@@ -1,0 +1,8 @@
+{
+  "name": "@scms/e2e",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "The narrowest end-to-end path proven as one run (SCMS-019): Canon → schema → governed write → qualify → promote → freeze → resolve → express ×2 → cache → invalidate → consistency + chip. Asserts the seams and the composite non-leak invariant; contains no production code.",
+  "scripts": { "test": "node --test test/spine.test.ts" }
+}

@@ -1,6 +1,6 @@
 # PROJECT COMPILED CONTEXT
 Generator: 0.5.0
-Source digest: ac7ba3bbd591e8637c488596c0d3784425d50f166251043e58fce8bb69eba93e
+Source digest: 896453e1e3223e6fd5cf97482fed384a6297074ad6eada83e0174de4f217380b
 
 > Generated projection. Canonical sources remain authoritative.
 
@@ -220,6 +220,10 @@ jobs:
       - name: Cross-expression S3 vectors (SCMS-009)
         run: node --test test/s3.test.ts
         working-directory: impl/surface-expression
+
+      - name: End-to-end spine (SCMS-019 · the composed narrow path)
+        run: node --test test/spine.test.ts
+        working-directory: impl/e2e
 
       - name: Projection sync — self-test (gate can fail)
         run: python3 scripts/check-projection-sync.py --self-test
@@ -4170,6 +4174,268 @@ test("no ambient time or randomness in the contract runtime", async () => {
     const src = readFileSync(fileURLToPath(new URL(rel, import.meta.url)), "utf8");
     assert.ok(!/Date\.now|Math\.random|new Date\(\)/.test(src), `${rel} references ambient time/randomness`);
   }
+});
+
+
+========================================================================
+FILE: impl/e2e/package.json
+========================================================================
+
+{
+  "name": "@scms/e2e",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "The narrowest end-to-end path proven as one run (SCMS-019): Canon → schema → governed write → qualify → promote → freeze → resolve → express ×2 → cache → invalidate → consistency + chip. Asserts the seams and the composite non-leak invariant; contains no production code.",
+  "scripts": { "test": "node --test test/spine.test.ts" }
+}
+
+
+========================================================================
+FILE: impl/e2e/test/spine.test.ts
+========================================================================
+
+/**
+ * SCMS-019 — the narrowest end-to-end path, run once, in order.
+ *
+ * Canon → schema conformance → governed revise → qualify → promote → freeze →
+ * resolve → express (twice) → cache → invalidate → consistency + chip.
+ *
+ * These vectors assert the SEAMS: that each stage's artefact is the next
+ * stage's accepted input, and that the invariants survive composition. What
+ * each package proves internally is not re-proven here.
+ */
+import { test } from "node:test";
+import assert from "node:assert/strict";
+
+import { CanonJournal } from "../../canon/src/journal.ts";
+import type { Envelope, RecordState } from "../../canon/src/envelope.ts";
+import { freeze } from "../../canon/src/freeze.ts";
+import { ARTICLE_TYPE, checkArticle } from "../../schema/src/schema.ts";
+import type { ArticleInstance } from "../../schema/src/schema.ts";
+import { ContractRegistry, CONTENT_REVISE, reviseHandler } from "../../contracts/src/runtime.ts";
+import { NOTE_PROFILE } from "../../qualification/src/eqp.ts";
+import type { EvidenceRecord } from "../../qualification/src/eqp.ts";
+import { qualify } from "../../qualification/src/qualify.ts";
+import { CONTENT_PROMOTE, promoteHandler } from "../../qualification/src/promote.ts";
+import { resolveSurface } from "../../surface-resolver/src/resolver.ts";
+import { isFailure } from "../../surface-resolver/src/types.ts";
+import type { ResolvedSurface, SurfaceRequest } from "../../surface-resolver/src/types.ts";
+import { expressStructural, expressLinear } from "../../surface-expression/src/expressions.ts";
+import { checkEquivalence } from "../../surface-expression/src/equivalence.ts";
+import { ProjectionCache } from "../../projection-cache/src/cache.ts";
+import { consistencyState, permits, chip } from "../../observation/src/consistency.ts";
+
+const STATE: RecordState = {
+  semanticMaturity: "draft", evidenceState: "unqualified",
+  publicationState: "unpublished", deliveryState: "unpropagated",
+};
+const CTX = { occurredAt: "2026-08-28T12:00:00Z", instanceId: "int_e2e" };
+const ACTOR = { id: "editor-1", role: "editor" };
+
+function envelope(id: string, access: Envelope["minimumAccess"], body: Record<string, unknown>): Envelope {
+  return {
+    schemaVersion: "scms-0.1", subjectId: id,
+    compatibility: { protocol: "scms-0.1", subjectSchema: "article@1" },
+    provenance: { kind: "declared", authority: "project.owner", source: "e2e" },
+    minimumAccess: access, body: { kind: "Content", contentKind: "article", ...body }, state: STATE,
+  };
+}
+
+const conformingArticle: ArticleInstance = {
+  contentKind: "article",
+  slots: { title: [{ kind: "text", value: "Ship it" }], body: [{ kind: "prose", value: "Prose." }] },
+};
+
+/** The whole spine, run once. Each step returns what the next step consumes. */
+function runSpine() {
+  // 1 — SCHEMA CONFORMANCE before anything reaches Canon.
+  assert.deepEqual(checkArticle(conformingArticle, ARTICLE_TYPE), [], "conforming article passes");
+  const bad: ArticleInstance = { contentKind: "article", slots: { title: conformingArticle.slots.title } };
+  assert.equal(checkArticle(bad, ARTICLE_TYPE)[0].code, "required-slot-missing");
+
+  // 2 — CANON: land the article plus the world it lives in.
+  const journal = new CanonJournal();
+  const seed = journal.append(envelope("art-1", "public", { title: "Ship it", body: "Prose." }), "editor-1");
+  journal.append(envelope("art-2", "public", { title: "Neighbour" }), "editor-1");
+  journal.append(envelope("ent-1", "public", { title: "Gated", entitled: true }), "editor-1");
+  journal.append(envelope("sec-1", "admin", { title: "Secret" }), "admin-1");
+  for (const [id, to] of [["rel-1", "art-2"], ["rel-2", "ent-1"]] as const) {
+    journal.append({ ...envelope(id, "public", {}), body: { kind: "Relation", from: "art-1", to, relationType: "references" } }, "editor-1");
+  }
+  journal.append({
+    ...envelope("rel-3", "admin", {}), body: { kind: "Relation", from: "art-1", to: "sec-1", relationType: "references" },
+  }, "admin-1");
+
+  // 3 — GOVERNED WRITE: the only path into Canon for a revision.
+  const registry = new ContractRegistry();
+  registry.register(CONTENT_REVISE, reviseHandler);
+  registry.register(CONTENT_PROMOTE, promoteHandler);
+  const revise = registry.execute(journal, {
+    contract: "icp:interaction/content.revise@1.0.0", requestId: "req_1", actor: ACTOR,
+    input: { subjectId: "art-1", expectedRevision: seed.envelope.revision, changes: { title: "Ship it (revised)" } },
+  }, CTX);
+  assert.equal(revise.outcome, "completed");
+  const revised = revise.receipt!.afterVersion;
+
+  return { journal, registry, seed, revised };
+}
+
+test("seam 1-3: conformance gates Canon, and the governed write emits a verifiable receipt", () => {
+  const { journal, revised, seed } = runSpine();
+  assert.equal(journal.get(seed.envelope.revision!)!.supersededBy, revised);
+  assert.equal(journal.verifyChain().valid, true);
+  assert.equal(journal.current().find((e) => e.envelope.subjectId === "art-1")!.envelope.revision, revised);
+});
+
+test("seam 4-5: qualification gates promotion, and promotion moves only the publication axis", () => {
+  const { journal, registry, revised } = runSpine();
+  const ev = (obligation: string): EvidenceRecord => ({
+    id: `ev_${obligation}`, obligation, result: "PASS", validity: "VALID",
+    candidateRevision: revised, actor: "checker", independentEvaluator: true,
+  });
+
+  // A missing obligation blocks promotion — a coverage gap, not a finding.
+  const blocked = qualify(revised, NOTE_PROFILE, [ev("ob/schema-valid")], "checker", CTX.occurredAt);
+  assert.equal(blocked.disposition, "BLOCKED");
+  const refused = registry.execute(journal, {
+    contract: "icp:interaction/content.promote@1.0.0", requestId: "req_2", actor: ACTOR,
+    input: { subjectId: "art-1", candidateRevision: revised, attestation: blocked, profile: NOTE_PROFILE,
+      verificationPerformed: "reauthenticate", promotionAuthority: "project.owner" },
+  }, CTX);
+  assert.equal(refused.outcome, "needs_evidence");
+  assert.equal(journal.current().find((e) => e.envelope.subjectId === "art-1")!.envelope.state.publicationState, "unpublished");
+
+  // Complete evidence qualifies; promotion then moves exactly one axis.
+  const att = qualify(revised, NOTE_PROFILE, [ev("ob/schema-valid"), ev("ob/access-declared")], "checker", CTX.occurredAt);
+  assert.equal(att.disposition, "QUALIFIED");
+  const promoted = registry.execute(journal, {
+    contract: "icp:interaction/content.promote@1.0.0", requestId: "req_3", actor: ACTOR,
+    input: { subjectId: "art-1", candidateRevision: revised, attestation: att, profile: NOTE_PROFILE,
+      verificationPerformed: "reauthenticate", promotionAuthority: "project.owner" },
+  }, CTX);
+  assert.equal(promoted.outcome, "completed");
+  assert.deepEqual(promoted.receipt!.changes, [{ path: "/state/publicationState", before: "unpublished", after: "promoted" }]);
+  const now = journal.current().find((e) => e.envelope.subjectId === "art-1")!.envelope.state;
+  assert.equal(now.publicationState, "promoted");
+  assert.equal(now.semanticMaturity, "draft", "promotion touched no other axis");
+  assert.equal(journal.verifyChain().valid, true);
+});
+
+test("seam 6-7: freeze feeds the resolver; entitlement is withheld, admin state is absent", () => {
+  const { journal } = runSpine();
+  const snapshot = freeze(journal, "wave-0");
+  const request: SurfaceRequest = {
+    profile: "focus", purpose: "understand", subject: "art-1", access: "member",
+    lens: { traversal: { radius: 1 } }, operations: [{ id: "open-article", exposure: "available" }],
+  };
+  const result = resolveSurface(snapshot as never, request);
+  assert.ok(!isFailure(result));
+  const surface = result as ResolvedSurface;
+
+  const members = surface.groups.flatMap((g) => g.members.map((m) => m.subject));
+  assert.deepEqual(members.sort(), ["art-1", "art-2"]);
+  assert.equal(surface.explanation.excluded.find((e) => e.subject === "ent-1")?.eligibility, "withheld");
+  assert.ok(!JSON.stringify(surface).includes("sec-1"));
+});
+
+test("seam 8: both expressions consume one surface and preserve the S3 properties", () => {
+  const { journal } = runSpine();
+  const snapshot = freeze(journal, "wave-0");
+  const surface = resolveSurface(snapshot as never, {
+    profile: "focus", purpose: "understand", subject: "art-1", access: "member",
+    lens: { traversal: { radius: 1 } }, operations: [{ id: "open-article", exposure: "available" }],
+  }) as ResolvedSurface;
+
+  const a = expressStructural(surface);
+  const b = expressLinear(surface);
+  const eq = checkEquivalence(surface, a, b, ["sec-1"]);
+  assert.deepEqual(eq.findings, []);
+  assert.equal(eq.materiallyDifferent, true);
+});
+
+test("seam 9: the cache retains on an invisible change and invalidates on a visible one", () => {
+  const { journal } = runSpine();
+  const cache = new ProjectionCache();
+  const request: SurfaceRequest = {
+    profile: "focus", purpose: "understand", subject: "art-1", access: "member",
+    lens: { traversal: { radius: 1 } },
+  };
+  const first = cache.get(freeze(journal, "wave-0") as never, request, "focus:art-1");
+
+  // An admin-only edit: invisible to this viewer, so nothing may change for them.
+  const sec = journal.current().find((e) => e.envelope.subjectId === "sec-1")!;
+  journal.supersede(sec.envelope.revision!, envelope("sec-1", "admin", { title: "Secret v2" }), "admin-1");
+  const invisible = cache.commitWave(["sec-1"]);
+  assert.ok(invisible.decisions.every((d) => d.decision === "retained"));
+  const after = cache.get(freeze(journal, "wave-1") as never, request, "focus:art-1");
+  assert.equal(after.fingerprint, first.fingerprint, "an invisible change moves nothing for this viewer");
+
+  // A visible edit invalidates and names its cause.
+  const art2 = journal.current().find((e) => e.envelope.subjectId === "art-2")!;
+  journal.supersede(art2.envelope.revision!, envelope("art-2", "public", { title: "Neighbour v2" }), "editor-1");
+  const visible = cache.commitWave(["art-2"]);
+  assert.equal(visible.decisions[0].decision, "invalidated");
+  assert.equal(visible.decisions[0].becauseOf, "art-2");
+});
+
+test("seam 10: a client on the pre-revision baseline is told the truth", () => {
+  const { journal, seed } = runSpine();
+  const base = {
+    subjectId: "art-1", atRevision: seed.envelope.revision!, baselineEstablished: true,
+    observedCanonEntries: 7,
+  };
+
+  const clean = consistencyState({ ...base, hasLocalEdits: false }, journal);
+  assert.equal(clean.state, "superseded");
+  assert.equal(permits(clean.state, "consequential"), false);
+  assert.equal(chip(clean.state, { nowMs: 10_000, lastCheckedMs: 9_000, snapshotLabel: "Aug 28" }),
+    "superseded — open the current version");
+
+  const withEdits = consistencyState({ ...base, hasLocalEdits: true }, journal);
+  assert.equal(withEdits.state, "conflicted");
+  assert.equal(permits(withEdits.state, "draft"), true, "drafting continues");
+  assert.equal(permits(withEdits.state, "consequential"), false, "publishing does not");
+  assert.equal(chip(withEdits.state, { nowMs: 10_000, lastCheckedMs: 9_000, snapshotLabel: "Aug 28" }),
+    "conflicted — review");
+});
+
+test("composite invariant: no hidden subject appears anywhere in the whole run", () => {
+  const { journal, registry, revised } = runSpine();
+  const ev = (o: string): EvidenceRecord => ({
+    id: `ev_${o}`, obligation: o, result: "PASS", validity: "VALID",
+    candidateRevision: revised, actor: "checker", independentEvaluator: true,
+  });
+  const att = qualify(revised, NOTE_PROFILE, [ev("ob/schema-valid"), ev("ob/access-declared")], "checker", CTX.occurredAt);
+  const promoted = registry.execute(journal, {
+    contract: "icp:interaction/content.promote@1.0.0", requestId: "req_4", actor: ACTOR,
+    input: { subjectId: "art-1", candidateRevision: revised, attestation: att, profile: NOTE_PROFILE,
+      verificationPerformed: "reauthenticate", promotionAuthority: "project.owner" },
+  }, CTX);
+
+  const request: SurfaceRequest = {
+    profile: "focus", purpose: "understand", subject: "art-1", access: "member",
+    lens: { traversal: { radius: 1 } }, operations: [{ id: "open-article", exposure: "available" }],
+  };
+  const cache = new ProjectionCache();
+  const entry = cache.get(freeze(journal, "wave-0") as never, request, "focus:art-1");
+  const a = expressStructural(entry.surface);
+  const b = expressLinear(entry.surface);
+  const state = consistencyState({
+    subjectId: "art-1", atRevision: entry.surface.sourceSnapshot, hasLocalEdits: false,
+    baselineEstablished: true, observedCanonEntries: 99,
+  }, journal);
+
+  // Everything a member-access viewer could ever see, in one string.
+  const everythingVisible = JSON.stringify({
+    surface: entry.surface, cacheEntry: { fp: entry.fingerprint, deps: entry.dependencies },
+    expressions: [a, b], attestation: att, promotionReceipt: promoted.receipt,
+    consistency: state, chip: chip(state.state, { nowMs: 1, lastCheckedMs: 0, snapshotLabel: "Aug 28" }),
+  });
+  assert.ok(!everythingVisible.includes("sec-1"), "no hidden subject leaked into any stage");
+  assert.ok(!everythingVisible.includes("Secret"), "nor its content");
+  // The gate can fail: the same assertion over a subject that IS visible finds it.
+  assert.ok(everythingVisible.includes("art-2"), "control: a visible subject does appear");
 });
 
 
@@ -10397,6 +10663,7 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-015 | Dependency revisions track subjects, not snapshots (SSS §21 conformance) | E1 | Done — NR-scms-003 closed; awaiting owner verification | records/evidence.jsonl · scms-evidence-015 |
 | SCMS-016 | Article type and Home composition as Schema records (§14 step 1) | E1 | Done — awaiting owner verification | records/evidence.jsonl · scms-evidence-016 |
 | SCMS-017 | Consistency states, disclosure, expiring presence (E6 narrow slice) | E1 | Done — §14 step 7 closed semantically; awaiting owner verification | records/evidence.jsonl · scms-evidence-017 |
+| SCMS-019 | The narrowest end-to-end path, proven as one run (E7) | E1 | Done — spine composes; awaiting owner verification | records/evidence.jsonl · scms-evidence-019 |
 | SCMS-018 | R1 live co-authoring: free/bounded/required merge lanes (§14 step 3) | E1 | **Blocked** — awaiting disposition of P7/P22 on PR #28 | records/blockers · scms-blocker-001 |
 | SCMS-010 | S4 cross-domain portability: a materially unrelated project (outside this repository, per owner doctrine 2026-08-28) consumes @semantic-systems/surface unmodified | external | Backlog — executes outside scms; scms records the conformance result | — |
 
@@ -10411,7 +10678,7 @@ epic as the owner assigns the corresponding piece of work.
 | E4 | Projection — resolver, projection contracts, access projection, derivations, fingerprint invalidation | DESIGN.md §4, §7 | In progress — resolver + S3 + invalidation landed; SCMS-015 open |
 | E5 | Field — semantic metrics, workspace morphology, editorial time | DESIGN.md §9 | Backlog |
 | E6 | Observation — presence, consistency states, provenance chips, drift, degradation | DESIGN.md §8, §10 | In progress — semantic core landed (SCMS-017); transport pending P10 |
-| E7 | Narrowest end-to-end path — the nine-step milestone, exit by evidence | DESIGN.md §14 | Backlog (depends on E1–E6 slices, not their entirety) |
+| E7 | Narrowest end-to-end path — the nine-step milestone, exit by evidence | DESIGN.md §14 | In progress — 8 of 9 steps closed and composed (SCMS-019); step 3 blocked on P7/P22 disposition |
 
 Epic order is not a promise of sequence: E7 slices vertically and may pull minimal
 slices of E1–E6 rather than waiting for any epic to complete.
@@ -11389,4 +11656,70 @@ Claimed by agent-under-owner-direction 2026-08-28; released at closing state bel
 
 **Done — Implemented + Tested; §14 step 7 closed at the semantic level.**
 Evidence: records/evidence.jsonl · scms-evidence-017. Claim released.
+
+
+========================================================================
+FILE: work/SCMS-019.md
+========================================================================
+
+# SCMS-019 — The narrowest end-to-end path, proven as one run (E7)
+
+**Intent ref:** PROJECT_INTENT.md · **Epic:** E7 (board #12) · **Advances:** DESIGN.md §14 as a whole
+**Assigned by:** coordinator goal. Every §14 step except 3 (blocked, scms-blocker-001) is closed
+in isolation; nothing yet proves the pieces *compose*.
+**Effect class:** E1 — an integration vector over landed libraries; no new capability.
+**State:** Ready → Claimed → (closing state at bottom)
+
+## Objective
+
+Run the whole spine once, in order, asserting the doctrine at each seam:
+`Canon → schema conformance → governed revise → qualify → promote → freeze → resolve →
+express (twice) → cache → invalidate → consistency + chip`.
+
+## Ready predicate
+
+- **Scope:** `impl/e2e/` — one integration suite composing the seven landed packages, with no
+  new production code. Vectors assert the *seams*, not the internals each package already
+  proves: that the artefacts of one stage are the accepted inputs of the next, and that the
+  invariants survive composition.
+- **Exclusions:** no new capability, no §14 step 3 (blocked), no transport, no persistence, no
+  DESIGN.md change. If a seam requires new production code to close, that is a finding to
+  record — not a licence to widen this item.
+- **Dependencies (satisfied):** SCMS-011 canon, 012 contracts, 013 qualification, 016 schema,
+  008 resolver, 009 expression, 014/015 cache. All landed with CI-verified conclusions.
+- **Acceptance:**
+  1. A schema-conformant Article lands in Canon; a non-conformant one is rejected before
+     it reaches the journal.
+  2. A governed `content.revise@1` supersedes it and emits a verifiable receipt.
+  3. Qualification of the revised candidate under the note profile yields `QUALIFIED`; a
+     candidate missing an obligation yields `BLOCKED` and cannot promote.
+  4. `content.promote@1` moves only `publicationState`; the receipt chain still verifies.
+  5. `freeze()` → `resolveSurface()` produces a surface whose members are exactly the
+     accessible, non-revoked content; entitlement appears as `withheld`, admin-only state
+     appears nowhere.
+  6. Both expressions consume that one surface and preserve the six S3 properties while
+     differing in morphology.
+  7. The cache retains across a wave that changed nothing accessible and invalidates on one
+     that did — and an admin-only edit leaves the member entry untouched.
+  8. Consistency for a client holding the pre-revision baseline is `superseded` (or
+     `conflicted` with local edits), and the chip discloses it truthfully.
+  9. **Composite invariant:** across the entire run, no hidden subject id appears in any
+     surface, expression, cache entry, receipt, or chip.
+- **Evidence requirements:** `node --test` in scms-evidence-019, claimed as **Implemented +
+  Tested for the composed narrow path**. This does NOT establish S4, durability, transport,
+  concurrency, or empirical usefulness, and does not close §14 (step 3 remains blocked).
+- **Permissions / effect class:** E1; project-mutation authority per bindings.
+- **Target:** `impl/e2e/` (new), `.github/workflows/gates.yml`, `records/*`, `work/GRAPH.md`.
+- **Budget:** one work cycle; no spend; no credentials.
+- **Stop conditions:** (a) a seam needs new production code → record the finding and stop
+  rather than widening scope; (b) composition would require a pending proposal → stop.
+
+## Claim
+
+Claimed by agent-under-owner-direction 2026-08-28; released at closing state below.
+
+## Closing state
+
+**Done — Implemented + Tested; the spine composes end to end.**
+Evidence: records/evidence.jsonl · scms-evidence-019. Claim released.
 

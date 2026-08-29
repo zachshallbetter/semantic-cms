@@ -9,14 +9,14 @@
     "repositories": [
       {
         "path": ".",
-        "commit": "bc56836161dc3abd154d6d773e9b995767c173db",
+        "commit": "afaf70aa3b8bc8a836caf9abe80c3ec31ef2442c",
         "branch": "main",
         "dirty": true,
         "remote": "https://github.com/zachshallbetter/semantic-cms.git"
       }
     ]
   },
-  "aggregateSourceDigest": "ac7ba3bbd591e8637c488596c0d3784425d50f166251043e58fce8bb69eba93e",
+  "aggregateSourceDigest": "896453e1e3223e6fd5cf97482fed384a6297074ad6eada83e0174de4f217380b",
   "sources": [
     {
       "path": ".agents/skills/compile-context/SKILL.md",
@@ -55,8 +55,8 @@
     },
     {
       "path": ".github/workflows/gates.yml",
-      "bytes": 2753,
-      "sha256": "887e14b2ce017caa6bf7c4ab6a694a25caa717d69313d3e35c305b3ead438601"
+      "bytes": 2904,
+      "sha256": "2c37e67a56061716fff8e85dd1376a91eab9bf09b7b5c34410ecdc0c867dda06"
     },
     {
       "path": "AGENTS.md",
@@ -254,6 +254,16 @@
       "sha256": "679f468b756adf35d38a7c64a203086af7e33526549e9ab896f17f0df3346ae8"
     },
     {
+      "path": "impl/e2e/package.json",
+      "bytes": 459,
+      "sha256": "ab4bfaeb07ebf2642e4627e4c5935637798eff08151f210f277c18c76e4def26"
+    },
+    {
+      "path": "impl/e2e/test/spine.test.ts",
+      "bytes": 13310,
+      "sha256": "455b48fe2d7ffcf4b4c3a70f8fa428427f89a1dd6575183a767defe4bb89dd9f"
+    },
+    {
       "path": "impl/observation/package.json",
       "bytes": 536,
       "sha256": "a9882e1bafeade1dc2664a2ffb47d8d87090a7a7060ab30283bcce4c21e68709"
@@ -445,8 +455,8 @@
     },
     {
       "path": "work/GRAPH.md",
-      "bytes": 6017,
-      "sha256": "4e624fb7b8ecb69967b2e8f18c6e31436752555496756dfb80996efacd40fc3f"
+      "bytes": 6234,
+      "sha256": "6a0e393c15c08bacb1f4196defd69e00ce7ea72e05f2b01cfcee0670410862f0"
     },
     {
       "path": "work/SCMS-001.md",
@@ -527,6 +537,11 @@
       "path": "work/SCMS-017.md",
       "bytes": 4131,
       "sha256": "3f303b83d4e84d1706c64a5d74b6273a866cdb4443fb6865346e550796da61b3"
+    },
+    {
+      "path": "work/SCMS-019.md",
+      "bytes": 3675,
+      "sha256": "28421aee0f663404f444f411ebe25607b959fbaa61b4875636d8f7222ab39ee9"
     }
   ]
 }

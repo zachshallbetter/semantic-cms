@@ -72,6 +72,10 @@ jobs:
         run: node --test test/s3.test.ts
         working-directory: impl/surface-expression
 
+      - name: End-to-end spine (SCMS-019 · the composed narrow path)
+        run: node --test test/spine.test.ts
+        working-directory: impl/e2e
+
       - name: Projection sync — self-test (gate can fail)
         run: python3 scripts/check-projection-sync.py --self-test
 
