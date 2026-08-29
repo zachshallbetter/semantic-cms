@@ -1,6 +1,6 @@
 # PROJECT COMPILED CONTEXT
 Generator: 0.5.0
-Source digest: 39013077e880cb171f4e46994421d4339db9c42b8eaae929ff896b792f0a9a64
+Source digest: 11f1d7844052d24ba0a392052abf35263219f079cdeaf99f17dde519157390bd
 
 > Generated projection. Canonical sources remain authoritative.
 
@@ -196,6 +196,10 @@ jobs:
       - name: Canon vectors (SCMS-011 · envelope, identity, append-only, spine)
         run: node --test test/canon.test.ts
         working-directory: impl/canon
+
+      - name: Contract vectors (SCMS-012 · governed writes, receipts, conflict)
+        run: node --test test/contracts.test.ts
+        working-directory: impl/contracts
 
       - name: Cross-expression S3 vectors (SCMS-009)
         run: node --test test/s3.test.ts
@@ -3694,6 +3698,456 @@ test("freeze is explicit: no ambient time or randomness in canon sources", async
   const { readFileSync } = await import("node:fs");
   const { fileURLToPath } = await import("node:url");
   for (const rel of ["../src/envelope.ts", "../src/journal.ts", "../src/freeze.ts"]) {
+    const src = readFileSync(fileURLToPath(new URL(rel, import.meta.url)), "utf8");
+    assert.ok(!/Date\.now|Math\.random|new Date\(\)/.test(src), `${rel} references ambient time/randomness`);
+  }
+});
+
+
+========================================================================
+FILE: impl/contracts/package.json
+========================================================================
+
+{
+  "name": "@scms/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Governed write path (SCMS-012): contract registry + content.revise@1 driving the ICP instance lifecycle with typed outcomes, executable recovery, optimistic concurrency, and ICP §10.5 change receipts over the Canon journal. ICP owns interaction semantics; they are imported as declared bindings. Zero runtime dependencies; requires Node >= 22.6.",
+  "scripts": { "test": "node --test test/contracts.test.ts" }
+}
+
+
+========================================================================
+FILE: impl/contracts/src/icp.ts
+========================================================================
+
+/**
+ * ICP vocabulary, imported as declared bindings (SCMS-012).
+ *
+ * These are the pinned protocol's own strings (§5.1 canonical instance states,
+ * the outcome classes, the recovery actions, and the §10.5 change-receipt
+ * shape), transcribed from the pin and re-verified against source this cycle.
+ * ICP owns consequential-interaction semantics; nothing here redefines or
+ * extends them, and no value outside these vocabularies may be emitted.
+ */
+
+export const INSTANCE_STATES = [
+  "declared", "ready", "started", "validating", "blocked", "verification_required",
+  "verifying", "queued", "processing", "needs_review", "conflicted", "partially_completed",
+  "completed", "failed", "compensating", "reversed", "cancelled", "expired", "abandoned", "closed",
+] as const;
+export type InstanceState = (typeof INSTANCE_STATES)[number];
+
+export const OUTCOME_CLASSES = [
+  "completed", "accepted", "queued", "partially_completed", "invalid_input", "not_found",
+  "verification_required", "needs_evidence", "needs_review", "blocked", "conflict",
+  "dependency_failure", "background_failure", "system_failure", "cancelled", "expired",
+  "abandoned", "reversed", "compensated", "unknown",
+] as const;
+export type OutcomeClass = (typeof OUTCOME_CLASSES)[number];
+
+export const RECOVERY_ACTIONS = [
+  "focus_field", "select_file", "replace_evidence", "retry_operation", "retry_later",
+  "refresh_record", "open_record", "review_conflict", "reauthenticate", "provide_proof",
+  "request_access", "start_workflow", "resume_workflow", "contact_support", "download_report",
+  "undo", "compensate", "cancel",
+] as const;
+export type RecoveryAction = (typeof RECOVERY_ACTIONS)[number];
+
+/** ICP: reversibility is distinct from recovery. */
+export type Reversibility = "reversible" | "compensatable" | "irreversible" | "unknown";
+
+/** Verification level derives from consequence, never UI preference (DESIGN.md §5). */
+export type VerificationLevel = "none" | "acknowledge" | "confirm" | "reauthenticate" | "prove";
+
+/** DESIGN.md §5 effect classes. */
+export type EffectClass = "E0" | "E1" | "E2" | "E3" | "E4";
+
+export const VERIFICATION_FOR_EFFECT: Record<EffectClass, VerificationLevel> = {
+  E0: "none", E1: "none", E2: "confirm", E3: "reauthenticate", E4: "prove",
+};
+
+export interface Recovery {
+  action: RecoveryAction;
+  /** ICP: "a recovery action MUST carry enough typed data ... to execute it." */
+  data: Record<string, string>;
+}
+
+/** ICP §10.5 change receipt, minus fields this narrow path has no source for. */
+export interface ChangeReceipt {
+  id: string;
+  interaction: string;
+  contractVersion: string;
+  instanceId: string;
+  requestId: string;
+  actor: { id: string; role: string };
+  resource: { type: string; id: string };
+  beforeVersion: string | null;
+  afterVersion: string;
+  changes: Array<{ path: string; before: unknown; after: unknown }>;
+  occurredAt: string;
+  reversibility: Reversibility;
+  compensationInteraction?: string;
+  integrity: { algorithm: "sha-256"; digest: string };
+}
+
+
+========================================================================
+FILE: impl/contracts/src/runtime.ts
+========================================================================
+
+/**
+ * Contract registry and execution runtime (SCMS-012).
+ *
+ * DESIGN.md §5: no persistent mutation executes outside a registered contract.
+ * This package holds the only write path into the Canon journal used by the
+ * narrow end-to-end proof: callers execute a registered contract; the runtime
+ * drives the ICP instance lifecycle, maps every terminal state to an ICP
+ * outcome class, attaches typed recovery to blocking outcomes, and emits an
+ * ICP §10.5 change receipt for each landed mutation.
+ *
+ * Deliberately absent (canonical v1 governs; PR #28 proposals are pending):
+ * changeCertainty, receiptSurrogate, rendered-set-bounded deletion.
+ */
+import { createHash } from "node:crypto";
+import type { CanonJournal } from "../../canon/src/journal.ts";
+import type { Envelope } from "../../canon/src/envelope.ts";
+import { canonicalJson } from "../../canon/src/envelope.ts";
+import type {
+  ChangeReceipt, EffectClass, InstanceState, OutcomeClass, Recovery, Reversibility, VerificationLevel,
+} from "./icp.ts";
+import { VERIFICATION_FOR_EFFECT } from "./icp.ts";
+
+export interface ContractDefinition {
+  /** ICP identity grammar: stable id + semver. */
+  id: string;
+  version: string;
+  effectClass: EffectClass;
+  reversibility: Reversibility;
+  resourceType: string;
+  compensationInteraction?: string;
+}
+
+export interface ExecutionRequest {
+  contract: string;
+  requestId: string;
+  actor: { id: string; role: string };
+  input: Record<string, unknown>;
+}
+
+export interface ExecutionResult {
+  instanceId: string;
+  outcome: OutcomeClass;
+  /** Ordered lifecycle states this instance actually passed through. */
+  states: InstanceState[];
+  verification: VerificationLevel;
+  receipt?: ChangeReceipt;
+  recovery: Recovery[];
+  /** Present when an outcome is terminal with no recovery (ICP requires one or the other). */
+  terminalReason?: string;
+  detail?: string;
+}
+
+export interface ReviseInput {
+  subjectId: string;
+  /** The revision the caller believes is current — optimistic concurrency. */
+  expectedRevision: string;
+  /** Draft body changes, applied over the current envelope's body. */
+  changes: Record<string, unknown>;
+}
+
+/** A contract handler is pure with respect to everything except the journal. */
+type Handler = (
+  journal: CanonJournal, req: ExecutionRequest, def: ContractDefinition, ctx: ExecutionContext,
+) => ExecutionResult;
+
+export interface ExecutionContext {
+  /** Explicit clock — no ambient time (resolver-purity discipline extends here). */
+  occurredAt: string;
+  instanceId: string;
+}
+
+export class ContractRegistry {
+  #defs = new Map<string, { def: ContractDefinition; handler: Handler }>();
+
+  register(def: ContractDefinition, handler: Handler): void {
+    this.#defs.set(`${def.id}@${def.version}`, { def, handler });
+  }
+
+  list(): ContractDefinition[] {
+    return [...this.#defs.values()].map((v) => v.def);
+  }
+
+  /** The only write path: an unregistered id cannot mutate anything. */
+  execute(journal: CanonJournal, req: ExecutionRequest, ctx: ExecutionContext): ExecutionResult {
+    const states: InstanceState[] = ["declared"];
+    const entry = this.#defs.get(req.contract);
+    if (!entry) {
+      return {
+        instanceId: ctx.instanceId, outcome: "not_found", states: [...states, "failed"],
+        verification: "none", recovery: [],
+        terminalReason: `no registered contract '${req.contract}'`,
+      };
+    }
+    return entry.handler(journal, req, entry.def, ctx);
+  }
+}
+
+const RECEIPT_DOMAIN = "scms:change-receipt:v1 ";
+
+export function receiptDigest(r: Omit<ChangeReceipt, "integrity">): string {
+  return createHash("sha256").update(RECEIPT_DOMAIN + canonicalJson(r), "utf8").digest("hex");
+}
+
+export const CONTENT_REVISE: ContractDefinition = {
+  id: "icp:interaction/content.revise",
+  version: "1.0.0",
+  effectClass: "E1",            // reversible draft mutation
+  reversibility: "reversible",
+  resourceType: "content",
+};
+
+/**
+ * content.revise@1 — land a draft revision.
+ * Lifecycle: declared → ready → started → validating → processing → terminal.
+ */
+export const reviseHandler: Handler = (journal, req, def, ctx) => {
+  const states: InstanceState[] = ["declared", "ready", "started", "validating"];
+  const verification = VERIFICATION_FOR_EFFECT[def.effectClass];
+  const input = req.input as unknown as ReviseInput;
+
+  // VALIDATE — invalid input is a typed outcome with a field to focus, not an error.
+  const missing = (["subjectId", "expectedRevision", "changes"] as const)
+    .filter((k) => input?.[k] === undefined || input[k] === null);
+  if (missing.length > 0) {
+    return {
+      instanceId: ctx.instanceId, outcome: "invalid_input", states: [...states, "failed"],
+      verification, recovery: missing.map((field) => ({ action: "focus_field" as const, data: { field } })),
+      detail: `missing: ${missing.join(", ")}`,
+    };
+  }
+
+  const prior = journal.get(input.expectedRevision);
+  if (!prior) {
+    return {
+      instanceId: ctx.instanceId, outcome: "not_found", states: [...states, "failed"], verification,
+      recovery: [{ action: "refresh_record", data: { subjectId: input.subjectId } }],
+      detail: `unknown revision ${input.expectedRevision}`,
+    };
+  }
+
+  // CONCURRENCY — the loser gets the current revision and executable recovery,
+  // never a silent overwrite, and nothing is written.
+  const current = journal.current().find((e) => e.envelope.subjectId === input.subjectId);
+  if (!current || current.envelope.revision !== input.expectedRevision) {
+    return {
+      instanceId: ctx.instanceId, outcome: "conflict", states: [...states, "conflicted"], verification,
+      recovery: [
+        { action: "refresh_record", data: { subjectId: input.subjectId, currentRevision: current?.envelope.revision ?? "none" } },
+        { action: "review_conflict", data: { expected: input.expectedRevision, actual: current?.envelope.revision ?? "none" } },
+      ],
+      detail: "expectedRevision is not current",
+    };
+  }
+
+  // PROCESS — supersede appends; the predecessor stays readable as history.
+  states.push("processing");
+  const before = prior.envelope.body as Record<string, unknown>;
+  const nextBody = { ...before, ...input.changes };
+  const next: Envelope = { ...prior.envelope, body: nextBody as Envelope["body"], revision: undefined };
+  const landed = journal.supersede(input.expectedRevision, next, req.actor.id);
+
+  const changes = Object.keys(input.changes).sort().map((k) => ({
+    path: `/body/${k}`, before: before[k], after: (input.changes as Record<string, unknown>)[k],
+  }));
+  const base: Omit<ChangeReceipt, "integrity"> = {
+    id: `rcpt_${ctx.instanceId}`,
+    interaction: def.id,
+    contractVersion: def.version,
+    instanceId: ctx.instanceId,
+    requestId: req.requestId,
+    actor: req.actor,
+    resource: { type: def.resourceType, id: input.subjectId },
+    beforeVersion: input.expectedRevision,
+    afterVersion: landed.envelope.revision!,
+    changes,
+    occurredAt: ctx.occurredAt,
+    reversibility: def.reversibility,
+    ...(def.compensationInteraction ? { compensationInteraction: def.compensationInteraction } : {}),
+  };
+  const receipt: ChangeReceipt = { ...base, integrity: { algorithm: "sha-256", digest: receiptDigest(base) } };
+
+  return {
+    instanceId: ctx.instanceId, outcome: "completed", states: [...states, "completed"],
+    verification, receipt, recovery: [],
+  };
+};
+
+/** A registry with the narrow path's single contract registered. */
+export function narrowPathRegistry(): ContractRegistry {
+  const r = new ContractRegistry();
+  r.register(CONTENT_REVISE, reviseHandler);
+  return r;
+}
+
+
+========================================================================
+FILE: impl/contracts/test/contracts.test.ts
+========================================================================
+
+/**
+ * SCMS-012 vectors: governed writes, typed outcomes, executable recovery,
+ * optimistic concurrency, and ICP §10.5 change receipts.
+ */
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { CanonJournal } from "../../canon/src/journal.ts";
+import type { Envelope, RecordState } from "../../canon/src/envelope.ts";
+import { narrowPathRegistry, receiptDigest, CONTENT_REVISE } from "../src/runtime.ts";
+import type { ExecutionRequest } from "../src/runtime.ts";
+import { INSTANCE_STATES, OUTCOME_CLASSES, RECOVERY_ACTIONS } from "../src/icp.ts";
+
+const STATE: RecordState = {
+  semanticMaturity: "draft", evidenceState: "unqualified",
+  publicationState: "unpublished", deliveryState: "unpropagated",
+};
+
+function article(id: string, body: Record<string, unknown> = {}): Envelope {
+  return {
+    schemaVersion: "scms-0.1", subjectId: id,
+    compatibility: { protocol: "scms-0.1", subjectSchema: "article@1" },
+    provenance: { kind: "declared", authority: "project.owner", source: "test" },
+    minimumAccess: "public",
+    body: { kind: "Content", contentKind: "article", title: "first", ...body },
+    state: STATE,
+  };
+}
+
+function setup() {
+  const journal = new CanonJournal();
+  const seed = journal.append(article("art-1"), "tester");
+  return { journal, registry: narrowPathRegistry(), seed };
+}
+
+const ctx = { occurredAt: "2026-08-28T12:00:00Z", instanceId: "int_0001" };
+
+function request(input: Record<string, unknown>, contract = "icp:interaction/content.revise@1.0.0"): ExecutionRequest {
+  return { contract, requestId: "req_0001", actor: { id: "usr_1", role: "editor" }, input };
+}
+
+test("an unregistered contract cannot execute and writes nothing", () => {
+  const { journal, registry, seed } = setup();
+  const before = journal.all().length;
+  const r = registry.execute(journal, request({ subjectId: "art-1" }, "icp:interaction/content.delete@9"), ctx);
+  assert.equal(r.outcome, "not_found");
+  assert.equal(journal.all().length, before, "no journal write");
+  assert.ok(r.terminalReason, "terminal outcome without recovery must declare a reason");
+  assert.equal(journal.current()[0].envelope.revision, seed.envelope.revision);
+});
+
+test("a valid revise lands a superseding revision with a verifiable receipt", () => {
+  const { journal, registry, seed } = setup();
+  const r = registry.execute(journal, request({
+    subjectId: "art-1", expectedRevision: seed.envelope.revision, changes: { title: "second" },
+  }), ctx);
+
+  assert.equal(r.outcome, "completed");
+  assert.deepEqual(r.states, ["declared", "ready", "started", "validating", "processing", "completed"]);
+  assert.equal(r.verification, "none", "E1 reversible draft mutation needs no verification");
+
+  const receipt = r.receipt!;
+  assert.equal(receipt.beforeVersion, seed.envelope.revision);
+  assert.equal(receipt.afterVersion, journal.current()[0].envelope.revision);
+  assert.deepEqual(receipt.changes, [{ path: "/body/title", before: "first", after: "second" }]);
+  assert.equal(receipt.reversibility, "reversible");
+  // Integrity digest verifies over the receipt's own content.
+  const { integrity, ...base } = receipt;
+  assert.equal(integrity.digest, receiptDigest(base));
+  assert.equal(integrity.algorithm, "sha-256");
+
+  // Canon: appended, predecessor retained, chain intact.
+  assert.equal(journal.all().length, 2);
+  assert.equal(journal.get(seed.envelope.revision!)!.supersededBy, receipt.afterVersion);
+  assert.equal(journal.verifyChain().valid, true);
+});
+
+test("stale expectedRevision yields conflict with recovery and writes nothing", () => {
+  const { journal, registry, seed } = setup();
+  // First writer wins.
+  registry.execute(journal, request({
+    subjectId: "art-1", expectedRevision: seed.envelope.revision, changes: { title: "second" },
+  }), ctx);
+  const afterFirst = journal.all().length;
+
+  // Second writer holds the stale revision.
+  const r = registry.execute(journal, request({
+    subjectId: "art-1", expectedRevision: seed.envelope.revision, changes: { title: "concurrent" },
+  }), { ...ctx, instanceId: "int_0002" });
+
+  assert.equal(r.outcome, "conflict");
+  assert.ok(r.states.includes("conflicted"));
+  assert.equal(journal.all().length, afterFirst, "conflict wrote nothing — no partial write");
+  const actions = r.recovery.map((x) => x.action);
+  assert.deepEqual(actions, ["refresh_record", "review_conflict"]);
+  // Recovery carries enough typed data to execute it.
+  assert.equal(r.recovery[0].data.currentRevision, journal.current()[0].envelope.revision);
+  assert.equal(r.recovery[1].data.expected, seed.envelope.revision);
+});
+
+test("invalid input is a typed outcome with focus_field recovery, not an error", () => {
+  const { journal, registry } = setup();
+  const before = journal.all().length;
+  const r = registry.execute(journal, request({ subjectId: "art-1" }), ctx);
+  assert.equal(r.outcome, "invalid_input");
+  assert.equal(journal.all().length, before);
+  assert.deepEqual(r.recovery.map((x) => x.data.field).sort(), ["changes", "expectedRevision"]);
+  assert.ok(r.recovery.every((x) => x.action === "focus_field"));
+});
+
+test("every non-completed outcome carries recovery or a declared terminal reason", () => {
+  const { journal, registry, seed } = setup();
+  const results = [
+    registry.execute(journal, request({ subjectId: "art-1" }), ctx),                                  // invalid_input
+    registry.execute(journal, request({ subjectId: "x", expectedRevision: "sha256:none", changes: {} }), ctx), // not_found
+    registry.execute(journal, request({}, "unregistered@1"), ctx),                                     // not_found
+  ];
+  for (const r of results) {
+    assert.notEqual(r.outcome, "completed");
+    assert.ok(r.recovery.length > 0 || r.terminalReason, `outcome ${r.outcome} has neither recovery nor reason`);
+  }
+  assert.equal(journal.current()[0].envelope.revision, seed.envelope.revision, "no writes from failed executions");
+});
+
+test("all emitted states, outcomes, and recovery actions are ICP-canonical", () => {
+  const { journal, registry, seed } = setup();
+  const results = [
+    registry.execute(journal, request({ subjectId: "art-1" }), ctx),
+    registry.execute(journal, request({ subjectId: "art-1", expectedRevision: seed.envelope.revision, changes: { title: "x" } }), ctx),
+    registry.execute(journal, request({ subjectId: "art-1", expectedRevision: seed.envelope.revision, changes: { title: "y" } }), ctx),
+  ];
+  for (const r of results) {
+    assert.ok((OUTCOME_CLASSES as readonly string[]).includes(r.outcome), `non-canonical outcome ${r.outcome}`);
+    for (const s of r.states) assert.ok((INSTANCE_STATES as readonly string[]).includes(s), `non-canonical state ${s}`);
+    for (const rec of r.recovery) {
+      assert.ok((RECOVERY_ACTIONS as readonly string[]).includes(rec.action), `non-canonical recovery ${rec.action}`);
+    }
+  }
+});
+
+test("the registry is the write surface: the contract definition declares its effect class", () => {
+  const { registry } = setup();
+  const defs = registry.list();
+  assert.equal(defs.length, 1, "narrow path registers exactly one contract");
+  assert.equal(defs[0].id, CONTENT_REVISE.id);
+  assert.equal(defs[0].effectClass, "E1");
+  assert.equal(defs[0].reversibility, "reversible");
+});
+
+test("no ambient time or randomness in the contract runtime", async () => {
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  for (const rel of ["../src/runtime.ts", "../src/icp.ts"]) {
     const src = readFileSync(fileURLToPath(new URL(rel, import.meta.url)), "utf8");
     assert.ok(!/Date\.now|Math\.random|new Date\(\)/.test(src), `${rel} references ambient time/randomness`);
   }
@@ -8330,6 +8784,7 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-008 | Adopt SSS; implement the narrowest surface-resolution path | E1 | Done — awaiting owner verification | records/evidence.jsonl · scms-evidence-008 |
 | SCMS-009 | S3 cross-expression qualification | E1 | Done — S3 established for the narrow path; awaiting owner verification | records/evidence.jsonl · scms-evidence-009 |
 | SCMS-011 | Canon: envelope, canonical identity, append-only journal (E1 narrow slice) | E1 | Done — Canon→surface spine closed; awaiting owner verification | records/evidence.jsonl · scms-evidence-011 |
+| SCMS-012 | Contracts: content.revise@1, the governed write path (E2 narrow slice) | E1 | Done — §14 step 2 closed; awaiting owner verification | records/evidence.jsonl · scms-evidence-012 |
 | SCMS-010 | S4 cross-domain portability: a materially unrelated project (outside this repository, per owner doctrine 2026-08-28) consumes @semantic-systems/surface unmodified | external | Backlog — executes outside scms; scms records the conformance result | — |
 
 ## Epic register
@@ -8338,7 +8793,7 @@ epic as the owner assigns the corresponding piece of work.
 |---|---|---|---|
 | E0 | Operating substrate (bootstrap, pins, compiled context) | DESIGN.md §13 | Done via SCMS-001, pending verification |
 | E1 | Canon — envelope schema, identity classes, append-only store, receipts ledger | DESIGN.md §3 | In progress — narrow slice landed (SCMS-011); durable store open (SH-1) |
-| E2 | Contracts — write plane: contract registry, instance lifecycle, receipts, recovery | DESIGN.md §5 | Backlog |
+| E2 | Contracts — write plane: contract registry, instance lifecycle, receipts, recovery | DESIGN.md §5 | In progress — one contract landed (SCMS-012); multi-contract + verification levels open |
 | E3 | Qualification — evidence records, consequence profiles, incremental re-qualification, promotion | DESIGN.md §6 | Backlog |
 | E4 | Projection — resolver, projection contracts, access projection, derivations, fingerprint invalidation | DESIGN.md §4, §7 | Backlog |
 | E5 | Field — semantic metrics, workspace morphology, editorial time | DESIGN.md §9 | Backlog |
@@ -8892,4 +9347,78 @@ Claimed by agent-under-owner-direction 2026-08-28; released at closing state bel
 
 **Done — Implemented + Tested for the narrow path; Canon→surface spine closed.**
 Evidence: records/evidence.jsonl · scms-evidence-011. Claim released.
+
+
+========================================================================
+FILE: work/SCMS-012.md
+========================================================================
+
+# SCMS-012 — Contracts: `content.revise@1`, the governed write path (E2 narrow slice)
+
+**Intent ref:** PROJECT_INTENT.md · **Epic:** E2 (board #7) · **Advances:** DESIGN.md §14 step 2
+**Assigned by:** coordinator goal (narrowest end-to-end proof; §14 step 2 follows the landed
+Canon slice).
+**Effect class:** E1 — a pure library over the in-memory journal; no persistence, no protected
+action. (The *contracts it models* carry their own effect classes; `content.revise@1` is an E1
+reversible draft mutation whose verification level is therefore `none`, per DESIGN.md §5.)
+**State:** Ready → Claimed → (closing state at bottom)
+
+## Objective
+
+Close §14 step 2: no persistent mutation outside a registered contract. One contract —
+`content.revise@1` — landing draft revisions into Canon through the ICP instance lifecycle,
+with typed outcomes, executable recovery, optimistic concurrency, and change receipts.
+
+## Ready predicate
+
+- **Scope:** `impl/contracts/` — (1) a contract **registry** keyed by versioned identity;
+  (2) `execute()` driving the ICP instance lifecycle subset `declared → ready → started →
+  validating → processing → completed | conflicted | failed`, with every terminal outcome drawn
+  from the ICP outcome-class vocabulary; (3) typed **recovery actions** from the ICP vocabulary
+  on every blocking outcome; (4) **optimistic concurrency**: a revise against a stale
+  `expectedRevision` yields outcome `conflict` carrying the current revision and
+  `refresh_record` + `review_conflict` recovery — never a silent overwrite; (5) **change
+  receipts** per ICP §10.5 shape (before/after revision, path-level changes, reversibility,
+  integrity digest) chained into the journal's receipt ledger; (6) the structural rule: the
+  journal's write surface is reachable only through a registered contract in this package's
+  API.
+- **Exclusions:** exactly one contract definition (no promote, entitle, or migrate contracts —
+  those are E3/later); no verification levels above `none` (nothing here is E2+ in effect); no
+  qualification or promotion logic (E3, EQP-owned); no transport, HTTP, or persistence; no
+  changeCertainty/receiptSurrogate (P8 is a **pending** proposal on PR #28 — canonical v1
+  governs); no DESIGN.md change on main.
+- **Dependencies (satisfied):** icp pin (instance states §5.1, outcome classes, recovery
+  actions, change receipt §10.5 — all re-verified from source this cycle, and independently
+  confirmed in scms-evidence-005 claim 10); SCMS-011 Canon journal; node ≥ 22.6.
+- **Acceptance:**
+  1. An unregistered contract id cannot execute (`not_found`, no journal write).
+  2. A valid revise appends a superseding revision and emits a change receipt whose
+     before/after revisions match the journal, with a verifiable integrity digest.
+  3. A stale `expectedRevision` yields `conflict` with the current revision and executable
+     recovery — and the journal is unchanged (no partial write).
+  4. Invalid input yields `invalid_input` with `focus_field` recovery and no journal write.
+  5. Every non-completed outcome carries at least one recovery action or a declared terminal
+     reason (ICP: a blocking outcome is not an error).
+  6. Instance lifecycle states are recorded in order and are all ICP-canonical strings.
+  7. The receipt ledger still verifies after contract-driven writes (chain intact).
+- **Evidence requirements:** `node --test` output in scms-evidence-012; claim at the weakest
+  justified rung — **Implemented + Tested** for one contract on the narrow path. NOT
+  established: multi-contract composition, verification levels above `none`, durability,
+  concurrency under real parallelism, or empirical usefulness.
+- **Permissions / effect class:** E1; project-mutation authority per bindings.
+- **Target:** `impl/contracts/` (new), `.github/workflows/gates.yml`, `records/*`,
+  `work/GRAPH.md`. No other path.
+- **Budget:** one work cycle; no spend; no credentials; no external services.
+- **Stop conditions:** (a) a vector would require a pending PR-#28 proposal → stop, canonical
+  v1 governs; (b) governed writes would require weakening the journal's append-only property →
+  stop; (c) a needed ICP concept is missing upstream → stop and record upstream debt.
+
+## Claim
+
+Claimed by agent-under-owner-direction 2026-08-28; released at closing state below.
+
+## Closing state
+
+**Done — Implemented + Tested for the narrow path; §14 step 2 closed.**
+Evidence: records/evidence.jsonl · scms-evidence-012. Claim released.
 

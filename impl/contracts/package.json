@@ -1,0 +1,8 @@
+{
+  "name": "@scms/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Governed write path (SCMS-012): contract registry + content.revise@1 driving the ICP instance lifecycle with typed outcomes, executable recovery, optimistic concurrency, and ICP §10.5 change receipts over the Canon journal. ICP owns interaction semantics; they are imported as declared bindings. Zero runtime dependencies; requires Node >= 22.6.",
+  "scripts": { "test": "node --test test/contracts.test.ts" }
+}

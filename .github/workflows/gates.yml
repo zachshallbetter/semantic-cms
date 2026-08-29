@@ -48,6 +48,10 @@ jobs:
         run: node --test test/canon.test.ts
         working-directory: impl/canon
 
+      - name: Contract vectors (SCMS-012 · governed writes, receipts, conflict)
+        run: node --test test/contracts.test.ts
+        working-directory: impl/contracts
+
       - name: Cross-expression S3 vectors (SCMS-009)
         run: node --test test/s3.test.ts
         working-directory: impl/surface-expression
