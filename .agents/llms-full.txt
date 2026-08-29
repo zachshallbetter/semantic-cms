@@ -1,6 +1,6 @@
 # PROJECT COMPILED CONTEXT
 Generator: 0.5.0
-Source digest: ee872b1a5ab797b63e232673e375700a7c7e54d78690c64a8ad38eb84455773e
+Source digest: 79806bb1ef2483be09297070b44ab30f801f070a9e3d88161758ac31335f70e8
 
 > Generated projection. Canonical sources remain authoritative.
 
@@ -208,6 +208,10 @@ jobs:
       - name: Projection cache vectors (SCMS-014 · fingerprint-scoped invalidation)
         run: node --test test/cache.test.ts
         working-directory: impl/projection-cache
+
+      - name: Schema vectors (SCMS-016 · Article type, Home composition)
+        run: node --test test/schema.test.ts
+        working-directory: impl/schema
 
       - name: Cross-expression S3 vectors (SCMS-009)
         run: node --test test/s3.test.ts
@@ -5081,6 +5085,333 @@ test("an attestation for a different revision cannot promote this one", () => {
 
 
 ========================================================================
+FILE: impl/schema/package.json
+========================================================================
+
+{
+  "name": "@scms/schema",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Article content type and Home composition as Canon Schema records (SCMS-016, §14 step 1), with a conformance checker. SES owns Slot/Socket/Composition semantics; this declares two instances of that vocabulary and decides nothing about expression. Zero runtime dependencies; requires Node >= 22.6.",
+  "scripts": { "test": "node --test test/schema.test.ts" }
+}
+
+
+========================================================================
+FILE: impl/schema/src/schema.ts
+========================================================================
+
+/**
+ * Article and Home as Schema records (SCMS-016, §14 step 1).
+ *
+ * SES owns the semantic model: Slot is a named typed content participation
+ * point inside a Block; Socket is a region with an admission policy (which
+ * blocks, what cardinality, what importance); Composition is a semantic
+ * arrangement of Sockets. Those meanings are imported from the pin as declared
+ * bindings and are not redefined here — this module only *declares two
+ * instances* of that vocabulary and checks content against them.
+ *
+ * Nothing here decides expression: no morphology, theme, recipe, or visual
+ * form appears in a schema record or in any finding. A Socket says what may
+ * participate; SES says how it may look.
+ */
+import type { Envelope, RecordState } from "../../canon/src/envelope.ts";
+
+export interface SlotDeclaration {
+  /** SES Slot name — the field. */
+  name: string;
+  required: boolean;
+  /** Content kinds this slot admits. A slot is typed participation, not a bag. */
+  admits: string[];
+  /** Repeatable slots may carry many values. */
+  many?: boolean;
+}
+
+export interface SocketDeclaration {
+  /** SES Socket name — a region with an admission policy. */
+  name: string;
+  /** Block identities this socket admits. */
+  admitsBlocks: string[];
+  minCardinality: number;
+  maxCardinality: number;
+  /** Semantic importance — never a graphical instruction. */
+  importance: "required" | "primary" | "supporting" | "peripheral";
+}
+
+export interface ContentTypeSchema {
+  /** Discriminator INSIDE the Schema body — distinct from the envelope body kind. */
+  schemaKind: "content-type";
+  id: string;
+  slots: SlotDeclaration[];
+}
+
+export interface CompositionSchema {
+  /** Discriminator INSIDE the Schema body — distinct from the envelope body kind. */
+  schemaKind: "composition";
+  id: string;
+  sockets: SocketDeclaration[];
+}
+
+export type SchemaBody = (ContentTypeSchema | CompositionSchema) & { kind: "Schema" };
+// Note: the envelope body kind is "Schema"; schemaKind discriminates within it.
+// Spreading in the other order would let the inner discriminator overwrite the
+// body kind — a collision this naming makes structurally impossible.
+
+const STATE: RecordState = {
+  semanticMaturity: "complete", evidenceState: "unqualified",
+  publicationState: "unpublished", deliveryState: "unpropagated",
+};
+
+function schemaEnvelope(subjectId: string, body: ContentTypeSchema | CompositionSchema): Envelope {
+  return {
+    schemaVersion: "scms-0.1",
+    subjectId,
+    compatibility: { protocol: "scms-0.1", subjectSchema: `${body.schemaKind}@1` },
+    provenance: { kind: "declared", authority: "project.owner", source: "impl/schema" },
+    minimumAccess: "public",
+    body: { kind: "Schema", ...body } as Envelope["body"],
+    state: STATE,
+  };
+}
+
+/** §14 step 1: the one content type — Article, with its four slots. */
+export const ARTICLE_TYPE: ContentTypeSchema = {
+  schemaKind: "content-type",
+  id: "article",
+  slots: [
+    { name: "title", required: true, admits: ["text"] },
+    { name: "media", required: false, admits: ["image", "video"], many: true },
+    { name: "body", required: true, admits: ["prose"] },
+    { name: "meta", required: false, admits: ["text"], many: true },
+  ],
+};
+
+/** §14 step 1: the one composition — Home, with its two sockets. */
+export const HOME_COMPOSITION: CompositionSchema = {
+  schemaKind: "composition",
+  id: "home",
+  sockets: [
+    { name: "hero", admitsBlocks: ["article-card"], minCardinality: 1, maxCardinality: 1, importance: "required" },
+    { name: "rail", admitsBlocks: ["article-card", "note-card"], minCardinality: 0, maxCardinality: 6, importance: "supporting" },
+  ],
+};
+
+export const ARTICLE_SCHEMA_RECORD = schemaEnvelope("schema:content-type/article", ARTICLE_TYPE);
+export const HOME_SCHEMA_RECORD = schemaEnvelope("schema:composition/home", HOME_COMPOSITION);
+
+export type ConformanceCode =
+  | "required-slot-missing" | "undeclared-slot" | "slot-kind-not-admitted"
+  | "slot-cardinality" | "socket-block-not-admitted" | "socket-cardinality"
+  | "unknown-socket";
+
+export interface ConformanceFinding {
+  code: ConformanceCode;
+  /** The slot or socket at fault — never a visual concern. */
+  at: string;
+  detail: string;
+}
+
+export interface ArticleInstance {
+  contentKind: "article";
+  slots: Record<string, Array<{ kind: string; value: unknown }>>;
+}
+
+export function checkArticle(instance: ArticleInstance, type: ContentTypeSchema): ConformanceFinding[] {
+  const findings: ConformanceFinding[] = [];
+  const declared = new Map(type.slots.map((s) => [s.name, s]));
+
+  for (const slot of type.slots) {
+    const values = instance.slots[slot.name];
+    if (slot.required && (!values || values.length === 0)) {
+      findings.push({ code: "required-slot-missing", at: slot.name, detail: `slot '${slot.name}' is required` });
+      continue;
+    }
+    if (!values) continue;
+    if (!slot.many && values.length > 1) {
+      findings.push({ code: "slot-cardinality", at: slot.name, detail: `slot '${slot.name}' admits one value, got ${values.length}` });
+    }
+    for (const v of values) {
+      if (!slot.admits.includes(v.kind)) {
+        findings.push({
+          code: "slot-kind-not-admitted", at: slot.name,
+          detail: `slot '${slot.name}' admits ${slot.admits.join("|")}, got '${v.kind}'`,
+        });
+      }
+    }
+  }
+  // A content type is closed: an undeclared slot is a finding, not extra data.
+  for (const name of Object.keys(instance.slots)) {
+    if (!declared.has(name)) {
+      findings.push({ code: "undeclared-slot", at: name, detail: `slot '${name}' is not declared by type '${type.id}'` });
+    }
+  }
+  return findings;
+}
+
+export interface CompositionInstance {
+  compositionId: string;
+  sockets: Record<string, Array<{ block: string }>>;
+}
+
+export function checkComposition(instance: CompositionInstance, comp: CompositionSchema): ConformanceFinding[] {
+  const findings: ConformanceFinding[] = [];
+  const declared = new Map(comp.sockets.map((s) => [s.name, s]));
+
+  for (const socket of comp.sockets) {
+    const occupants = instance.sockets[socket.name] ?? [];
+    if (occupants.length < socket.minCardinality || occupants.length > socket.maxCardinality) {
+      findings.push({
+        code: "socket-cardinality", at: socket.name,
+        detail: `socket '${socket.name}' admits ${socket.minCardinality}..${socket.maxCardinality}, got ${occupants.length}`,
+      });
+    }
+    for (const occ of occupants) {
+      if (!socket.admitsBlocks.includes(occ.block)) {
+        findings.push({
+          code: "socket-block-not-admitted", at: socket.name,
+          detail: `socket '${socket.name}' admits ${socket.admitsBlocks.join("|")}, got '${occ.block}'`,
+        });
+      }
+    }
+  }
+  for (const name of Object.keys(instance.sockets)) {
+    if (!declared.has(name)) {
+      findings.push({ code: "unknown-socket", at: name, detail: `socket '${name}' is not declared by composition '${comp.id}'` });
+    }
+  }
+  return findings;
+}
+
+
+========================================================================
+FILE: impl/schema/test/schema.test.ts
+========================================================================
+
+/**
+ * SCMS-016 vectors: the two §14 schema records land in Canon like any other
+ * record, and content conforms to its declared type or fails with typed findings.
+ */
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { CanonJournal } from "../../canon/src/journal.ts";
+import { validateEnvelope } from "../../canon/src/envelope.ts";
+import {
+  ARTICLE_TYPE, HOME_COMPOSITION, ARTICLE_SCHEMA_RECORD, HOME_SCHEMA_RECORD,
+  checkArticle, checkComposition,
+} from "../src/schema.ts";
+import type { ArticleInstance, CompositionInstance } from "../src/schema.ts";
+
+const goodArticle: ArticleInstance = {
+  contentKind: "article",
+  slots: {
+    title: [{ kind: "text", value: "A title" }],
+    body: [{ kind: "prose", value: "Some prose." }],
+    meta: [{ kind: "text", value: "2026-08-28" }, { kind: "text", value: "essay" }],
+  },
+};
+
+const goodHome: CompositionInstance = {
+  compositionId: "home",
+  sockets: { hero: [{ block: "article-card" }], rail: [{ block: "note-card" }, { block: "article-card" }] },
+};
+
+test("both schema records validate as envelopes and land in Canon like any record", () => {
+  assert.deepEqual(validateEnvelope(ARTICLE_SCHEMA_RECORD), []);
+  assert.deepEqual(validateEnvelope(HOME_SCHEMA_RECORD), []);
+  const j = new CanonJournal();
+  const a = j.append(ARTICLE_SCHEMA_RECORD, "project.owner");
+  const h = j.append(HOME_SCHEMA_RECORD, "project.owner");
+  assert.equal((a.envelope.body as { kind: string }).kind, "Schema");
+  assert.equal(j.current().length, 2);
+  assert.match(a.envelope.revision!, /^sha256:/);
+  assert.notEqual(a.envelope.revision, h.envelope.revision);
+});
+
+test("a conforming Article passes; optional slots may be absent", () => {
+  assert.deepEqual(checkArticle(goodArticle, ARTICLE_TYPE), []);
+  const noMeta: ArticleInstance = { contentKind: "article", slots: { title: goodArticle.slots.title, body: goodArticle.slots.body } };
+  assert.deepEqual(checkArticle(noMeta, ARTICLE_TYPE), []);
+});
+
+test("a missing required slot is a typed finding naming the slot", () => {
+  const noBody: ArticleInstance = { contentKind: "article", slots: { title: goodArticle.slots.title } };
+  const findings = checkArticle(noBody, ARTICLE_TYPE);
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].code, "required-slot-missing");
+  assert.equal(findings[0].at, "body");
+});
+
+test("a content type is closed: an undeclared slot fails", () => {
+  const extra: ArticleInstance = { contentKind: "article", slots: { ...goodArticle.slots, sidebar: [{ kind: "text", value: "x" }] } };
+  const findings = checkArticle(extra, ARTICLE_TYPE);
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].code, "undeclared-slot");
+  assert.equal(findings[0].at, "sidebar");
+});
+
+test("slot admission and cardinality are enforced", () => {
+  const wrongKind: ArticleInstance = {
+    contentKind: "article",
+    slots: { ...goodArticle.slots, media: [{ kind: "audio", value: "a.mp3" }] },
+  };
+  assert.equal(checkArticle(wrongKind, ARTICLE_TYPE)[0].code, "slot-kind-not-admitted");
+
+  const tooManyTitles: ArticleInstance = {
+    contentKind: "article",
+    slots: { ...goodArticle.slots, title: [{ kind: "text", value: "a" }, { kind: "text", value: "b" }] },
+  };
+  assert.equal(checkArticle(tooManyTitles, ARTICLE_TYPE)[0].code, "slot-cardinality");
+});
+
+test("socket admission and cardinality are enforced", () => {
+  assert.deepEqual(checkComposition(goodHome, HOME_COMPOSITION), []);
+
+  const wrongBlock: CompositionInstance = { compositionId: "home", sockets: { hero: [{ block: "note-card" }] } };
+  const f1 = checkComposition(wrongBlock, HOME_COMPOSITION);
+  assert.equal(f1[0].code, "socket-block-not-admitted");
+  assert.equal(f1[0].at, "hero");
+
+  const emptyHero: CompositionInstance = { compositionId: "home", sockets: { hero: [] } };
+  assert.equal(checkComposition(emptyHero, HOME_COMPOSITION)[0].code, "socket-cardinality");
+
+  const overfullRail: CompositionInstance = {
+    compositionId: "home",
+    sockets: { hero: [{ block: "article-card" }], rail: Array.from({ length: 7 }, () => ({ block: "note-card" })) },
+  };
+  assert.equal(checkComposition(overfullRail, HOME_COMPOSITION)[0].code, "socket-cardinality");
+
+  const unknown: CompositionInstance = { compositionId: "home", sockets: { hero: [{ block: "article-card" }], footer: [] } };
+  assert.equal(checkComposition(unknown, HOME_COMPOSITION)[0].code, "unknown-socket");
+});
+
+test("a schema record supersedes like any other record — no special case", () => {
+  const j = new CanonJournal();
+  const v1 = j.append(ARTICLE_SCHEMA_RECORD, "project.owner");
+  const widened = {
+    ...ARTICLE_SCHEMA_RECORD,
+    body: { ...ARTICLE_SCHEMA_RECORD.body, slots: [...ARTICLE_TYPE.slots, { name: "summary", required: false, admits: ["text"] }] },
+  };
+  const v2 = j.supersede(v1.envelope.revision!, widened as typeof ARTICLE_SCHEMA_RECORD, "project.owner");
+  assert.equal(j.all().length, 2);
+  assert.equal(j.get(v1.envelope.revision!)!.supersededBy, v2.envelope.revision);
+  assert.equal(j.verifyChain().valid, true);
+});
+
+test("no finding references expression: sockets say what may participate, not how it looks", async () => {
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const src = readFileSync(fileURLToPath(new URL("../src/schema.ts", import.meta.url)), "utf8");
+  // Importance is semantic; morphology, theme, and visual form belong to SES.
+  for (const forbidden of ["hero-style", "morphology", "theme", "recipe", "css", "layout"]) {
+    assert.ok(!new RegExp(`\\b${forbidden}\\b`, "i").test(src.replace(/\/\*[\s\S]*?\*\//g, "")),
+      `schema module must not reference '${forbidden}'`);
+  }
+  assert.equal(HOME_COMPOSITION.sockets[0].importance, "required");
+});
+
+
+========================================================================
 FILE: impl/surface-expression/package.json
 ========================================================================
 
@@ -9726,6 +10057,7 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-013 | Qualification and promotion as separate gates (E3 narrow slice) | E1 | Done — §14 steps 4–5 closed; awaiting owner verification | records/evidence.jsonl · scms-evidence-013 |
 | SCMS-014 | Fingerprint-scoped projection invalidation (E4 narrow slice) | E1 | Done — §14 step 8 closed; awaiting owner verification | records/evidence.jsonl · scms-evidence-014 |
 | SCMS-015 | Dependency revisions track subjects, not snapshots (SSS §21 conformance) | E1 | Done — NR-scms-003 closed; awaiting owner verification | records/evidence.jsonl · scms-evidence-015 |
+| SCMS-016 | Article type and Home composition as Schema records (§14 step 1) | E1 | Done — awaiting owner verification | records/evidence.jsonl · scms-evidence-016 |
 | SCMS-010 | S4 cross-domain portability: a materially unrelated project (outside this repository, per owner doctrine 2026-08-28) consumes @semantic-systems/surface unmodified | external | Backlog — executes outside scms; scms records the conformance result | — |
 
 ## Epic register
@@ -10581,4 +10913,67 @@ Claimed by agent-under-owner-direction 2026-08-28; released at closing state bel
 
 **Done — Implemented + Tested; NR-scms-003 closed.**
 Evidence: records/evidence.jsonl · scms-evidence-015. Claim released.
+
+
+========================================================================
+FILE: work/SCMS-016.md
+========================================================================
+
+# SCMS-016 — Article type and Home composition as Schema records (E1, §14 step 1)
+
+**Intent ref:** PROJECT_INTENT.md · **Epic:** E1 · **Advances:** DESIGN.md §14 step 1 (the last
+incomplete early step of the narrowest path).
+**Effect class:** E1 — Schema-body envelopes plus a conformance checker; no new authority.
+**State:** Ready → Claimed → (closing state at bottom)
+
+## Objective
+
+Make the content vocabulary concrete and canonical: one content type (**Article**, with SES
+Slots) and one composition (**Home**, with SES Sockets) landed in Canon as `Schema`-body
+envelopes, plus a checker proving `Content` instances conform to their declared type.
+
+## Ready predicate
+
+- **Scope:** `impl/schema/` — (1) `Article` as a Schema record declaring slots
+  `title | media | body | meta` with required/optional and content-kind admission; (2) `Home`
+  as a Schema record declaring sockets `hero | rail` with admission policy (which blocks,
+  cardinality, importance); (3) `checkConformance(instance, schemaRecord)` returning typed
+  findings; (4) vectors including negatives.
+- **Exclusions:** SES *vocabulary* is imported as declared bindings — Slot, Socket, Block,
+  Composition, admission policy, cardinality, importance keep their SES meanings and are not
+  redefined; no expression, recipe, theme, or morphology (SES owns those); no resolver change;
+  no new content types beyond the two §14 names; no DESIGN.md change.
+- **Dependencies (satisfied):** ses pin (Slot/Socket/Composition semantics); SCMS-011 Canon
+  (Schema body kind, journal); node ≥ 22.6.
+- **Acceptance:**
+  1. Both schema records land as `Schema`-body envelopes and validate under SCMS-011's
+     envelope rules (they are `declared` provenance and carry no time bounds).
+  2. A conforming Article instance passes; a missing **required** slot fails with a typed
+     finding naming the slot.
+  3. An instance carrying an **undeclared** slot fails (a content type is closed, not a bag).
+  4. Socket admission is enforced: a block whose kind is not admitted by `hero` is rejected,
+     and cardinality violations are typed findings.
+  5. Schema records participate in Canon like any other record — superseding a schema appends
+     a new revision and leaves the predecessor readable (no special-casing).
+  6. The checker introduces no expression concern: no finding references morphology, theme,
+     or visual form.
+- **Evidence requirements:** `node --test` in scms-evidence-016 at **Implemented + Tested**
+  for these two records. NOT established: a general schema registry, migration between schema
+  versions, or empirical authoring usefulness.
+- **Permissions / effect class:** E1; project-mutation authority per bindings.
+- **Target:** `impl/schema/` (new), `.github/workflows/gates.yml`, `records/*`,
+  `work/GRAPH.md`. No other path.
+- **Budget:** one work cycle; no spend; no credentials.
+- **Stop conditions:** (a) conformance would require deciding an SES semantic not present in
+  the pin → stop and record upstream debt; (b) the checker would need to make an expression
+  decision → stop (that is SES's).
+
+## Claim
+
+Claimed by agent-under-owner-direction 2026-08-28; released at closing state below.
+
+## Closing state
+
+**Done — Implemented + Tested; §14 step 1 closed.**
+Evidence: records/evidence.jsonl · scms-evidence-016. Claim released.
 

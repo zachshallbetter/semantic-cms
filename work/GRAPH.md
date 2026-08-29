@@ -31,6 +31,7 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-013 | Qualification and promotion as separate gates (E3 narrow slice) | E1 | Done — §14 steps 4–5 closed; awaiting owner verification | records/evidence.jsonl · scms-evidence-013 |
 | SCMS-014 | Fingerprint-scoped projection invalidation (E4 narrow slice) | E1 | Done — §14 step 8 closed; awaiting owner verification | records/evidence.jsonl · scms-evidence-014 |
 | SCMS-015 | Dependency revisions track subjects, not snapshots (SSS §21 conformance) | E1 | Done — NR-scms-003 closed; awaiting owner verification | records/evidence.jsonl · scms-evidence-015 |
+| SCMS-016 | Article type and Home composition as Schema records (§14 step 1) | E1 | Done — awaiting owner verification | records/evidence.jsonl · scms-evidence-016 |
 | SCMS-010 | S4 cross-domain portability: a materially unrelated project (outside this repository, per owner doctrine 2026-08-28) consumes @semantic-systems/surface unmodified | external | Backlog — executes outside scms; scms records the conformance result | — |
 
 ## Epic register

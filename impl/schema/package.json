@@ -1,0 +1,8 @@
+{
+  "name": "@scms/schema",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Article content type and Home composition as Canon Schema records (SCMS-016, §14 step 1), with a conformance checker. SES owns Slot/Socket/Composition semantics; this declares two instances of that vocabulary and decides nothing about expression. Zero runtime dependencies; requires Node >= 22.6.",
+  "scripts": { "test": "node --test test/schema.test.ts" }
+}

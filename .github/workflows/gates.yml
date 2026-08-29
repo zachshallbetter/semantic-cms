@@ -60,6 +60,10 @@ jobs:
         run: node --test test/cache.test.ts
         working-directory: impl/projection-cache
 
+      - name: Schema vectors (SCMS-016 · Article type, Home composition)
+        run: node --test test/schema.test.ts
+        working-directory: impl/schema
+
       - name: Cross-expression S3 vectors (SCMS-009)
         run: node --test test/s3.test.ts
         working-directory: impl/surface-expression
