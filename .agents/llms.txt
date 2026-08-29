@@ -1,6 +1,6 @@
 # Project Context Index
 > Generator: 0.5.0
-> Source digest: `9cc79e245ca94f158e30fb45be9fe859275b6ccf289bd14b150c19fbb388feaf`
+> Source digest: `3b0b16b2f0ce8939ecacbacaab8cee305cd73a4dd306705722f052d7628ae3d9`
 
 > Generated projection. Canonical sources remain authoritative.
 
@@ -14,7 +14,7 @@
 - `.github/workflows/gates.yml` | 1590 bytes | `e5761c1adf50825a8b3047c6faae57a323b8588111134f746b0d9ccacc8740fb`
 - `AGENTS.md` | 6896 bytes | `cd8cbb05cc70b8d03f69bf45026ff70fdee09a264bb29d0ac4bcb4b753685caf`
 - `CONTEXT_SOURCES.json` | 914 bytes | `1a0e0db180b061204f20b4a550f8b634fb2a220569592bd63fed13eb875dda0e`
-- `DESIGN.md` | 33379 bytes | `39264296deec82b925418cf245b830c2d08ccb0346592d7d7a6c52ca2493a239`
+- `DESIGN.md` | 38234 bytes | `ffcd69dc41afed46f64f5b5021c4e1aae8e654ea108e7e52fe5cb45d9999d651`
 - `FORMAL_RESOURCE_MANIFEST.json` | 12094 bytes | `fdf6f710c00e1429ff34d4a2ab8ed81fadc48dd812cf040354a327751d2d3fd2`
 - `NEW_AGENT_PROMPT.md` | 854 bytes | `eced591fb8fb893bba4426e254f44776cae1bf3f148a6e81a01402d427ad60a2`
 - `PROJECT_INTENT.md` | 6368 bytes | `b45adbb652c63b7327a77e70325204c2e8a50033f6d4d6f8e156e402683f4bf1`

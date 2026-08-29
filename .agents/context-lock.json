@@ -9,14 +9,14 @@
     "repositories": [
       {
         "path": ".",
-        "commit": "684bdc21b6b0275ec5db376b22d20a2fa6c7c7fa",
-        "branch": "main",
-        "dirty": true,
+        "commit": "034badfa3a98bba75d8d67f914e1a9875aa71685",
+        "branch": "design-v2-candidate",
+        "dirty": false,
         "remote": "https://github.com/zachshallbetter/semantic-cms.git"
       }
     ]
   },
-  "aggregateSourceDigest": "9cc79e245ca94f158e30fb45be9fe859275b6ccf289bd14b150c19fbb388feaf",
+  "aggregateSourceDigest": "3b0b16b2f0ce8939ecacbacaab8cee305cd73a4dd306705722f052d7628ae3d9",
   "sources": [
     {
       "path": ".agents/skills/compile-context/SKILL.md",
@@ -70,8 +70,8 @@
     },
     {
       "path": "DESIGN.md",
-      "bytes": 33379,
-      "sha256": "39264296deec82b925418cf245b830c2d08ccb0346592d7d7a6c52ca2493a239"
+      "bytes": 38234,
+      "sha256": "ffcd69dc41afed46f64f5b5021c4e1aae8e654ea108e7e52fe5cb45d9999d651"
     },
     {
       "path": "FORMAL_RESOURCE_MANIFEST.json",
