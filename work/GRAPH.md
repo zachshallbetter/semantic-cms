@@ -34,7 +34,8 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-016 | Article type and Home composition as Schema records (§14 step 1) | E1 | Done — awaiting owner verification | records/evidence.jsonl · scms-evidence-016 |
 | SCMS-017 | Consistency states, disclosure, expiring presence (E6 narrow slice) | E1 | Done — §14 step 7 closed semantically; awaiting owner verification | records/evidence.jsonl · scms-evidence-017 |
 | SCMS-019 | The narrowest end-to-end path, proven as one run (E7) | E1 | Done — spine composes; awaiting owner verification | records/evidence.jsonl · scms-evidence-019 |
-| SCMS-018 | R1 live co-authoring: free/bounded/required merge lanes (§14 step 3) | E1 | **Blocked** — awaiting disposition of P7/P22 on PR #28 | records/blockers · scms-blocker-001 |
+| SCMS-020 | content.unpublish@1: make the declared compensation real | E1 | Done — awaiting owner verification | records/evidence.jsonl · scms-evidence-020 |
+| SCMS-018 | R1 live co-authoring — **free lane only** (convergent merge) | E1 | **Blocked** — awaiting disposition of P7/P22 on PR #28 | records/blockers · scms-blocker-001 |
 | SCMS-010 | S4 cross-domain portability: a materially unrelated project (outside this repository, per owner doctrine 2026-08-28) consumes @semantic-systems/surface unmodified | external | Backlog — executes outside scms; scms records the conformance result | — |
 
 ## Epic register

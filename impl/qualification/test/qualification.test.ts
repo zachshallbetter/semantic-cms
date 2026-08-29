@@ -196,3 +196,99 @@ test("an attestation for a different revision cannot promote this one", () => {
   }), ctx);
   assert.equal(r.outcome, "conflict");
 });
+
+// ---------------------------------------------------------------------------
+// SCMS-020: content.unpublish@1 — making the declared compensation real.
+// ---------------------------------------------------------------------------
+import { CONTENT_UNPUBLISH, unpublishHandler } from "../src/unpublish.ts";
+
+function promoted() {
+  const { journal, registry, rev } = setup();
+  registry.register(CONTENT_UNPUBLISH, unpublishHandler);
+  const att = qualify(rev, NOTE_PROFILE, [ev("ob/schema-valid", rev), ev("ob/access-declared", rev)], "checker", ctx.occurredAt);
+  const r = registry.execute(journal, promoteReq({
+    subjectId: "note-1", candidateRevision: rev, attestation: att, profile: NOTE_PROFILE,
+    verificationPerformed: "reauthenticate", promotionAuthority: "project.owner",
+  }), ctx);
+  return { journal, registry, promotedRevision: r.receipt!.afterVersion, promoteReceipt: r.receipt! };
+}
+
+const unpublishReq = (input: Record<string, unknown>) => ({
+  contract: "icp:interaction/content.unpublish@1.0.0", requestId: "req_u1",
+  actor: { id: "usr_1", role: "editor" }, input,
+});
+
+test("promote's declared compensation now resolves in the registry", () => {
+  const { registry, promoteReceipt } = promoted();
+  const ids = registry.list().map((d) => `${d.id}`);
+  assert.ok(ids.includes(promoteReceipt.compensationInteraction!),
+    "the compensation named on every promotion receipt exists as a registered contract");
+});
+
+test("unpublish compensates forward: a new revision, nothing erased", () => {
+  const { journal, registry, promotedRevision } = promoted();
+  const before = journal.all().length;
+  const r = registry.execute(journal, unpublishReq({
+    subjectId: "note-1", promotedRevision, verificationPerformed: "confirm", authority: "project.owner",
+  }), { ...ctx, instanceId: "int_u1" });
+
+  assert.equal(r.outcome, "compensated");
+  assert.ok(r.states.includes("compensating"));
+  assert.equal(r.verification, "confirm", "E2 needs confirm, not promote's reauthenticate");
+  assert.deepEqual(r.receipt!.changes, [{ path: "/state/publicationState", before: "promoted", after: "unpublished" }]);
+  assert.equal(journal.all().length, before + 1, "compensation appends");
+  assert.equal(journal.get(promotedRevision)!.envelope.state.publicationState, "promoted",
+    "the promoted revision is retained as history, unedited");
+  assert.equal(journal.current()[0].envelope.state.publicationState, "unpublished");
+  assert.equal(journal.verifyChain().valid, true);
+});
+
+test("unpublish refuses a no-op, weak verification, and unnamed authority", () => {
+  const { journal, registry, promotedRevision } = promoted();
+
+  const weak = registry.execute(journal, unpublishReq({
+    subjectId: "note-1", promotedRevision, verificationPerformed: "none", authority: "project.owner",
+  }), { ...ctx, instanceId: "int_u2" });
+  assert.equal(weak.outcome, "verification_required");
+
+  const anon = registry.execute(journal, unpublishReq({
+    subjectId: "note-1", promotedRevision, verificationPerformed: "confirm",
+  }), { ...ctx, instanceId: "int_u3" });
+  assert.equal(anon.outcome, "blocked");
+  assert.equal(anon.recovery[0].action, "request_access");
+
+  // Now actually unpublish, then try again: the second attempt is a refused
+  // no-op, not a silent success.
+  const done = registry.execute(journal, unpublishReq({
+    subjectId: "note-1", promotedRevision, verificationPerformed: "confirm", authority: "project.owner",
+  }), { ...ctx, instanceId: "int_u4" });
+  assert.equal(done.outcome, "compensated");
+  const again = registry.execute(journal, unpublishReq({
+    subjectId: "note-1", promotedRevision, verificationPerformed: "confirm", authority: "project.owner",
+  }), { ...ctx, instanceId: "int_u5" });
+  assert.equal(again.outcome, "conflict", "the promoted revision was superseded by the compensation");
+  assert.ok(again.recovery.length > 0);
+});
+
+test("round trip: promote → unpublish → promote, with all three landings in history", () => {
+  const { journal, registry, promotedRevision } = promoted();
+  const un = registry.execute(journal, unpublishReq({
+    subjectId: "note-1", promotedRevision, verificationPerformed: "confirm", authority: "project.owner",
+  }), { ...ctx, instanceId: "int_u6" });
+  const backToDraft = un.receipt!.afterVersion;
+
+  const att2 = qualify(backToDraft, NOTE_PROFILE,
+    [ev("ob/schema-valid", backToDraft), ev("ob/access-declared", backToDraft)], "checker", ctx.occurredAt);
+  const re = registry.execute(journal, promoteReq({
+    subjectId: "note-1", candidateRevision: backToDraft, attestation: att2, profile: NOTE_PROFILE,
+    verificationPerformed: "reauthenticate", promotionAuthority: "project.owner",
+  }), { ...ctx, instanceId: "int_u7" });
+
+  assert.equal(re.outcome, "completed");
+  assert.equal(journal.current()[0].envelope.state.publicationState, "promoted");
+  // Four landings: seed, promote, unpublish, re-promote. Nothing erased.
+  assert.equal(journal.all().length, 4);
+  assert.equal(journal.verifyChain().valid, true);
+  const publicationHistory = journal.all().map((e) => e.envelope.state.publicationState);
+  assert.deepEqual(publicationHistory, ["unpublished", "promoted", "unpublished", "promoted"]);
+});
