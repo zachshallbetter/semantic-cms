@@ -9,14 +9,14 @@
     "repositories": [
       {
         "path": ".",
-        "commit": "0c014dd94fab58a99b1e942382ecad64a7a137c2",
+        "commit": "3bff9f87a7a917f308d0279ffe93bdcb4b1b3d37",
         "branch": "main",
         "dirty": true,
         "remote": "https://github.com/zachshallbetter/semantic-cms.git"
       }
     ]
   },
-  "aggregateSourceDigest": "4b97d43f06046b721274d7bfd906d1bdd2acf7fad5ba0865ca740f4cba058085",
+  "aggregateSourceDigest": "65cbb5cdfe2afffc9641521d10a1f280511414ad9591ab04db7017b9ad462a9f",
   "sources": [
     {
       "path": ".agents/skills/compile-context/SKILL.md",
@@ -100,8 +100,8 @@
     },
     {
       "path": "SPEC_HEALTH.md",
-      "bytes": 6498,
-      "sha256": "143bd274c73a33146e3156e15b9b50c27b6f5b39d7684067585cad0bf2733c3b"
+      "bytes": 8867,
+      "sha256": "9f10e4fd7cc45ca2cd42657c35056828e9791b0f7a198e8f06d9af3a3bf73c8f"
     },
     {
       "path": "VERSION",
@@ -490,8 +490,8 @@
     },
     {
       "path": "work/GRAPH.md",
-      "bytes": 7070,
-      "sha256": "4295937f1147397c3cab0cb37ab375dde5666e000f6a4677f992584c41b9934b"
+      "bytes": 7220,
+      "sha256": "841a7de7a06a23530ca57f097d9b9cf952db422204471201cc44d4d71ac49572"
     },
     {
       "path": "work/SCMS-001.md",
@@ -602,6 +602,11 @@
       "path": "work/SCMS-024.md",
       "bytes": 2768,
       "sha256": "a9041c5640185342eede80b7bed4001a920c7ab70c39c79d5b29dea9acee3236"
+    },
+    {
+      "path": "work/SCMS-025.md",
+      "bytes": 2200,
+      "sha256": "944b9f7d0b073a70b88638fabcdd62570eb75761bb9ee67ef0ed2bb7abb69475"
     }
   ]
 }

@@ -31,14 +31,21 @@ Claims this project currently makes about itself, with admissible status (ladder
 Documented ≠ Implemented ≠ Tested ≠ Deployed ≠ Verified). A claim may not be stated
 above its rung.
 
-| Claim | Status | Evidence that would strengthen it |
-|---|---|---|
-| The six-plane design is coherent and buildable | Documented | E1 vertical slice landing with its gates green |
-| Substrate gates pass | Tested (locally + CI) | CI history on main; gate self-tests staying green |
-| Review findings accurately describe the sources | Partially verified | Adversarial verification pass (SCMS-005) — results in records/evidence.jsonl |
-| Dependencies are pinned and consumable | Documented + hash-locked | Admission scans (P17) run per pin; UD-8/UD-9 closed |
-| Realtime obligations R1–R3 are satisfiable | Documented | §14 milestone steps 3, 7, 8 demonstrated |
-| The board reflects work state | Implemented | Reconciliation check between GRAPH.md and issues (future gate) |
-| Published artifacts match their canonical sources | Tested | scripts/check-projection-sync.py in CI (design spec); review artifacts frozen post-addendum |
+| Claim | Rung | Evidence setting the rung | What would strengthen it |
+|---|---|---|---|
+| The six-plane design is coherent and buildable | **Implemented + Tested — narrow path only** | SCMS-011…019: a slice of every plane exists and composes in one run (impl/e2e, 8 vectors), CI-verified | The same at realistic scale, with durability and transport |
+| Substrate gates pass | **Tested (CI-verified)** | Every run since `d6f4bfb` reports success by conclusion, not local exit code (NR-scms-002 corrected the prior false claim) | Gate self-tests staying green as gates grow |
+| Review findings accurately describe the sources | **Partially verified** | scms-evidence-005: 16/20 load-bearing claims confirmed by adversarial pass, 4 partial, 0 refuted | Verification of the remaining claims |
+| Dependencies are pinned and consumable | **Documented + hash-locked** | All pins content-digested (alignment record); SES and FPB re-pinned upstream-first | Admission scans (P17) per pin; UD-8/UD-9 closed |
+| Surface resolution is access-safe | **Implemented + Tested** | SCMS-008/014: hidden state never enters a dependency set, and cannot move an output, trace, or invalidation (byte-identical results) | Adversarial review of the access boundary by an independent party |
+| One surface can be expressed two materially different ways | **S3 conformance (narrow path)** | SCMS-009: 10 vectors, six preserved properties, morphology provably differing | S4 — and S4 must run **outside** this repository (SCMS-010) |
+| Publishing is qualification **plus** promotion, never a boolean | **Implemented + Tested** | SCMS-013/020: promotion refuses non-qualified, under-verified, unauthorised, and mismatched candidates; compensation exists and round-trips | Real evidence collection and evaluator independence |
+| No persistent mutation outside a registered contract | **Implemented + Tested (source-level)** | SCMS-012 write path; SCMS-023 boundary gate with a self-test proving it can fail | Runtime capability enforcement, not just source-level |
+| Declared content types are enforced | **Implemented + Tested (where declared)** | SCMS-022: the governed write consults the declared type; opt-in, because types that do not exist are not pretended to exist | A declared type for every content kind in use |
+| R1 live co-authoring | **Partially established** | `required` lane proven (SCMS-012), `bounded` lane proven (SCMS-021); **free lane NOT built** — blocked on P7/P22 | Owner disposition of P7/P22, then the free lane |
+| R2 live propagation | **NOT established** | Nothing built: transport is P10-pending. Consistency *state* is determined (SCMS-017) but nothing moves it | Disposition of P10, then outbox + fan-out + replay |
+| R3 live honesty | **Implemented + Tested (semantic core)** | SCMS-017: six states, the drafting/consequential asymmetry, chips that never claim live without a check, presence expiring by construction | Transport-side freshness under real latency |
+| The published artifacts match their canonical sources | **Tested** | scripts/check-projection-sync.py in CI, with a self-test | — |
+| The system is empirically useful | **NOT established, and no vector can establish it** | None. Passing tests are not usefulness | A real workload (rcp-001 unconfirmed) and human evidence |
 
 *"This register narrows claims; it does not manufacture validation."*
