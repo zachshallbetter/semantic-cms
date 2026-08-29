@@ -13,7 +13,7 @@
       "file": "projections/scms-002-review.html",
       "artifactUrl": "https://claude.ai/code/artifact/3849d7f9-f319-4b85-afad-3a381da5801e",
       "source": "research/titan-infinite-verse-review.md",
-      "sourceSha256": "dd48cf2a814f8b7bc13236fb1fe5d4335d8fa28292b550092adfe25d26939755",
+      "sourceSha256": "2584c50c3e338b54b559745e167b868cb7fd59ae92a9cdf1ed4f84dbce1326e9",
       "syncRule": "content-faithful projection; frozen unless the source review changes",
       "lastPublished": "2026-08-28"
     },
@@ -21,7 +21,7 @@
       "file": "projections/scms-004-review.html",
       "artifactUrl": "https://claude.ai/code/artifact/61191a6a-8293-46c4-bc5e-a6463b227494",
       "source": "research/titan-node-observatory-tools-review.md",
-      "sourceSha256": "38f58327e67c7edb3e175ad20a735a76cd372eb42c5aad4867071dc94e60bd3a",
+      "sourceSha256": "5d6435f0484e8c017267519bade19495f6c5341a2031bbfc6e1d2e665bd0fb7d",
       "syncRule": "content-faithful projection; includes addendum 6.1",
       "lastPublished": "2026-08-28"
     }
