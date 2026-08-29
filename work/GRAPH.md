@@ -49,7 +49,7 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-032 | The transactional outbox: nothing happens without an emission (R2) | E5 | Done — emission proven; delivery is SCMS-033; awaiting owner verification | records/evidence.jsonl · scms-evidence-032 |
 | SCMS-033 | Subscription lenses and fan-out over the wire (R2) | E5 | Done — lens narrows only; lag is subscriber-relative | records/evidence.jsonl · scms-evidence-033 |
 | SCMS-034 | Replay by last_event_id, no event loss, lagged disclosure (R2) | E5 | Done — landed with SCMS-033 | records/evidence.jsonl · scms-evidence-033 |
-| SCMS-035 | The provenance chip driven by a real transport (R2 meets R3) | E6 | Ready — depends on SCMS-034 | — |
+| SCMS-035 | The provenance chip driven by a real transport (R2 meets R3) | E6 | Done — freshness derived, not asserted; NR-scms-009 fixed; SH-17 raised | records/evidence.jsonl · scms-evidence-035 |
 | SCMS-036 | Evidence and attestations as Canon records | E3 | Done — forgery closed; SH-13 (self-attestation) remains owner policy | records/evidence.jsonl · scms-evidence-036 |
 | SCMS-037 | The site renders from Canon (consolidation, no deploy) | E8 | Ready — completes E8 up to the deploy decision, which stays the owner's | — |
 | SCMS-038 | Independent adversarial verification of the load-bearing claims | E0 | Ready — nothing has ever been marked Verified; targets the new authority gate first | — |

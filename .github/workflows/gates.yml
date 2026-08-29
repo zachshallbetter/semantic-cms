@@ -100,8 +100,8 @@ jobs:
         run: node --test test/editor.test.ts
         working-directory: impl/editor
 
-      - name: Wire delivery and replay (SCMS-033/034 · backfill, lagged, catch-up)
-        run: node --test test/wire.test.ts
+      - name: Transport — wire, replay, and derived freshness (SCMS-033/034/035)
+        run: node --test test/*.test.ts
         working-directory: impl/transport
 
       - name: End-to-end spine (SCMS-019 · the composed narrow path)

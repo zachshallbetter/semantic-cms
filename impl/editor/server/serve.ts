@@ -38,6 +38,7 @@ import { editorView, editorIndex } from "../src/viewmodel.ts";
 import { landEdit, summarizeP7 } from "../src/session.ts";
 import type { P7Observation } from "../src/session.ts";
 import { deriveOffer } from "../../authoring/src/editor.ts";
+import { freshnessFrom, NEVER_CONNECTED } from "../../transport/src/freshness.ts";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const arg = (name: string, fallback: string): string => {
@@ -125,7 +126,19 @@ const observations: P7Observation[] = existsSync(P7_LOG)
 const findingsFor = (slug: string) =>
   migrated.findings.filter((f) => f.entry.replace(/^.*\//, "").replace(/\.md$/, "") === slug);
 
-const freshness = () => ({ nowMs: Date.now(), lastCheckedMs: Date.now(), snapshotLabel: "live" });
+/**
+ * Freshness is derived from what the transport actually delivered (SCMS-035),
+ * not asserted. This previously passed `lastCheckedMs: Date.now()` on every
+ * render, so the chip read "live · checked 0s ago" whether or not anything had
+ * been checked — the editor violating the one honesty rule it exists to display.
+ *
+ * This server holds no subscription yet, so the honest state is NEVER_CONNECTED
+ * and the chip correctly reads `snapshot`. It will say `live` when there is a
+ * delivery to point at, and not before.
+ */
+const freshness = () => freshnessFrom(NEVER_CONNECTED, {
+  nowMs: Date.now(), snapshotLabel: "local",
+});
 
 function viewFor(subject: string) {
   const entry = journal.current().find((e) => e.envelope.subjectId === subject);
