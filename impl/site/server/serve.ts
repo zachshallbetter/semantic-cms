@@ -21,8 +21,12 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { CanonJournal } from "../../canon/src/journal.ts";
 import { freeze } from "../../canon/src/freeze.ts";
-import { narrowPathRegistry } from "../../contracts/src/runtime.ts";
+import { narrowPathRegistry, CONTENT_REVISE, reviseHandler, ContractRegistry, CONTENT_CREATE, createHandler } from "../../contracts/src/runtime.ts";
+import { CONTENT_PROMOTE, promoteHandler } from "../../qualification/src/promote.ts";
+import { CONTENT_UNPUBLISH, unpublishHandler } from "../../qualification/src/unpublish.ts";
+import { RECORD_EVIDENCE, recordEvidenceHandler, ATTEST, attestHandler } from "../../qualification/src/canon-evidence.ts";
 import { governedImport } from "../../migrate/src/governed.ts";
+import { replayActions } from "./replay.ts";
 import { migrateAll } from "../../migrate/src/zach-core.ts";
 import type { SourceEntry } from "../../migrate/src/zach-core.ts";
 import { READER_ROUTES, renderRoute, isRouteFailure, siteMap } from "../../reader/src/routes.ts";
@@ -83,13 +87,27 @@ const migrated = migrateAll(manifest.entries.map((e) => ({
  * a quiet workaround here.
  */
 const journal = new CanonJournal();
-const registry = narrowPathRegistry();
+const registry = new ContractRegistry();
+registry.register(CONTENT_CREATE, createHandler);
+registry.register(CONTENT_REVISE, reviseHandler);
+registry.register(CONTENT_PROMOTE, promoteHandler as never);
+registry.register(CONTENT_UNPUBLISH, unpublishHandler as never);
+registry.register(RECORD_EVIDENCE, recordEvidenceHandler as never);
+registry.register(ATTEST, attestHandler as never);
+
 const imported = governedImport({
   journal, registry,
   envelopes: [...migrated.content, ...migrated.relations],
   context: { occurredAt: new Date().toISOString(), authority: "owner" },
   actor: { id: "project.owner", role: "owner" },
 });
+// Replay the owner's governed actions through the same contracts, so a
+// promotion made in the editor is visible here.
+const replayed = replayActions(
+  journal, registry,
+  join(process.env.HOME ?? "", ".scms-data/actions.jsonl"),
+  { id: "project.owner", role: "owner" }, new Date().toISOString());
+
 const snapshot = freeze(journal, "site");
 
 const byId = new Map(journal.current().map((e) => [e.envelope.subjectId, e]));
@@ -191,5 +209,8 @@ server.listen(PORT, () => {
     + `  bodies from ${CONTENT_DIR}: ${prose.size}\n`
     + `  ${imported.publicationNotCarried.length} entries were promoted in the source and arrive `
     + `unpublished — creation cannot carry publication state (SCMS-029 reconciles this)\n`
+    + `  replayed ${replayed.applied} owner action(s)`
+    + `${replayed.refused.length ? `, ${replayed.refused.length} refused` : ""}\n`
+    + `  ${journal.current().filter((e) => e.envelope.state.publicationState === "promoted").length} promoted\n`
     + `  public access only — no auth here, and none implied\n`);
 });

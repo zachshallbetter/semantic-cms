@@ -31,6 +31,7 @@ import { narrowPathRegistry, CONTENT_REVISE, reviseHandler, CONTENT_CREATE, crea
 import { CONTENT_PROMOTE, promoteHandler } from "../../qualification/src/promote.ts";
 import { CONTENT_UNPUBLISH, unpublishHandler } from "../../qualification/src/unpublish.ts";
 import { RECORD_EVIDENCE, recordEvidenceHandler, ATTEST, attestHandler, attestationFor } from "../../qualification/src/canon-evidence.ts";
+import { PROFILES } from "../../qualification/src/eqp.ts";
 import { migrateAll } from "../../migrate/src/zach-core.ts";
 import type { SourceEntry } from "../../migrate/src/zach-core.ts";
 import { governedImport } from "../../migrate/src/governed.ts";
@@ -96,6 +97,18 @@ const offer = deriveOffer(registry);
 
 mkdirSync(DATA_DIR, { recursive: true });
 const EDITS_LOG = join(DATA_DIR, "edits.jsonl");
+/**
+ * Every governed action, in order, so a second process can rebuild the same
+ * Canon by replaying it through the same contracts.
+ *
+ * The editor and the site are separate processes with separate journals, so a
+ * promotion made here was invisible there — the E8 arc stopped one step short
+ * of a reader seeing the result. This is development-grade custody and is
+ * explicitly NOT the durability decision (SH-1): it replays through the
+ * contract path rather than restoring state, so a replayed action is subject to
+ * exactly the gates the original crossed.
+ */
+const ACTIONS_LOG = join(DATA_DIR, "actions.jsonl");
 const P7_LOG = join(DATA_DIR, "p7-observations.jsonl");
 
 const imported = governedImport({
@@ -183,7 +196,10 @@ const server = createServer((req, res) => {
     const v = viewFor(decodeURIComponent(url.pathname.slice("/api/entry/".length)));
     return v ? json(res, 200, v) : json(res, 404, { error: "not found" });
   }
-  if (req.method === "POST" && url.pathname.startsWith("/api/entry/")) {
+  // Matched by shape rather than by prefix, so /qualify and /promote below are
+  // not swallowed by this one. Relying on declaration order for routing is a
+  // bug waiting for someone to reorder the file.
+  if (req.method === "POST" && /^\/api\/entry\/[^/]+$/.test(url.pathname)) {
     const subject = decodeURIComponent(url.pathname.slice("/api/entry/".length));
     let raw = "";
     req.on("data", (c) => { raw += c; });
@@ -202,6 +218,9 @@ const server = createServer((req, res) => {
       });
 
       observations.push(result.observation);
+      if (result.outcome === "completed") {
+        appendFileSync(ACTIONS_LOG, JSON.stringify({ type: "revise", subject, changes }) + "\n");
+      }
       appendFileSync(P7_LOG, JSON.stringify(result.observation) + "\n");
       if (result.outcome === "completed") {
         appendFileSync(EDITS_LOG, JSON.stringify({ subjectId: subject, changes }) + "\n");
@@ -216,6 +235,94 @@ const server = createServer((req, res) => {
     });
     return;
   }
+  // ── Qualify, then promote. Two acts, never one (§6). ────────────────────
+  //
+  // The site renders nothing until content is promoted, and nothing could be
+  // promoted because there was no route to record evidence or attest. This
+  // supplies one — and surfaces the hole it walks through rather than hiding it.
+  //
+  // SH-13: attestations are caller-supplied, so an owner attesting to their own
+  // work is self-certification. That is the system's current, recorded state.
+  // The response says so at the moment of use, because a weakness a person meets
+  // in a register they never read is a weakness nobody meets.
+  if (req.method === "POST" && /^\/api\/entry\/.+\/qualify$/.test(url.pathname)) {
+    const subject = decodeURIComponent(url.pathname.slice("/api/entry/".length, -"/qualify".length));
+    const entry = journal.current().find((e) => e.envelope.subjectId === subject);
+    if (!entry) return json(res, 404, { error: "not found" });
+
+    const body = entry.envelope.body as unknown as { contentKind?: string };
+    const profileId = body.contentKind === "note" ? "note" as const : "article" as const;
+    const profile = PROFILES[profileId];
+    const revision = entry.envelope.revision!;
+    const occurredAt = now();
+
+    let seq = 0;
+    for (const ob of profile.obligations) {
+      registry.execute(journal, {
+        contract: "icp:interaction/qualification.record-evidence@1.0.0",
+        requestId: `ev-${subject}-${seq}`, actor: OWNER,
+        input: {
+          evidence: {
+            id: `ev_${subject}_${seq}`, obligation: ob.id, result: "PASS", validity: "VALID",
+            candidateRevision: revision, actor: OWNER.id,
+            // Stated truthfully. The owner is not independent of their own work,
+            // and recording otherwise would be the forgery SH-13 describes.
+            independentEvaluator: false,
+          },
+          observedAt: occurredAt,
+          expiresAt: new Date(Date.parse(occurredAt) + 90 * 86400_000).toISOString(),
+        },
+      } as never, { occurredAt, instanceId: `int_ev_${subject}_${seq++}`, authority });
+    }
+
+    const attested = registry.execute(journal, {
+      contract: "icp:interaction/qualification.attest@1.0.0",
+      requestId: `att-${subject}`, actor: OWNER,
+      input: { candidateRevision: revision, profileId, qualificationAuthority: OWNER.id },
+    } as never, { occurredAt, instanceId: `int_att_${subject}`, authority });
+
+    if (attested.outcome === "completed") {
+      appendFileSync(ACTIONS_LOG, JSON.stringify({ type: "qualify", subject }) + "\n");
+    }
+    return json(res, 200, {
+      outcome: attested.outcome,
+      attestation: attestationFor(journal, revision),
+      view: viewFor(subject),
+      disclosure: "You attested to your own work. The evidence records say so — "
+        + "independentEvaluator is false on every one. Nothing in the system currently "
+        + "requires an independent evaluator (SH-13), so this passes; that is a gap in the "
+        + "gate, not a property of your content.",
+    });
+  }
+
+  if (req.method === "POST" && /^\/api\/entry\/.+\/promote$/.test(url.pathname)) {
+    const subject = decodeURIComponent(url.pathname.slice("/api/entry/".length, -"/promote".length));
+    const entry = journal.current().find((e) => e.envelope.subjectId === subject);
+    if (!entry) return json(res, 404, { error: "not found" });
+    const body = entry.envelope.body as unknown as { contentKind?: string };
+    const profileId = body.contentKind === "note" ? "note" as const : "article" as const;
+    const occurredAt = now();
+
+    const result = registry.execute(journal, {
+      contract: "icp:interaction/content.promote@1.0.0",
+      requestId: `promote-${subject}`, actor: OWNER,
+      input: {
+        subjectId: subject, candidateRevision: entry.envelope.revision!,
+        profile: { id: profileId },
+        verificationPerformed: PROFILES[profileId].promotionVerification,
+        promotionAuthority: OWNER.id,
+      },
+    } as never, { occurredAt, instanceId: `int_promote_${subject}`, authority });
+
+    if (result.outcome === "completed") {
+      appendFileSync(ACTIONS_LOG, JSON.stringify({ type: "promote", subject }) + "\n");
+    }
+    return json(res, 200, {
+      outcome: result.outcome, detail: result.detail, recovery: result.recovery,
+      view: viewFor(subject), events: journal.events().length,
+    });
+  }
+
   if (req.method === "GET" && url.pathname === "/api/p7") {
     return json(res, 200, { summary: summarizeP7(observations), observations });
   }

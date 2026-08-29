@@ -9,14 +9,14 @@
     "repositories": [
       {
         "path": ".",
-        "commit": "5e70c9948c5d16b3cf47cca469fd73f0abaf4c10",
+        "commit": "cc3064ea63ff2fd5d3fec0b7107eec8212e9e9d6",
         "branch": "main",
         "dirty": true,
         "remote": "https://github.com/zachshallbetter/semantic-cms.git"
       }
     ]
   },
-  "aggregateSourceDigest": "eea09528901b3631ffaf8b9c6fd7b437187083e8756e719da5f39cde16e908e2",
+  "aggregateSourceDigest": "4947b41ba92c6d81299cce722d1fd7dfac669b2d0225c255737b5a95b15a6130",
   "sources": [
     {
       "path": ".agents/skills/compile-context/SKILL.md",
@@ -100,8 +100,8 @@
     },
     {
       "path": "SPEC_HEALTH.md",
-      "bytes": 20548,
-      "sha256": "0c76f9e662e647454978267a903f6620b5312b980dbdd4f95a7131449904f6d3"
+      "bytes": 21012,
+      "sha256": "4175188d291e877ef2dd9024d382f87acb91fd86be7b2a22e11888d594897eb9"
     },
     {
       "path": "VERSION",
@@ -295,8 +295,8 @@
     },
     {
       "path": "impl/editor/server/serve.ts",
-      "bytes": 10914,
-      "sha256": "14488002b9848252c6575fd0c972b9bf478a416a2fb9fe6aab03d2f85aae9882"
+      "bytes": 16388,
+      "sha256": "4312a3f8071bcdc143ff2c6a0ef18faf37f54ddbfc5ab264e178adce0be1ef4d"
     },
     {
       "path": "impl/editor/src/session.ts",
@@ -484,9 +484,14 @@
       "sha256": "fb5868ea47a22c7d63dbae3a04f6eebf04fe3b5e13bb4130cf13177b14cac28f"
     },
     {
+      "path": "impl/site/server/replay.ts",
+      "bytes": 4380,
+      "sha256": "35d859753d8afdf8014c89252a28cef15ca01d5613c53eed7c12454246f2dc91"
+    },
+    {
       "path": "impl/site/server/serve.ts",
-      "bytes": 9149,
-      "sha256": "8fd1aeb13e5178a7ad47f2ddc23c51b5a0dbeac59377334e6ad46dba0e54362f"
+      "bytes": 10478,
+      "sha256": "8f546da01b266910fe8aa3ba71a9d090a17611a112294aebbfb4af859e8bae1d"
     },
     {
       "path": "impl/site/src/express.ts",
@@ -695,8 +700,8 @@
     },
     {
       "path": "work/GRAPH.md",
-      "bytes": 13028,
-      "sha256": "dd944efaa20c13df7f3a76b5cc55742204fccfb56f3ed8229fba40657530abb1"
+      "bytes": 13213,
+      "sha256": "b587072f20c0f81fd7c62233eb7ba78eb79abe7f3e5b26e86d03acdd2b4f3ff4"
     },
     {
       "path": "work/SCMS-001.md",
@@ -902,6 +907,11 @@
       "path": "work/SCMS-050.md",
       "bytes": 4068,
       "sha256": "214801372dd88501f5d8201ef90b49736d3f2a225c7f019354846b71beee8a25"
+    },
+    {
+      "path": "work/SCMS-051.md",
+      "bytes": 3313,
+      "sha256": "935b99dbd7d5e68d1c2fdb5e580a176ee80d88e640b4ca391a80271a22893b03"
     }
   ]
 }
