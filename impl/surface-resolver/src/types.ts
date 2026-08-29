@@ -24,6 +24,13 @@ export interface SubjectRecord {
   id: string;
   kind: string;
   access: AccessLevel;
+  /**
+   * The subject's own revision. When supplied, dependency identity tracks
+   * content rather than snapshot identity, satisfying SSS §21 ("changes
+   * outside the observable dependency set should not invalidate the
+   * surface"). Optional for callers that have no revision concept.
+   */
+  revision?: string;
   /** Entitlement-gated participation flag (narrow stand-in for section classes). */
   entitled?: boolean;
   attrs?: Record<string, string | number | boolean | null>;

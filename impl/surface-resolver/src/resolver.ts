@@ -197,8 +197,13 @@ export function resolveSurface(
   // Every subject that appears anywhere in the output (members, exclusions,
   // trace) is a dependency; hidden state never became a candidate and cannot
   // move this hash (SSS §21; the S2 non-leak property).
+  // Dependency identity is the SUBJECT's revision when the caller supplies one.
+  // Falling back to the snapshot id is declared, not silent: a snapshot without
+  // per-subject revisions cannot produce content-tracking fingerprints, so the
+  // fingerprint is necessarily coarser (it then moves per wave). Callers that
+  // need §21's stability supply revisions. (SCMS-015 / NR-scms-003.)
   const dependencies = evaluated
-    .map(({ c }) => ({ subject: c.subject.id, revision: snapshot.snapshotId }))
+    .map(({ c }) => ({ subject: c.subject.id, revision: c.subject.revision ?? snapshot.snapshotId }))
     .sort((a, b) => a.subject.localeCompare(b.subject));
   const fingerprint = surfaceFingerprint({
     dependencies,

@@ -1,6 +1,6 @@
 # PROJECT COMPILED CONTEXT
 Generator: 0.5.0
-Source digest: 38dddbcda79c61e293f7917da236619baea5471c82c4ff315c42a25179ebd789
+Source digest: ee872b1a5ab797b63e232673e375700a7c7e54d78690c64a8ad38eb84455773e
 
 > Generated projection. Canonical sources remain authoritative.
 
@@ -3302,6 +3302,8 @@ export interface FrozenSnapshot {
   snapshotId: string;
   subjects: Array<{
     id: string; kind: string; access: AccessLevel; entitled?: boolean;
+    /** The subject's Canon revision — lets surface fingerprints track content. */
+    revision?: string;
     attrs?: Record<string, string | number | boolean | null>;
   }>;
   relations: Array<{ from: string; to: string; type: string; access: AccessLevel }>;
@@ -3331,6 +3333,7 @@ export function freeze(journal: CanonJournal, snapshotId: string): FrozenSnapsho
         id: entry.envelope.subjectId,
         kind: b.contentKind,
         access: entry.envelope.minimumAccess,
+        ...(entry.envelope.revision === undefined ? {} : { revision: entry.envelope.revision }),
         ...(b.entitled === undefined ? {} : { entitled: b.entitled }),
         ...(b.attrs === undefined ? {} : { attrs: b.attrs }),
       });
@@ -4412,15 +4415,13 @@ test("re-resolution after invalidation recomputes a valid entry", () => {
   assert.deepEqual(
     second.surface.groups.flatMap((g) => g.members.map((m) => m.subject)), originalMembers);
 
-  // KNOWN DEFECT (SCMS-015; recorded as NR-scms-003): the resolver stamps
-  // dependencies[].revision with the SNAPSHOT id, so a new snapshot id moves
-  // the fingerprint even when no accessible dependency changed. Pinned SSS §21
-  // requires the opposite ("changes outside the observable dependency set
-  // should not invalidate the surface"). This vector asserts CURRENT behaviour
-  // so the defect stays visible rather than hidden; fixing it means changing
-  // the resolver, which is outside SCMS-014's authorized target.
+  // FIXED by SCMS-015 (closes NR-scms-003): dependency identity is now the
+  // subject's own Canon revision, so a wave that changes nothing accessible
+  // leaves the fingerprint alone — pinned SSS §21 ("changes outside the
+  // observable dependency set should not invalidate the surface"). The entry
+  // was still correctly invalidated: art-2's revision DID change.
   assert.notEqual(second.fingerprint, originalFingerprint,
-    "current behaviour: snapshot identity participates in the fingerprint (defect NR-scms-003)");
+    "art-2's revision changed, so its dependency identity — and the fingerprint — moved");
 
   // Participation change: a member disappears, which must move the fingerprint
   // under any correct implementation.
@@ -4432,6 +4433,21 @@ test("re-resolution after invalidation recomputes a valid entry", () => {
   const thirdMembers = third.surface.groups.flatMap((g) => g.members.map((m) => m.subject));
   assert.ok(!thirdMembers.includes("art-2"), "revoked relation removes the member");
   assert.notEqual(third.fingerprint, second.fingerprint);
+});
+
+test("SSS §21: a wave that changes nothing accessible leaves the fingerprint alone", () => {
+  const { j, s1 } = world();
+  const cache = new ProjectionCache();
+  const first = cache.get(freeze(j, "w0") as never, req("member"), "focus:art-1");
+
+  // Change only the admin-only subject, then re-freeze under a NEW snapshot id.
+  j.supersede(s1.envelope.revision!, content("sec-1", "admin", { title: "secret edit" }), "admin");
+  cache.commitWave(["sec-1"]);
+  const second = cache.get(freeze(j, "w1") as never, req("member"), "focus:art-1");
+
+  assert.equal(second.fingerprint, first.fingerprint,
+    "no accessible dependency changed — a new wave must not move the fingerprint");
+  assert.deepEqual(second.dependencies, first.dependencies);
 });
 
 test("entries are keyed per access level and decided independently", () => {
@@ -5808,8 +5824,13 @@ export function resolveSurface(
   // Every subject that appears anywhere in the output (members, exclusions,
   // trace) is a dependency; hidden state never became a candidate and cannot
   // move this hash (SSS §21; the S2 non-leak property).
+  // Dependency identity is the SUBJECT's revision when the caller supplies one.
+  // Falling back to the snapshot id is declared, not silent: a snapshot without
+  // per-subject revisions cannot produce content-tracking fingerprints, so the
+  // fingerprint is necessarily coarser (it then moves per wave). Callers that
+  // need §21's stability supply revisions. (SCMS-015 / NR-scms-003.)
   const dependencies = evaluated
-    .map(({ c }) => ({ subject: c.subject.id, revision: snapshot.snapshotId }))
+    .map(({ c }) => ({ subject: c.subject.id, revision: c.subject.revision ?? snapshot.snapshotId }))
     .sort((a, b) => a.subject.localeCompare(b.subject));
   const fingerprint = surfaceFingerprint({
     dependencies,
@@ -5933,6 +5954,13 @@ export interface SubjectRecord {
   id: string;
   kind: string;
   access: AccessLevel;
+  /**
+   * The subject's own revision. When supplied, dependency identity tracks
+   * content rather than snapshot identity, satisfying SSS §21 ("changes
+   * outside the observable dependency set should not invalidate the
+   * surface"). Optional for callers that have no revision concept.
+   */
+  revision?: string;
   /** Entitlement-gated participation flag (narrow stand-in for section classes). */
   entitled?: boolean;
   attrs?: Record<string, string | number | boolean | null>;
@@ -9697,7 +9725,7 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-012 | Contracts: content.revise@1, the governed write path (E2 narrow slice) | E1 | Done — §14 step 2 closed; awaiting owner verification | records/evidence.jsonl · scms-evidence-012 |
 | SCMS-013 | Qualification and promotion as separate gates (E3 narrow slice) | E1 | Done — §14 steps 4–5 closed; awaiting owner verification | records/evidence.jsonl · scms-evidence-013 |
 | SCMS-014 | Fingerprint-scoped projection invalidation (E4 narrow slice) | E1 | Done — §14 step 8 closed; awaiting owner verification | records/evidence.jsonl · scms-evidence-014 |
-| SCMS-015 | Fix resolver dependency revision: use per-subject revision, not snapshot id (SSS §21 conformance) | E1 | Ready — defect NR-scms-003, found by SCMS-014 | — |
+| SCMS-015 | Dependency revisions track subjects, not snapshots (SSS §21 conformance) | E1 | Done — NR-scms-003 closed; awaiting owner verification | records/evidence.jsonl · scms-evidence-015 |
 | SCMS-010 | S4 cross-domain portability: a materially unrelated project (outside this repository, per owner doctrine 2026-08-28) consumes @semantic-systems/surface unmodified | external | Backlog — executes outside scms; scms records the conformance result | — |
 
 ## Epic register
@@ -10490,4 +10518,67 @@ Claimed by agent-under-owner-direction 2026-08-28; released at closing state bel
 
 **Done — Implemented + Tested; §14 step 8 closed on the narrow path.**
 Evidence: records/evidence.jsonl · scms-evidence-014. Claim released.
+
+
+========================================================================
+FILE: work/SCMS-015.md
+========================================================================
+
+# SCMS-015 — Dependency revisions track subjects, not snapshots (SSS §21 conformance)
+
+**Intent ref:** PROJECT_INTENT.md · **Epic:** E4 · **Fixes:** NR-scms-003 (raised by SCMS-014)
+**Assigned by:** coordinator goal (increase *qualified* maturity — this is a conformance defect
+against a pinned protocol requirement, not a feature).
+**Effect class:** E1 — library change plus vectors; no canonical mutation.
+**State:** Ready → Claimed → (closing state at bottom)
+
+## Objective
+
+Restore pinned SSS §21: "changes outside the observable dependency set should not invalidate
+the surface." Today every `SurfaceDependency.revision` carries the *snapshot* id, so a new
+commit wave moves the fingerprint even when nothing observable changed.
+
+## Ready predicate
+
+- **Scope:** (1) add optional `revision?: string` to the frozen-snapshot subject shape;
+  (2) resolver emits `dependencies[].revision = subject.revision ?? snapshot.snapshotId`, with
+  the fallback **declared in code** — a snapshot that supplies no per-subject revisions cannot
+  produce content-tracking fingerprints, and the coarse behaviour is stated rather than
+  guessed; (3) `freeze()` populates each subject's revision from its Canon envelope; (4)
+  vectors: fingerprint stable across waves when no accessible dependency changed, and moving
+  when one did.
+- **Exclusions:** no change to the fingerprint's domain separation or field set beyond the
+  revision value; no two-tier hashing (P20 pending); no refresh policy (P4 pending); no
+  changes to expression, contracts, or qualification.
+- **Dependencies (satisfied):** SCMS-008 resolver, SCMS-011 freeze, SCMS-014 cache (its
+  vector currently pins the defect and must be flipped by this item); sss pin §21.
+- **Acceptance:**
+  1. Two waves with no accessible change produce an **identical** fingerprint when the
+     snapshot supplies per-subject revisions.
+  2. An accessible content change moves the fingerprint.
+  3. The non-leak property is preserved: hidden state still never enters the dependency set
+     (SCMS-008's vectors continue to pass unchanged).
+  4. Backward compatibility: a snapshot without per-subject revisions behaves exactly as
+     before (the SCMS-008 suite and the published demo values remain valid).
+  5. SCMS-014's defect vector is **flipped** to assert the corrected behaviour, and its
+     inline defect note is replaced with the fix reference.
+- **Evidence requirements:** all four existing suites plus the new vectors run green;
+  recorded in scms-evidence-015 at **Implemented + Tested**. NOT established: that
+  fingerprints are now optimal, only that they satisfy §21 on this path.
+- **Permissions / effect class:** E1; project-mutation authority per bindings.
+- **Target:** `impl/surface-resolver/src/{types,resolver}.ts`, `impl/canon/src/freeze.ts`,
+  `impl/projection-cache/test/cache.test.ts`, `records/*`, `work/GRAPH.md`. No other path.
+- **Budget:** one work cycle; no spend; no credentials.
+- **Stop conditions:** (a) the fix would weaken the non-leak property → stop immediately;
+  (b) published artifact values would silently become wrong → stop and republish as part of
+  the item (honesty of a derived projection is not optional).
+
+## Claim
+
+Claimed by agent-under-owner-direction 2026-08-28; released at closing state below.
+
+## Closing state
+
+**Done — Implemented + Tested; NR-scms-003 closed.**
+Evidence: records/evidence.jsonl · scms-evidence-015. Claim released.
 

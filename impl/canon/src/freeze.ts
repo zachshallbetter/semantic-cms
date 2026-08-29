@@ -17,6 +17,8 @@ export interface FrozenSnapshot {
   snapshotId: string;
   subjects: Array<{
     id: string; kind: string; access: AccessLevel; entitled?: boolean;
+    /** The subject's Canon revision — lets surface fingerprints track content. */
+    revision?: string;
     attrs?: Record<string, string | number | boolean | null>;
   }>;
   relations: Array<{ from: string; to: string; type: string; access: AccessLevel }>;
@@ -46,6 +48,7 @@ export function freeze(journal: CanonJournal, snapshotId: string): FrozenSnapsho
         id: entry.envelope.subjectId,
         kind: b.contentKind,
         access: entry.envelope.minimumAccess,
+        ...(entry.envelope.revision === undefined ? {} : { revision: entry.envelope.revision }),
         ...(b.entitled === undefined ? {} : { entitled: b.entitled }),
         ...(b.attrs === undefined ? {} : { attrs: b.attrs }),
       });

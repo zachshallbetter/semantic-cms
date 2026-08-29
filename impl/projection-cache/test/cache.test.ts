@@ -120,15 +120,13 @@ test("re-resolution after invalidation recomputes a valid entry", () => {
   assert.deepEqual(
     second.surface.groups.flatMap((g) => g.members.map((m) => m.subject)), originalMembers);
 
-  // KNOWN DEFECT (SCMS-015; recorded as NR-scms-003): the resolver stamps
-  // dependencies[].revision with the SNAPSHOT id, so a new snapshot id moves
-  // the fingerprint even when no accessible dependency changed. Pinned SSS §21
-  // requires the opposite ("changes outside the observable dependency set
-  // should not invalidate the surface"). This vector asserts CURRENT behaviour
-  // so the defect stays visible rather than hidden; fixing it means changing
-  // the resolver, which is outside SCMS-014's authorized target.
+  // FIXED by SCMS-015 (closes NR-scms-003): dependency identity is now the
+  // subject's own Canon revision, so a wave that changes nothing accessible
+  // leaves the fingerprint alone — pinned SSS §21 ("changes outside the
+  // observable dependency set should not invalidate the surface"). The entry
+  // was still correctly invalidated: art-2's revision DID change.
   assert.notEqual(second.fingerprint, originalFingerprint,
-    "current behaviour: snapshot identity participates in the fingerprint (defect NR-scms-003)");
+    "art-2's revision changed, so its dependency identity — and the fingerprint — moved");
 
   // Participation change: a member disappears, which must move the fingerprint
   // under any correct implementation.
@@ -140,6 +138,21 @@ test("re-resolution after invalidation recomputes a valid entry", () => {
   const thirdMembers = third.surface.groups.flatMap((g) => g.members.map((m) => m.subject));
   assert.ok(!thirdMembers.includes("art-2"), "revoked relation removes the member");
   assert.notEqual(third.fingerprint, second.fingerprint);
+});
+
+test("SSS §21: a wave that changes nothing accessible leaves the fingerprint alone", () => {
+  const { j, s1 } = world();
+  const cache = new ProjectionCache();
+  const first = cache.get(freeze(j, "w0") as never, req("member"), "focus:art-1");
+
+  // Change only the admin-only subject, then re-freeze under a NEW snapshot id.
+  j.supersede(s1.envelope.revision!, content("sec-1", "admin", { title: "secret edit" }), "admin");
+  cache.commitWave(["sec-1"]);
+  const second = cache.get(freeze(j, "w1") as never, req("member"), "focus:art-1");
+
+  assert.equal(second.fingerprint, first.fingerprint,
+    "no accessible dependency changed — a new wave must not move the fingerprint");
+  assert.deepEqual(second.dependencies, first.dependencies);
 });
 
 test("entries are keyed per access level and decided independently", () => {
