@@ -1,6 +1,6 @@
 # PROJECT COMPILED CONTEXT
 Generator: 0.5.0
-Source digest: 09f60469e4cf7fe4945f3328dc7e92379503756ea49bd3f3ce5be526d30b0d0f
+Source digest: 7ab414ac6c9910dc05aad93430e265f6872d7445d918b5ae67de2db7134c7ea0
 
 > Generated projection. Canonical sources remain authoritative.
 
@@ -11047,6 +11047,19 @@ header.bar .spacer{flex:1}
 }
 @media (max-width:1080px){ .rail{position:static; max-height:none; border-left:none; border-top:1px solid var(--rule)} }
 .rail section{margin-bottom:26px}
+.tabs{display:flex;gap:2px;margin:-4px 0 18px;border-bottom:1px solid var(--rule)}
+.tabs button{font:inherit;font-size:12px;padding:7px 10px;border:0;border-bottom:2px solid transparent;
+  background:transparent;color:var(--muted);cursor:pointer}
+.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent);font-weight:600}
+.tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.kv{display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px solid var(--rule);font-size:12px}
+.kv:last-child{border-bottom:0}
+.kv .k{color:var(--faint)}
+.kv .v{text-align:right;word-break:break-all}
+.mem{border:1px solid var(--rule);border-radius:6px;padding:8px 10px;margin-bottom:6px;background:var(--sunken)}
+.mem .s{font-size:12.5px;font-weight:600}
+.mem .b{font-size:11px;color:var(--muted);margin-top:3px;line-height:1.45}
+.absent{font-size:11.5px;color:var(--faint);font-style:italic}
 .rail h3{
   margin:0 0 10px; font-size:11px; letter-spacing:.09em; text-transform:uppercase;
   color:var(--muted); font-weight:600;
@@ -11122,6 +11135,10 @@ footer.note strong{color:var(--ink)}
 </div>
 
 <footer class="note">
+  <p class="mono" style="font-size:11px;color:var(--faint);margin:0 0 10px">
+    Schema scms-0.1 &nbsp;·&nbsp; Resolver @semantic-systems/surface v0.1.0 &nbsp;·&nbsp;
+    Expression SES &nbsp;·&nbsp; Consistency HCML &nbsp;·&nbsp; Protocol rr-rsp
+  </p>
   <strong>This one saves.</strong> Every save crosses <span class="mono">content.revise@1</span> like any
   other governed write &mdash; it appends a revision, emits to the outbox, and records a P7 observation.
   Nothing is overwritten. Edit the same entry from two browser tabs to see a conflict surface instead of
@@ -11133,6 +11150,7 @@ const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 
 let INDEX = [], current = null, view = null, dirty = {}, filter = "all", query = "", lastOutcome = null;
+let tab = "inspector";
 
 async function loadIndex() {
   const r = await fetch("/api/index").then((x) => x.json());
@@ -11240,7 +11258,59 @@ function renderRail() {
                  ? " <strong>and touched the same field</strong>" : " (a different field)"}.</p></div>`)
     : "";
 
-  $("rail").innerHTML = `
+  const tabs = `
+    <div class="tabs" id="tabs" role="tablist">
+      <button role="tab" data-t="inspector" aria-selected="${tab === "inspector"}">Inspector</button>
+      <button role="tab" data-t="surface" aria-selected="${tab === "surface"}">Surface (SSS)</button>
+      <button role="tab" data-t="expression" aria-selected="${tab === "expression"}">Expression (SES)</button>
+    </div>`;
+
+  if (tab === "surface") {
+    const s = view.surface;
+    $("rail").innerHTML = tabs + `
+      <section><h3>Resolution</h3>
+        <div class="kv"><span class="k">purpose</span><span class="v mono">${esc(s.purpose)}</span></div>
+        <div class="kv"><span class="k">access</span><span class="v mono">${esc(s.accessProjection)}</span></div>
+        <div class="kv"><span class="k">snapshot</span><span class="v mono">${esc(s.snapshot)}</span></div>
+        <div class="kv"><span class="k">fingerprint</span><span class="v mono">${esc(s.fingerprint.slice(0, 20))}…</span></div>
+      </section>
+      ${s.groups.map((g) => `
+        <section><h3>${esc(g.id)} · ${esc(g.role)}</h3>
+          ${g.members.map((m) => `
+            <div class="mem"><div class="s mono">${esc(m.subject)}</div>
+              <div class="b">priority ${m.priority} — ${esc(m.basis.join("; "))}</div></div>`).join("")}
+        </section>`).join("")}
+      <section><h3>Not included</h3>
+        ${s.excluded.length
+          ? s.excluded.map((e) => `<div class="mem"><div class="s mono">${esc(e.subject)}</div>
+              <div class="b">${esc(e.eligibility)} — ${esc(e.reason)}</div></div>`).join("")
+          : `<p class="absent">Nothing was considered and refused for this surface.</p>`}
+      </section>`;
+    wireTabs(); return;
+  }
+
+  if (tab === "expression") {
+    const x = view.expression;
+    $("rail").innerHTML = tabs + `
+      <section><h3>Adapter</h3>
+        <div class="kv"><span class="k">expression</span><span class="v mono">${esc(x.adapter)}</span></div>
+        <div class="kv"><span class="k">modality</span><span class="v mono">${esc(x.modality)}</span></div>
+      </section>
+      <section><h3>Morphology</h3>
+        ${Object.entries(x.morphology).map(([g, form]) =>
+          `<div class="kv"><span class="k">${esc(g)}</span><span class="v mono">${esc(form)}</span></div>`).join("")}
+        <p class="hint">The adapter's own choice. The surface says a group is primary; it does not say
+        it becomes a hero.</p>
+      </section>
+      <section><h3>Owned by SES</h3>
+        ${x.notImplemented.map((n) => `<div class="kv"><span class="k">${esc(n)}</span><span class="v absent">not implemented here</span></div>`).join("")}
+        <p class="hint">SES is a pinned dependency. These are named as absent rather than reinvented
+        locally, which is what keeps the boundary a boundary.</p>
+      </section>`;
+    wireTabs(); return;
+  }
+
+  $("rail").innerHTML = tabs + `
     <section><h3>Provenance</h3><span class="chip mono ${chipCls}">${chipText}</span></section>
     <section><h3>Save</h3>
       <button class="op routine" id="saveBtn" ${isDirty ? "" : "disabled"}>
@@ -11267,6 +11337,14 @@ function renderRail() {
       ${view.unavailable.map((u) => `<div class="unavail"><b>${esc(u.intent)}</b> &mdash; ${esc(u.reason)}</div>`).join("")}
     </section>`;
   const btn = $("saveBtn"); if (btn) btn.onclick = save;
+  wireTabs();
+}
+
+function wireTabs() {
+  const el = $("tabs"); if (!el) return;
+  el.querySelectorAll("button").forEach((b) => {
+    b.onclick = () => { tab = b.dataset.t; renderRail(); };
+  });
 }
 
 $("q").addEventListener("input", (e) => { query = e.target.value.toLowerCase(); renderIndex(); });
@@ -11763,6 +11841,7 @@ import { resolveSurface } from "../../surface-resolver/src/resolver.ts";
 import { isFailure } from "../../surface-resolver/src/types.ts";
 import type { ResolvedSurface } from "../../surface-resolver/src/types.ts";
 import { editorRequest } from "../../authoring/src/editor.ts";
+import { expressStructural } from "../../surface-expression/src/expressions.ts";
 import { consistencyState, permits, chip } from "../../observation/src/consistency.ts";
 import type { ClientBaseline, Freshness, ConsistencyState } from "../../observation/src/consistency.ts";
 import type { AuthoringOffer } from "../../authoring/src/editor.ts";
@@ -11785,6 +11864,55 @@ export interface OperationView {
 
 export interface SlotView { name: string; kind: string; value: string | null; editable: boolean }
 
+/**
+ * The Surface (SSS) inspector panel (SCMS-047).
+ *
+ * What the resolver decided and why. The owner's mockups make the inspector
+ * tabbed — Inspector / Surface (SSS) / Expression (SES) — which turns
+ * `CANON != SURFACE != EXPRESSION` from a sentence in the design into something
+ * a person navigates. This is the middle tab's data.
+ *
+ * `basis` is the load-bearing field: SSS §25 requires every included member to
+ * carry an inspectable reason for participating, and until now nothing surfaced
+ * it. An author could see *that* a related record appeared and never *why*.
+ */
+export interface SurfacePanel {
+  resolutionId: string;
+  purpose: string;
+  snapshot: string;
+  fingerprint: string;
+  accessProjection: AccessLevel;
+  groups: Array<{
+    id: string;
+    role: string;
+    members: Array<{ subject: string; priority: number; basis: string[] }>;
+  }>;
+  /** Subjects considered and not included, with the reason — absence is legible. */
+  excluded: Array<{ subject: string; eligibility: string; reason: string }>;
+}
+
+/**
+ * The Expression (SES) inspector panel (SCMS-047).
+ *
+ * What *this* expression chose, which the surface deliberately does not decide.
+ * The mockup shows Recipe / Theme / Variant here; those are **SES vocabulary we
+ * do not implement**, and inventing them locally would be exactly the
+ * duplication the SSS/SES boundary exists to prevent (and the dependency
+ * doctrine forbids). What we can honestly report is the adapter's identity, its
+ * modality, and the container form it chose per group — which is the same
+ * question those fields answer, in the vocabulary we actually own.
+ */
+export interface ExpressionPanel {
+  adapter: string;
+  modality: string;
+  /** Container form per group. Free by SSS-INV-008/009 — the adapter's call alone. */
+  morphology: Record<string, string>;
+  presentedOrder: string[];
+  exposedOperations: Array<{ id: string; exposure: string }>;
+  /** Named rather than faked: see the note above. */
+  notImplemented: string[];
+}
+
 export interface EditorView {
   subject: string;
   title: string;
@@ -11804,6 +11932,10 @@ export interface EditorView {
   unavailable: Array<{ intent: string; reason: string }>;
   /** Unresolved questions the migration deliberately left for a person. */
   findings: Array<{ code: string; detail: string }>;
+  /** The middle inspector tab: what the resolver decided, and why. */
+  surface: SurfacePanel;
+  /** The right inspector tab: what this expression chose. */
+  expression: ExpressionPanel;
 }
 
 const LABELS: Record<string, string> = {
@@ -11915,6 +12047,8 @@ export function editorView(input: EditorInput): EditorView | { notFound: true } 
     };
   });
 
+  const artifact = expressStructural(resolved);
+
   return {
     subject: env.subjectId,
     title: typeof body.slots?.title?.[0]?.value === "string" ? body.slots.title[0].value as string : env.subjectId,
@@ -11933,6 +12067,36 @@ export function editorView(input: EditorInput): EditorView | { notFound: true } 
       intent: w.intent, reason: REASON_FOR_WITHHOLDING[w.reason] ?? w.reason,
     })),
     findings: (input.findings ?? []).map((f) => ({ code: f.code, detail: f.detail })),
+    surface: {
+      resolutionId: resolved.resolutionId,
+      purpose: resolved.purpose,
+      snapshot: resolved.sourceSnapshot,
+      fingerprint: resolved.fingerprint,
+      accessProjection: resolved.accessProjection,
+      groups: resolved.groups.map((g) => ({
+        id: g.id,
+        role: g.role,
+        members: g.members.map((m) => ({
+          subject: m.subject,
+          priority: m.priority,
+          basis: m.basis.map((b) => (b.detail ? `${b.rule}: ${b.detail}` : b.rule)),
+        })),
+      })),
+      excluded: resolved.explanation.excluded.map((e) => ({
+        subject: e.subject, eligibility: e.eligibility, reason: e.reason,
+      })),
+    },
+    expression: {
+      adapter: artifact.expression,
+      modality: artifact.modality,
+      morphology: artifact.morphology,
+      presentedOrder: artifact.presentedOrder,
+      exposedOperations: artifact.exposedOperations,
+      // SES owns Recipe, Theme and Variant. We consume SES as a pinned
+      // dependency and do not implement them, so they are named as absent
+      // rather than filled with local inventions.
+      notImplemented: ["recipe", "theme", "variant"],
+    },
   };
 }
 
@@ -12429,6 +12593,53 @@ test("the editor's index and a reader's discovery differ by declared lens, not b
     assert.ok(!(rendered as { subjects: string[] }).subjects.includes(s),
       `reader discovery leaked unlisted ${s}`);
   }
+});
+
+// ── SCMS-047: the inspector's three tabs (owner design direction) ───────────
+
+test("the Surface tab reports what the resolver decided", () => {
+  const v = view(publicSubject);
+  assert.equal(v.surface.purpose, "edit");
+  assert.equal(v.surface.accessProjection, "owner");
+  assert.ok(v.surface.fingerprint.length > 0);
+  assert.ok(v.surface.snapshot.length > 0);
+  assert.ok(v.surface.groups.length > 0);
+});
+
+test("every surface member carries WHY it participates", () => {
+  // SSS §25 requires an inspectable basis for every included member. Until this
+  // panel existed an author could see that a related record appeared and never
+  // learn why it did.
+  const v = view(publicSubject);
+  const members = v.surface.groups.flatMap((g) => g.members);
+  assert.ok(members.length > 0);
+  for (const m of members) {
+    assert.ok(m.basis.length > 0, `${m.subject} participates with no stated basis`);
+    assert.ok(m.basis.every((b) => typeof b === "string" && b.length > 0));
+  }
+});
+
+test("the Expression tab reports the adapter's own choices, and names what SES owns", () => {
+  const v = view(publicSubject);
+  assert.equal(v.expression.adapter, "structural-web");
+  assert.equal(v.expression.modality, "visual-2d");
+  assert.notDeepEqual(v.expression.morphology, {}, "the adapter chose container forms");
+  // Recipe/Theme/Variant belong to SES, which we consume as a pinned dependency.
+  // Naming them absent is the honest report; inventing them locally would be the
+  // duplication the SSS/SES boundary exists to prevent.
+  assert.deepEqual(v.expression.notImplemented, ["recipe", "theme", "variant"]);
+});
+
+test("the Surface tab decides participation and the Expression tab decides form — never the reverse", () => {
+  const v = view(publicSubject);
+  const surfaceJson = JSON.stringify(v.surface);
+  for (const form of Object.values(v.expression.morphology)) {
+    assert.ok(!surfaceJson.includes(`"${form}"`),
+      `the surface panel leaked the container form '${form}' — morphology is the expression's alone`);
+  }
+  // And the expression presents exactly the surface's members, no more.
+  const surfaceMembers = v.surface.groups.flatMap((g) => g.members.map((m) => m.subject)).sort();
+  assert.deepEqual([...v.expression.presentedOrder].sort(), surfaceMembers);
 });
 
 
@@ -23509,6 +23720,7 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-043 | The editor, running: saves through contracts, records P7 observations | E12 | Done — verified by interaction; awaiting owner verification | records/evidence.jsonl · scms-evidence-043 |
 | SCMS-045 | The working copy: drafting that does not publish | E2 | **Defined — not scheduled.** Closes SH-15; SH-14 prerequisite now resolved (SCMS-046); canonical passage awaits owner ratification; should precede the P7 workload | work/SCMS-045.md |
 | SCMS-046 | Observations are signals, not participants (closes SH-14) | E6 | Done — unblocks SCMS-045's prerequisite; awaiting owner verification | records/evidence.jsonl · scms-evidence-046 |
+| SCMS-047 | The inspector's three tabs (owner design direction) | E12 | Done — SSS/SES panels exposed with member basis; unbuilt mockup parts recorded, not started | records/evidence.jsonl · scms-evidence-047 |
 | SCMS-044 | Route the editor through the surface pipeline it currently bypasses | E12 | Done — SH-16 closed; two duplicate access checks removed; awaiting owner verification | records/evidence.jsonl · scms-evidence-044 |
 | SCMS-018 | R1 live co-authoring — **free lane only** (convergent merge) | E1 | **Blocked** — awaiting disposition of P7/P22 on PR #28 | records/blockers · scms-blocker-001 |
 | SCMS-010 | S4 cross-domain portability: a materially unrelated project (outside this repository, per owner doctrine 2026-08-28) consumes @semantic-systems/surface unmodified | external | Backlog — executes outside scms; scms records the conformance result | — |
@@ -25948,4 +26160,73 @@ remembering to add one. That is the §8.4 soft-lock property arriving without be
 
 **Done — the exclusion is now a declared property with a reader, instead of an omission with a
 casualty.**
+
+
+========================================================================
+FILE: work/SCMS-047.md
+========================================================================
+
+# SCMS-047 — The inspector's three tabs (owner design direction)
+
+**Intent ref:** PROJECT_INTENT.md · **Epic:** E12 · **Effect class:** E1
+**Assigned by:** owner — three UI mockups supplied as design direction, no accompanying text.
+**State:** Ready → Claimed → Done (closing state at bottom)
+
+## What the mockups establish
+
+The most consequential thing in them is structural, not visual: **the inspector is tabbed
+Inspector / Surface (SSS) / Expression (SES).** That turns `CANON ≠ SURFACE ≠ EXPRESSION` from a
+sentence in the design into something a person navigates. The separation this project spent
+SCMS-008 adopting and SCMS-044 enforcing becomes a thing you can click.
+
+Several details confirm what was already built rather than redirecting it: Status is labelled
+**Multi-Axis** with the four independent rows §3.5 requires; the chip reads *"Live · checked 18s
+ago"* in the top bar, which is SCMS-035's rule in its intended position; Revision carries a
+**not promoted** badge beside a draft number, so publication is visibly not a property of having
+saved; and a frozen snapshot appears as a first-class sidebar object.
+
+## What this item built
+
+The two tabs whose data already existed and was never exposed.
+
+**Surface (SSS)** — purpose, access projection, snapshot, fingerprint, and every group with its
+role and members. The load-bearing field is **`basis`**: SSS §25 requires each included member to
+carry an inspectable reason for participating, and nothing surfaced it. An author could see *that*
+a related record appeared and never *why*. It now reads `priority 1 — subject-anchor`. Exclusions
+appear too, so absence is legible rather than silent.
+
+**Expression (SES)** — the adapter's identity, modality, and the container form it chose per group.
+
+## The decision inside the Expression tab
+
+The mockup shows **Recipe / Theme / Variant**. Those are SES vocabulary, and **we do not implement
+them.** Filling those fields with local inventions would be precisely the duplication the SSS/SES
+boundary exists to prevent, and precisely what §12.1 forbids — inventing upstream semantics locally
+instead of consuming them.
+
+So they are rendered as *"not implemented here"*, with the reason stated in the panel: SES is a
+pinned dependency. What the tab reports instead is the same question in vocabulary we actually own —
+adapter, modality, morphology per group. A UI that shows an empty field it does not own is more
+honest than one that quietly invents a value for it.
+
+## Acceptance — all met
+
+1. The Surface tab reports the resolver's decision: purpose, access, snapshot, fingerprint, groups.
+2. Every member carries a non-empty basis, asserted for all members.
+3. The Expression tab reports the adapter's own choices and names what SES owns as absent.
+4. **The panels cannot cross**: a vector asserts no container form the expression chose appears
+   anywhere in the surface panel, and that the expression presents exactly the surface's members.
+   That is SSS-INV-008/009 checked at the UI layer, where it is easiest to violate by accident.
+
+## Gaps the mockups name and this item does not close
+
+Recorded rather than quietly scoped in: **Evidence Tone** (SPS's evidence-density half, unbuilt);
+**Entitled Groups** and **Staged Access** (P2, deferred); **Embargoes** (no representation at all);
+and the **page builder**, which is an SES composition surface with no counterpart in the codebase
+and would be its own epic. None of these are started on the strength of a mockup.
+
+## Closing state
+
+**Done — the architecture's central separation is now something a person can click, and the fields
+we do not own say so.**
 

@@ -46,6 +46,7 @@ import { resolveSurface } from "../../surface-resolver/src/resolver.ts";
 import { isFailure } from "../../surface-resolver/src/types.ts";
 import type { ResolvedSurface } from "../../surface-resolver/src/types.ts";
 import { editorRequest } from "../../authoring/src/editor.ts";
+import { expressStructural } from "../../surface-expression/src/expressions.ts";
 import { consistencyState, permits, chip } from "../../observation/src/consistency.ts";
 import type { ClientBaseline, Freshness, ConsistencyState } from "../../observation/src/consistency.ts";
 import type { AuthoringOffer } from "../../authoring/src/editor.ts";
@@ -68,6 +69,55 @@ export interface OperationView {
 
 export interface SlotView { name: string; kind: string; value: string | null; editable: boolean }
 
+/**
+ * The Surface (SSS) inspector panel (SCMS-047).
+ *
+ * What the resolver decided and why. The owner's mockups make the inspector
+ * tabbed — Inspector / Surface (SSS) / Expression (SES) — which turns
+ * `CANON != SURFACE != EXPRESSION` from a sentence in the design into something
+ * a person navigates. This is the middle tab's data.
+ *
+ * `basis` is the load-bearing field: SSS §25 requires every included member to
+ * carry an inspectable reason for participating, and until now nothing surfaced
+ * it. An author could see *that* a related record appeared and never *why*.
+ */
+export interface SurfacePanel {
+  resolutionId: string;
+  purpose: string;
+  snapshot: string;
+  fingerprint: string;
+  accessProjection: AccessLevel;
+  groups: Array<{
+    id: string;
+    role: string;
+    members: Array<{ subject: string; priority: number; basis: string[] }>;
+  }>;
+  /** Subjects considered and not included, with the reason — absence is legible. */
+  excluded: Array<{ subject: string; eligibility: string; reason: string }>;
+}
+
+/**
+ * The Expression (SES) inspector panel (SCMS-047).
+ *
+ * What *this* expression chose, which the surface deliberately does not decide.
+ * The mockup shows Recipe / Theme / Variant here; those are **SES vocabulary we
+ * do not implement**, and inventing them locally would be exactly the
+ * duplication the SSS/SES boundary exists to prevent (and the dependency
+ * doctrine forbids). What we can honestly report is the adapter's identity, its
+ * modality, and the container form it chose per group — which is the same
+ * question those fields answer, in the vocabulary we actually own.
+ */
+export interface ExpressionPanel {
+  adapter: string;
+  modality: string;
+  /** Container form per group. Free by SSS-INV-008/009 — the adapter's call alone. */
+  morphology: Record<string, string>;
+  presentedOrder: string[];
+  exposedOperations: Array<{ id: string; exposure: string }>;
+  /** Named rather than faked: see the note above. */
+  notImplemented: string[];
+}
+
 export interface EditorView {
   subject: string;
   title: string;
@@ -87,6 +137,10 @@ export interface EditorView {
   unavailable: Array<{ intent: string; reason: string }>;
   /** Unresolved questions the migration deliberately left for a person. */
   findings: Array<{ code: string; detail: string }>;
+  /** The middle inspector tab: what the resolver decided, and why. */
+  surface: SurfacePanel;
+  /** The right inspector tab: what this expression chose. */
+  expression: ExpressionPanel;
 }
 
 const LABELS: Record<string, string> = {
@@ -198,6 +252,8 @@ export function editorView(input: EditorInput): EditorView | { notFound: true } 
     };
   });
 
+  const artifact = expressStructural(resolved);
+
   return {
     subject: env.subjectId,
     title: typeof body.slots?.title?.[0]?.value === "string" ? body.slots.title[0].value as string : env.subjectId,
@@ -216,6 +272,36 @@ export function editorView(input: EditorInput): EditorView | { notFound: true } 
       intent: w.intent, reason: REASON_FOR_WITHHOLDING[w.reason] ?? w.reason,
     })),
     findings: (input.findings ?? []).map((f) => ({ code: f.code, detail: f.detail })),
+    surface: {
+      resolutionId: resolved.resolutionId,
+      purpose: resolved.purpose,
+      snapshot: resolved.sourceSnapshot,
+      fingerprint: resolved.fingerprint,
+      accessProjection: resolved.accessProjection,
+      groups: resolved.groups.map((g) => ({
+        id: g.id,
+        role: g.role,
+        members: g.members.map((m) => ({
+          subject: m.subject,
+          priority: m.priority,
+          basis: m.basis.map((b) => (b.detail ? `${b.rule}: ${b.detail}` : b.rule)),
+        })),
+      })),
+      excluded: resolved.explanation.excluded.map((e) => ({
+        subject: e.subject, eligibility: e.eligibility, reason: e.reason,
+      })),
+    },
+    expression: {
+      adapter: artifact.expression,
+      modality: artifact.modality,
+      morphology: artifact.morphology,
+      presentedOrder: artifact.presentedOrder,
+      exposedOperations: artifact.exposedOperations,
+      // SES owns Recipe, Theme and Variant. We consume SES as a pinned
+      // dependency and do not implement them, so they are named as absent
+      // rather than filled with local inventions.
+      notImplemented: ["recipe", "theme", "variant"],
+    },
   };
 }
 

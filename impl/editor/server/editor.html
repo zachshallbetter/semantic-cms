@@ -142,6 +142,19 @@ header.bar .spacer{flex:1}
 }
 @media (max-width:1080px){ .rail{position:static; max-height:none; border-left:none; border-top:1px solid var(--rule)} }
 .rail section{margin-bottom:26px}
+.tabs{display:flex;gap:2px;margin:-4px 0 18px;border-bottom:1px solid var(--rule)}
+.tabs button{font:inherit;font-size:12px;padding:7px 10px;border:0;border-bottom:2px solid transparent;
+  background:transparent;color:var(--muted);cursor:pointer}
+.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent);font-weight:600}
+.tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.kv{display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px solid var(--rule);font-size:12px}
+.kv:last-child{border-bottom:0}
+.kv .k{color:var(--faint)}
+.kv .v{text-align:right;word-break:break-all}
+.mem{border:1px solid var(--rule);border-radius:6px;padding:8px 10px;margin-bottom:6px;background:var(--sunken)}
+.mem .s{font-size:12.5px;font-weight:600}
+.mem .b{font-size:11px;color:var(--muted);margin-top:3px;line-height:1.45}
+.absent{font-size:11.5px;color:var(--faint);font-style:italic}
 .rail h3{
   margin:0 0 10px; font-size:11px; letter-spacing:.09em; text-transform:uppercase;
   color:var(--muted); font-weight:600;
@@ -217,6 +230,10 @@ footer.note strong{color:var(--ink)}
 </div>
 
 <footer class="note">
+  <p class="mono" style="font-size:11px;color:var(--faint);margin:0 0 10px">
+    Schema scms-0.1 &nbsp;·&nbsp; Resolver @semantic-systems/surface v0.1.0 &nbsp;·&nbsp;
+    Expression SES &nbsp;·&nbsp; Consistency HCML &nbsp;·&nbsp; Protocol rr-rsp
+  </p>
   <strong>This one saves.</strong> Every save crosses <span class="mono">content.revise@1</span> like any
   other governed write &mdash; it appends a revision, emits to the outbox, and records a P7 observation.
   Nothing is overwritten. Edit the same entry from two browser tabs to see a conflict surface instead of
@@ -228,6 +245,7 @@ const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 
 let INDEX = [], current = null, view = null, dirty = {}, filter = "all", query = "", lastOutcome = null;
+let tab = "inspector";
 
 async function loadIndex() {
   const r = await fetch("/api/index").then((x) => x.json());
@@ -335,7 +353,59 @@ function renderRail() {
                  ? " <strong>and touched the same field</strong>" : " (a different field)"}.</p></div>`)
     : "";
 
-  $("rail").innerHTML = `
+  const tabs = `
+    <div class="tabs" id="tabs" role="tablist">
+      <button role="tab" data-t="inspector" aria-selected="${tab === "inspector"}">Inspector</button>
+      <button role="tab" data-t="surface" aria-selected="${tab === "surface"}">Surface (SSS)</button>
+      <button role="tab" data-t="expression" aria-selected="${tab === "expression"}">Expression (SES)</button>
+    </div>`;
+
+  if (tab === "surface") {
+    const s = view.surface;
+    $("rail").innerHTML = tabs + `
+      <section><h3>Resolution</h3>
+        <div class="kv"><span class="k">purpose</span><span class="v mono">${esc(s.purpose)}</span></div>
+        <div class="kv"><span class="k">access</span><span class="v mono">${esc(s.accessProjection)}</span></div>
+        <div class="kv"><span class="k">snapshot</span><span class="v mono">${esc(s.snapshot)}</span></div>
+        <div class="kv"><span class="k">fingerprint</span><span class="v mono">${esc(s.fingerprint.slice(0, 20))}…</span></div>
+      </section>
+      ${s.groups.map((g) => `
+        <section><h3>${esc(g.id)} · ${esc(g.role)}</h3>
+          ${g.members.map((m) => `
+            <div class="mem"><div class="s mono">${esc(m.subject)}</div>
+              <div class="b">priority ${m.priority} — ${esc(m.basis.join("; "))}</div></div>`).join("")}
+        </section>`).join("")}
+      <section><h3>Not included</h3>
+        ${s.excluded.length
+          ? s.excluded.map((e) => `<div class="mem"><div class="s mono">${esc(e.subject)}</div>
+              <div class="b">${esc(e.eligibility)} — ${esc(e.reason)}</div></div>`).join("")
+          : `<p class="absent">Nothing was considered and refused for this surface.</p>`}
+      </section>`;
+    wireTabs(); return;
+  }
+
+  if (tab === "expression") {
+    const x = view.expression;
+    $("rail").innerHTML = tabs + `
+      <section><h3>Adapter</h3>
+        <div class="kv"><span class="k">expression</span><span class="v mono">${esc(x.adapter)}</span></div>
+        <div class="kv"><span class="k">modality</span><span class="v mono">${esc(x.modality)}</span></div>
+      </section>
+      <section><h3>Morphology</h3>
+        ${Object.entries(x.morphology).map(([g, form]) =>
+          `<div class="kv"><span class="k">${esc(g)}</span><span class="v mono">${esc(form)}</span></div>`).join("")}
+        <p class="hint">The adapter's own choice. The surface says a group is primary; it does not say
+        it becomes a hero.</p>
+      </section>
+      <section><h3>Owned by SES</h3>
+        ${x.notImplemented.map((n) => `<div class="kv"><span class="k">${esc(n)}</span><span class="v absent">not implemented here</span></div>`).join("")}
+        <p class="hint">SES is a pinned dependency. These are named as absent rather than reinvented
+        locally, which is what keeps the boundary a boundary.</p>
+      </section>`;
+    wireTabs(); return;
+  }
+
+  $("rail").innerHTML = tabs + `
     <section><h3>Provenance</h3><span class="chip mono ${chipCls}">${chipText}</span></section>
     <section><h3>Save</h3>
       <button class="op routine" id="saveBtn" ${isDirty ? "" : "disabled"}>
@@ -362,6 +432,14 @@ function renderRail() {
       ${view.unavailable.map((u) => `<div class="unavail"><b>${esc(u.intent)}</b> &mdash; ${esc(u.reason)}</div>`).join("")}
     </section>`;
   const btn = $("saveBtn"); if (btn) btn.onclick = save;
+  wireTabs();
+}
+
+function wireTabs() {
+  const el = $("tabs"); if (!el) return;
+  el.querySelectorAll("button").forEach((b) => {
+    b.onclick = () => { tab = b.dataset.t; renderRail(); };
+  });
 }
 
 $("q").addEventListener("input", (e) => { query = e.target.value.toLowerCase(); renderIndex(); });

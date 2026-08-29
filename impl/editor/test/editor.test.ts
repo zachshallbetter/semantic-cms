@@ -351,3 +351,50 @@ test("the editor's index and a reader's discovery differ by declared lens, not b
       `reader discovery leaked unlisted ${s}`);
   }
 });
+
+// ── SCMS-047: the inspector's three tabs (owner design direction) ───────────
+
+test("the Surface tab reports what the resolver decided", () => {
+  const v = view(publicSubject);
+  assert.equal(v.surface.purpose, "edit");
+  assert.equal(v.surface.accessProjection, "owner");
+  assert.ok(v.surface.fingerprint.length > 0);
+  assert.ok(v.surface.snapshot.length > 0);
+  assert.ok(v.surface.groups.length > 0);
+});
+
+test("every surface member carries WHY it participates", () => {
+  // SSS §25 requires an inspectable basis for every included member. Until this
+  // panel existed an author could see that a related record appeared and never
+  // learn why it did.
+  const v = view(publicSubject);
+  const members = v.surface.groups.flatMap((g) => g.members);
+  assert.ok(members.length > 0);
+  for (const m of members) {
+    assert.ok(m.basis.length > 0, `${m.subject} participates with no stated basis`);
+    assert.ok(m.basis.every((b) => typeof b === "string" && b.length > 0));
+  }
+});
+
+test("the Expression tab reports the adapter's own choices, and names what SES owns", () => {
+  const v = view(publicSubject);
+  assert.equal(v.expression.adapter, "structural-web");
+  assert.equal(v.expression.modality, "visual-2d");
+  assert.notDeepEqual(v.expression.morphology, {}, "the adapter chose container forms");
+  // Recipe/Theme/Variant belong to SES, which we consume as a pinned dependency.
+  // Naming them absent is the honest report; inventing them locally would be the
+  // duplication the SSS/SES boundary exists to prevent.
+  assert.deepEqual(v.expression.notImplemented, ["recipe", "theme", "variant"]);
+});
+
+test("the Surface tab decides participation and the Expression tab decides form — never the reverse", () => {
+  const v = view(publicSubject);
+  const surfaceJson = JSON.stringify(v.surface);
+  for (const form of Object.values(v.expression.morphology)) {
+    assert.ok(!surfaceJson.includes(`"${form}"`),
+      `the surface panel leaked the container form '${form}' — morphology is the expression's alone`);
+  }
+  // And the expression presents exactly the surface's members, no more.
+  const surfaceMembers = v.surface.groups.flatMap((g) => g.members.map((m) => m.subject)).sort();
+  assert.deepEqual([...v.expression.presentedOrder].sort(), surfaceMembers);
+});
