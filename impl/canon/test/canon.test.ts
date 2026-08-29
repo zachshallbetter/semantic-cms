@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 import { validateEnvelope, revisionHash, canonicalJson } from "../src/envelope.ts";
 import type { Envelope, RecordState } from "../src/envelope.ts";
 import { CanonJournal, AppendOnlyViolation, ValidationError } from "../src/journal.ts";
-import { freeze, excludedFromSnapshot } from "../src/freeze.ts";
+import { freeze, excludedFromSnapshot, observationsFor } from "../src/freeze.ts";
 import { resolveSurface } from "../../surface-resolver/src/resolver.ts";
 import { isFailure } from "../../surface-resolver/src/types.ts";
 import type { ResolvedSurface } from "../../surface-resolver/src/types.ts";
@@ -242,4 +242,78 @@ test("schema and runtime validator agree on the freshness rule", async () => {
     provenance: { kind: "declared", authority: "a", source: "s", expiresAt: "2026-08-28T00:00:00Z" },
   });
   assert.ok(validateEnvelope(declWithBounds).some((f) => f.code === "non-observed-carries-time-bounds"));
+});
+
+// ── SCMS-046: observations are signals, not participants (closes SH-14) ─────
+
+test("an observation never becomes a surface subject", () => {
+  const j = new CanonJournal();
+  j.append(article("art-1"), "t");
+  j.append({
+    schemaVersion: "scms-0.1", subjectId: "art-1#field",
+    compatibility: { protocol: "scms-0.1", subjectSchema: "observation@1" },
+    provenance: { kind: "derived", authority: "project.owner", source: "model" },
+    minimumAccess: "public",
+    body: { kind: "Observation", observationKind: "semantic-article-field",
+            about: "art-1", field: { archetype: "explainer" } },
+    state: { semanticMaturity: "complete", evidenceState: "unqualified",
+             publicationState: "unpublished", deliveryState: "unpropagated" },
+  } as never, "t");
+
+  const snap = freeze(j, "w");
+  assert.ok(!snap.subjects.some((s) => s.id === "art-1#field"),
+    "a model's claim about an article must not become a member a reader lands on");
+  assert.equal(snap.observations.length, 1);
+  assert.equal(snap.observations[0].about, "art-1");
+});
+
+test("the derived field is reachable — projecting it is not decoration", () => {
+  // SCMS-028's derived Semantic Article Field used to land in Canon and become
+  // invisible to everything including its owner. Adding a snapshot field with
+  // no reader would have been the fifth instance of the failure P27 names, so
+  // the reader lands with it.
+  const j = new CanonJournal();
+  j.append(article("art-1"), "t");
+  j.append({
+    schemaVersion: "scms-0.1", subjectId: "art-1#field",
+    compatibility: { protocol: "scms-0.1", subjectSchema: "observation@1" },
+    provenance: { kind: "derived", authority: "project.owner", source: "model" },
+    minimumAccess: "public",
+    body: { kind: "Observation", observationKind: "semantic-article-field", about: "art-1" },
+    state: { semanticMaturity: "complete", evidenceState: "unqualified",
+             publicationState: "unpublished", deliveryState: "unpropagated" },
+  } as never, "t");
+
+  const snap = freeze(j, "w");
+  const found = observationsFor(snap, "art-1", "public");
+  assert.equal(found.length, 1);
+  assert.equal(found[0].kind, "semantic-article-field");
+  assert.deepEqual(observationsFor(snap, "art-2", "public"), [], "and only about its own subject");
+});
+
+test("an observation's access is its own, not its subject's", () => {
+  // A private note about a public article stays private. Inheriting the
+  // subject's access would publish the note by association.
+  const j = new CanonJournal();
+  j.append(article("art-1"), "t");
+  j.append({
+    schemaVersion: "scms-0.1", subjectId: "art-1#note",
+    compatibility: { protocol: "scms-0.1", subjectSchema: "observation@1" },
+    // `observed` provenance must carry time bounds (§8.4) — the validator
+    // enforces it, which is why an expiring working copy (SCMS-045) gets its
+    // self-release for free rather than by remembering to add one.
+    provenance: {
+      kind: "observed", authority: "project.owner", source: "editor",
+      observedAt: "2026-08-29T00:00:00Z", expiresAt: "2026-08-29T00:10:00Z",
+    },
+    minimumAccess: "owner",
+    body: { kind: "Observation", observationKind: "editor-note", about: "art-1" },
+    state: { semanticMaturity: "draft", evidenceState: "unqualified",
+             publicationState: "unpublished", deliveryState: "unpropagated" },
+  } as never, "t");
+
+  const snap = freeze(j, "w");
+  assert.deepEqual(observationsFor(snap, "art-1", "public"), [],
+    "a public reader must not see an owner-scoped note about a public article");
+  assert.equal(observationsFor(snap, "art-1", "owner").length, 1);
 });

@@ -1,6 +1,6 @@
 # PROJECT COMPILED CONTEXT
 Generator: 0.5.0
-Source digest: 9701f45308d34108c780abdfd94825ae3368f01625b830f2dac016136a9f5984
+Source digest: 09f60469e4cf7fe4945f3328dc7e92379503756ea49bd3f3ce5be526d30b0d0f
 
 > Generated projection. Canonical sources remain authoritative.
 
@@ -1472,7 +1472,7 @@ decision record) — never by deletion.
 | SH-10 | THIN | Backup & recovery | No RPO/RTO; no operational promises exist yet, so the promise register (P15) has nothing to check. | Declare with the E1 slice: nightly logical backup, RPO 24h → 1h post-MVP, RTO 4h; each promise entered in the register with its verifying artifact. |
 | SH-11 | CAVEAT | GPL boundary | open-knowledge consumed as a service (P25) — process-boundary isolation believed sufficient; not yet reviewed by counsel. | Keep strict service boundary (no linking, no vendoring); counsel review before any distribution of a combined work. |
 | SH-13 | **DECISION — owner** (narrowed by SCMS-036) | Attestation provenance | *Forgery is closed:* evidence and attestations are Canon records landed through contracts, and neither promotion nor attestation reads its deciding input from the caller. **What remains is policy:** an owner can still record evidence for their own work and attest to it. | Who may evaluate, and what independence each consequence profile demands. `EvidenceRecord.independentEvaluator` already exists and is recorded but not required by any profile — making it required at a stated effect class would be the smallest real change. Needs owner disposition. |
-| SH-14 | **GAP — read path** | Derived observations are unreachable | `freeze()` projects only `Content` and `Relation` bodies into the snapshot, so `Observation` bodies never become snapshot subjects at any access level. SCMS-028's derived Semantic Article Field lands in Canon and is then invisible to every surface, including the owner's. Found incidentally by the NR-scms-007 adversarial pass. | Either project observations into the snapshot with their own access, or state explicitly that observations reach surfaces through the Field plane rather than through resolution — currently neither is true. |
+| ~~SH-14~~ | **RESOLVED** | Derived observations are unreachable | *Closed by SCMS-046:* the exclusion was correct and its consequence was not. Observations are signals about subjects, not participants in a surface, so `freeze()` still never makes one a subject — but snapshots now carry a separate `observations` collection with `observationsFor()` as its reader, scoped by the observation's own access. SCMS-028's derived field is reachable again. | — |
 | SH-15 | **DECISION — owner** | Migrated publication status | `content.create@1` fixes a new record to draft/unqualified/unpublished and will not read state from input, so **51 entries that were published on the old site arrive unpublished**. This is the system's own claim applied to its migration: publishing is qualification plus promotion, and neither is inherited by copying. It is either exactly right, or an unacceptable amount of ceremony for content that has been live for years. | Three options: (a) keep it strict — re-publish each with real evidence, which is the current behaviour; (b) a distinct owner-authorized `content.adopt` contract that carries prior publication with its provenance recorded as adopted-not-qualified; (c) a migration consequence profile whose obligations are satisfiable by the fact of prior publication. Needs owner disposition. |
 | ~~SH-16~~ | **RESOLVED** | The editor bypasses the surface pipeline | *Closed by SCMS-044:* the editor resolves a `ResolvedSurface` with `purpose: "edit"` and reads membership from it; the index resolves a collection surface. Both hand-rolled access comparisons are gone, leaving one implementation of the access rule in the read path. SH-16's own test passes — the authoring surface expresses two materially different ways with identical presented order and exposed operations while morphology differs, so it is not underspecified. | — |
 | SH-15 | **GAP — live contradiction** | Drafting republishes | `content.revise@1` builds its next envelope from the prior one, so a revision inherits `publicationState`. Reader surfaces resolve from `journal.current()`, so **an in-progress edit to a promoted subject reaches the public the instant it lands** — verified against landed code, not inferred. This contradicts §6's central claim that publishing is qualification plus promotion and never a boolean: `revise` currently republishes without either. | Defined in SCMS-045: a working copy as an `observed` envelope, so drafting against promoted content cannot move a state axis or enter a reader surface. Awaiting owner scheduling. |
@@ -8670,6 +8670,33 @@ FILE: impl/canon/src/freeze.ts
 import type { CanonJournal, JournalEntry } from "./journal.ts";
 import type { AccessLevel } from "./envelope.ts";
 
+/**
+ * An observation carried alongside the snapshot (SCMS-046, closing SH-14).
+ *
+ * Observations are **signals about subjects, not participants in a surface**.
+ * That is why `freeze()` never turns one into a subject: a model's claim about
+ * an article, or a note that someone is editing it, must not become a member a
+ * reader can land on. SSS §22 says the same thing from the other side — a
+ * resolver may consume field signals, and does not own or promote them.
+ *
+ * They are projected here rather than dropped because the alternative was worse.
+ * Before this, `freeze()` silently ignored Observation bodies, so SCMS-028's
+ * derived Semantic Article Field landed in Canon and became invisible to
+ * everything, including its owner — written and unreadable. The omission was
+ * correct and its consequence was not, and neither was declared.
+ *
+ * `about` names the subject this observation concerns. Access is the
+ * observation's own, not the subject's: a private note about a public article
+ * stays private.
+ */
+export interface SnapshotObservation {
+  id: string;
+  kind: string;
+  about: string;
+  access: AccessLevel;
+  body: Record<string, unknown>;
+}
+
 export interface FrozenSnapshot {
   snapshotId: string;
   subjects: Array<{
@@ -8679,6 +8706,12 @@ export interface FrozenSnapshot {
     attrs?: Record<string, string | number | boolean | null>;
   }>;
   relations: Array<{ from: string; to: string; type: string; access: AccessLevel }>;
+  /**
+   * Signals about subjects. Deliberately a separate collection from `subjects`:
+   * nothing that reads members can accidentally read these, which is what keeps
+   * "an observation is not a participant" structural rather than remembered.
+   */
+  observations: SnapshotObservation[];
 }
 
 interface ContentBody {
@@ -8686,6 +8719,7 @@ interface ContentBody {
   attrs?: Record<string, string | number | boolean | null>;
 }
 interface RelationBody { kind: "Relation"; from: string; to: string; relationType: string }
+interface ObservationBody { kind: "Observation"; observationKind?: string; about?: string }
 
 /**
  * @param journal the Canon journal
@@ -8696,6 +8730,7 @@ export function freeze(journal: CanonJournal, snapshotId: string): FrozenSnapsho
   const current = journal.current();
   const subjects: FrozenSnapshot["subjects"] = [];
   const relations: FrozenSnapshot["relations"] = [];
+  const observations: SnapshotObservation[] = [];
 
   for (const entry of current) {
     const body = entry.envelope.body as unknown;
@@ -8714,15 +8749,49 @@ export function freeze(journal: CanonJournal, snapshotId: string): FrozenSnapsho
       relations.push({
         from: b.from, to: b.to, type: b.relationType, access: entry.envelope.minimumAccess,
       });
+    } else if ((body as ObservationBody).kind === "Observation") {
+      const b = body as ObservationBody;
+      // Projected as a signal, never as a subject. An observation with no
+      // `about` describes nothing resolvable and is skipped rather than
+      // guessed at.
+      if (b.about) {
+        observations.push({
+          id: entry.envelope.subjectId,
+          kind: b.observationKind ?? "observation",
+          about: b.about,
+          access: entry.envelope.minimumAccess,
+          body: body as Record<string, unknown>,
+        });
+      }
     }
-    // Schema, Observation, and Topology bodies are canonical but do not
-    // participate in this snapshot shape; they are consumed by other planes.
+    // Schema and Topology bodies are canonical but do not participate in this
+    // snapshot shape; they are consumed by other planes.
   }
 
   subjects.sort((a, b) => a.id.localeCompare(b.id));
   relations.sort((a, b) =>
     a.from.localeCompare(b.from) || a.type.localeCompare(b.type) || a.to.localeCompare(b.to));
-  return { snapshotId, subjects, relations };
+  observations.sort((a, b) => a.about.localeCompare(b.about) || a.id.localeCompare(b.id));
+  return { snapshotId, subjects, relations, observations };
+}
+
+/**
+ * Observations about one subject, at one access level.
+ *
+ * This function is the consumer that makes projecting observations meaningful
+ * rather than decorative — declaring a field nothing reads is the failure this
+ * project has committed four times (P27, NR-scms-004), and adding
+ * `observations` without a reader would have been the fifth.
+ *
+ * Access is checked against the OBSERVATION's own level, so a private note
+ * about a public article is not readable by a public caller.
+ */
+export function observationsFor(
+  snapshot: FrozenSnapshot, subject: string, access: AccessLevel,
+): SnapshotObservation[] {
+  const rank: Record<AccessLevel, number> = { public: 0, member: 1, owner: 2, admin: 3 };
+  return snapshot.observations.filter(
+    (o) => o.about === subject && rank[o.access] <= rank[access]);
 }
 
 /** Entries excluded from the current snapshot, with why — history stays legible. */
@@ -8981,7 +9050,7 @@ import assert from "node:assert/strict";
 import { validateEnvelope, revisionHash, canonicalJson } from "../src/envelope.ts";
 import type { Envelope, RecordState } from "../src/envelope.ts";
 import { CanonJournal, AppendOnlyViolation, ValidationError } from "../src/journal.ts";
-import { freeze, excludedFromSnapshot } from "../src/freeze.ts";
+import { freeze, excludedFromSnapshot, observationsFor } from "../src/freeze.ts";
 import { resolveSurface } from "../../surface-resolver/src/resolver.ts";
 import { isFailure } from "../../surface-resolver/src/types.ts";
 import type { ResolvedSurface } from "../../surface-resolver/src/types.ts";
@@ -9216,6 +9285,80 @@ test("schema and runtime validator agree on the freshness rule", async () => {
     provenance: { kind: "declared", authority: "a", source: "s", expiresAt: "2026-08-28T00:00:00Z" },
   });
   assert.ok(validateEnvelope(declWithBounds).some((f) => f.code === "non-observed-carries-time-bounds"));
+});
+
+// ── SCMS-046: observations are signals, not participants (closes SH-14) ─────
+
+test("an observation never becomes a surface subject", () => {
+  const j = new CanonJournal();
+  j.append(article("art-1"), "t");
+  j.append({
+    schemaVersion: "scms-0.1", subjectId: "art-1#field",
+    compatibility: { protocol: "scms-0.1", subjectSchema: "observation@1" },
+    provenance: { kind: "derived", authority: "project.owner", source: "model" },
+    minimumAccess: "public",
+    body: { kind: "Observation", observationKind: "semantic-article-field",
+            about: "art-1", field: { archetype: "explainer" } },
+    state: { semanticMaturity: "complete", evidenceState: "unqualified",
+             publicationState: "unpublished", deliveryState: "unpropagated" },
+  } as never, "t");
+
+  const snap = freeze(j, "w");
+  assert.ok(!snap.subjects.some((s) => s.id === "art-1#field"),
+    "a model's claim about an article must not become a member a reader lands on");
+  assert.equal(snap.observations.length, 1);
+  assert.equal(snap.observations[0].about, "art-1");
+});
+
+test("the derived field is reachable — projecting it is not decoration", () => {
+  // SCMS-028's derived Semantic Article Field used to land in Canon and become
+  // invisible to everything including its owner. Adding a snapshot field with
+  // no reader would have been the fifth instance of the failure P27 names, so
+  // the reader lands with it.
+  const j = new CanonJournal();
+  j.append(article("art-1"), "t");
+  j.append({
+    schemaVersion: "scms-0.1", subjectId: "art-1#field",
+    compatibility: { protocol: "scms-0.1", subjectSchema: "observation@1" },
+    provenance: { kind: "derived", authority: "project.owner", source: "model" },
+    minimumAccess: "public",
+    body: { kind: "Observation", observationKind: "semantic-article-field", about: "art-1" },
+    state: { semanticMaturity: "complete", evidenceState: "unqualified",
+             publicationState: "unpublished", deliveryState: "unpropagated" },
+  } as never, "t");
+
+  const snap = freeze(j, "w");
+  const found = observationsFor(snap, "art-1", "public");
+  assert.equal(found.length, 1);
+  assert.equal(found[0].kind, "semantic-article-field");
+  assert.deepEqual(observationsFor(snap, "art-2", "public"), [], "and only about its own subject");
+});
+
+test("an observation's access is its own, not its subject's", () => {
+  // A private note about a public article stays private. Inheriting the
+  // subject's access would publish the note by association.
+  const j = new CanonJournal();
+  j.append(article("art-1"), "t");
+  j.append({
+    schemaVersion: "scms-0.1", subjectId: "art-1#note",
+    compatibility: { protocol: "scms-0.1", subjectSchema: "observation@1" },
+    // `observed` provenance must carry time bounds (§8.4) — the validator
+    // enforces it, which is why an expiring working copy (SCMS-045) gets its
+    // self-release for free rather than by remembering to add one.
+    provenance: {
+      kind: "observed", authority: "project.owner", source: "editor",
+      observedAt: "2026-08-29T00:00:00Z", expiresAt: "2026-08-29T00:10:00Z",
+    },
+    minimumAccess: "owner",
+    body: { kind: "Observation", observationKind: "editor-note", about: "art-1" },
+    state: { semanticMaturity: "draft", evidenceState: "unqualified",
+             publicationState: "unpublished", deliveryState: "unpropagated" },
+  } as never, "t");
+
+  const snap = freeze(j, "w");
+  assert.deepEqual(observationsFor(snap, "art-1", "public"), [],
+    "a public reader must not see an owner-scoped note about a public article");
+  assert.equal(observationsFor(snap, "art-1", "owner").length, 1);
 });
 
 
@@ -23364,7 +23507,8 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-041 | Migrate the corpus through the governed path (content.create@1) | E8+E12 | Done — creation is governed at last; SH-15 raised; awaiting owner verification | records/evidence.jsonl · scms-evidence-041 |
 | SCMS-042 | The editing session and the P7 instrument | E12 | Done — instrument built, NR-scms-008 fixed; **P7 stays open pending real edits** | records/evidence.jsonl · scms-evidence-042 |
 | SCMS-043 | The editor, running: saves through contracts, records P7 observations | E12 | Done — verified by interaction; awaiting owner verification | records/evidence.jsonl · scms-evidence-043 |
-| SCMS-045 | The working copy: drafting that does not publish | E2 | **Defined — not scheduled.** Closes SH-15; canonical passage awaits owner ratification; should precede the P7 workload | work/SCMS-045.md |
+| SCMS-045 | The working copy: drafting that does not publish | E2 | **Defined — not scheduled.** Closes SH-15; SH-14 prerequisite now resolved (SCMS-046); canonical passage awaits owner ratification; should precede the P7 workload | work/SCMS-045.md |
+| SCMS-046 | Observations are signals, not participants (closes SH-14) | E6 | Done — unblocks SCMS-045's prerequisite; awaiting owner verification | records/evidence.jsonl · scms-evidence-046 |
 | SCMS-044 | Route the editor through the surface pipeline it currently bypasses | E12 | Done — SH-16 closed; two duplicate access checks removed; awaiting owner verification | records/evidence.jsonl · scms-evidence-044 |
 | SCMS-018 | R1 live co-authoring — **free lane only** (convergent merge) | E1 | **Blocked** — awaiting disposition of P7/P22 on PR #28 | records/blockers · scms-blocker-001 |
 | SCMS-010 | S4 cross-domain portability: a materially unrelated project (outside this repository, per owner doctrine 2026-08-28) consumes @semantic-systems/surface unmodified | external | Backlog — executes outside scms; scms records the conformance result | — |
@@ -25739,4 +25883,69 @@ revision, so P7's free-lane overlap statistic would count autosave races as conc
 With buffering, only *commits* are revisions, and the overlap number then measures what §8.5
 actually asked about: two people meaningfully editing the same prose. Running the workload first
 would produce a number that looks like evidence and is not.
+
+
+========================================================================
+FILE: work/SCMS-046.md
+========================================================================
+
+# SCMS-046 — Observations are signals, not participants (closes SH-14)
+
+**Intent ref:** PROJECT_INTENT.md · **Epic:** E6 · **Effect class:** E1
+**Assigned by:** coordinator goal. Prerequisite named in SCMS-045's Ready predicate.
+**State:** Ready → Claimed → Done (closing state at bottom)
+
+## The gap
+
+`freeze()` projected only `Content` and `Relation` bodies, so `Observation` bodies never became
+snapshot subjects at any access level. SCMS-028's derived Semantic Article Field therefore landed in
+Canon and was **invisible to everything, including its owner** — written and unreadable. Found
+incidentally by the NR-scms-007 adversarial pass.
+
+SH-14 offered two remediations: project observations as subjects, or state explicitly that they
+reach surfaces by another route. Neither was true, and picking one is the work.
+
+## The decision
+
+**Observations are signals *about* subjects, not participants *in* a surface.**
+
+So the omission was right and its consequence was wrong. A model's claim about an article, or a note
+that someone is editing it, must not become a member a reader can land on — that is the
+no-promotion rule (§3.2) and SSS §22 from the other side, where a resolver *may consume* field
+signals and does not own or promote them. Turning an observation into a subject would let a
+machine's opinion acquire the standing of authored content by being adjacent to it, which is exactly
+what SCMS-028 refused to do at import.
+
+What was wrong is that the exclusion was silent, so a whole record class was write-only. Snapshots
+now carry an `observations` collection, deliberately **separate from `subjects`**, so nothing that
+reads members can accidentally read these. The separation is what keeps "an observation is not a
+participant" structural rather than remembered.
+
+## Not decoration
+
+Adding a snapshot field with no reader would have been the fifth instance of the failure P27 names
+and NR-scms-004 records. So `observationsFor(snapshot, subject, access)` lands with it, and a vector
+asserts the derived field is reachable through it.
+
+Access is the **observation's own**, not its subject's: a private note about a public article stays
+private. Inheriting the subject's access would publish the note by association.
+
+## What this unblocks, and one thing it gave away for free
+
+SCMS-045's working copy is defined as an observation. Writing these vectors surfaced that the
+envelope validator already refuses `observed` provenance without `observedAt`/`expiresAt` — so a
+working copy inherits its self-release from the validator rather than from an implementer
+remembering to add one. That is the §8.4 soft-lock property arriving without being built twice.
+
+## Acceptance — all met
+
+1. An observation never appears among a snapshot's subjects.
+2. The derived Semantic Article Field is reachable through `observationsFor`.
+3. An observation is scoped by its own access, not its subject's.
+4. An observation with no `about` is skipped rather than guessed at.
+
+## Closing state
+
+**Done — the exclusion is now a declared property with a reader, instead of an omission with a
+casualty.**
 

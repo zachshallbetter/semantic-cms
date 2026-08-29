@@ -13,6 +13,33 @@
 import type { CanonJournal, JournalEntry } from "./journal.ts";
 import type { AccessLevel } from "./envelope.ts";
 
+/**
+ * An observation carried alongside the snapshot (SCMS-046, closing SH-14).
+ *
+ * Observations are **signals about subjects, not participants in a surface**.
+ * That is why `freeze()` never turns one into a subject: a model's claim about
+ * an article, or a note that someone is editing it, must not become a member a
+ * reader can land on. SSS §22 says the same thing from the other side — a
+ * resolver may consume field signals, and does not own or promote them.
+ *
+ * They are projected here rather than dropped because the alternative was worse.
+ * Before this, `freeze()` silently ignored Observation bodies, so SCMS-028's
+ * derived Semantic Article Field landed in Canon and became invisible to
+ * everything, including its owner — written and unreadable. The omission was
+ * correct and its consequence was not, and neither was declared.
+ *
+ * `about` names the subject this observation concerns. Access is the
+ * observation's own, not the subject's: a private note about a public article
+ * stays private.
+ */
+export interface SnapshotObservation {
+  id: string;
+  kind: string;
+  about: string;
+  access: AccessLevel;
+  body: Record<string, unknown>;
+}
+
 export interface FrozenSnapshot {
   snapshotId: string;
   subjects: Array<{
@@ -22,6 +49,12 @@ export interface FrozenSnapshot {
     attrs?: Record<string, string | number | boolean | null>;
   }>;
   relations: Array<{ from: string; to: string; type: string; access: AccessLevel }>;
+  /**
+   * Signals about subjects. Deliberately a separate collection from `subjects`:
+   * nothing that reads members can accidentally read these, which is what keeps
+   * "an observation is not a participant" structural rather than remembered.
+   */
+  observations: SnapshotObservation[];
 }
 
 interface ContentBody {
@@ -29,6 +62,7 @@ interface ContentBody {
   attrs?: Record<string, string | number | boolean | null>;
 }
 interface RelationBody { kind: "Relation"; from: string; to: string; relationType: string }
+interface ObservationBody { kind: "Observation"; observationKind?: string; about?: string }
 
 /**
  * @param journal the Canon journal
@@ -39,6 +73,7 @@ export function freeze(journal: CanonJournal, snapshotId: string): FrozenSnapsho
   const current = journal.current();
   const subjects: FrozenSnapshot["subjects"] = [];
   const relations: FrozenSnapshot["relations"] = [];
+  const observations: SnapshotObservation[] = [];
 
   for (const entry of current) {
     const body = entry.envelope.body as unknown;
@@ -57,15 +92,49 @@ export function freeze(journal: CanonJournal, snapshotId: string): FrozenSnapsho
       relations.push({
         from: b.from, to: b.to, type: b.relationType, access: entry.envelope.minimumAccess,
       });
+    } else if ((body as ObservationBody).kind === "Observation") {
+      const b = body as ObservationBody;
+      // Projected as a signal, never as a subject. An observation with no
+      // `about` describes nothing resolvable and is skipped rather than
+      // guessed at.
+      if (b.about) {
+        observations.push({
+          id: entry.envelope.subjectId,
+          kind: b.observationKind ?? "observation",
+          about: b.about,
+          access: entry.envelope.minimumAccess,
+          body: body as Record<string, unknown>,
+        });
+      }
     }
-    // Schema, Observation, and Topology bodies are canonical but do not
-    // participate in this snapshot shape; they are consumed by other planes.
+    // Schema and Topology bodies are canonical but do not participate in this
+    // snapshot shape; they are consumed by other planes.
   }
 
   subjects.sort((a, b) => a.id.localeCompare(b.id));
   relations.sort((a, b) =>
     a.from.localeCompare(b.from) || a.type.localeCompare(b.type) || a.to.localeCompare(b.to));
-  return { snapshotId, subjects, relations };
+  observations.sort((a, b) => a.about.localeCompare(b.about) || a.id.localeCompare(b.id));
+  return { snapshotId, subjects, relations, observations };
+}
+
+/**
+ * Observations about one subject, at one access level.
+ *
+ * This function is the consumer that makes projecting observations meaningful
+ * rather than decorative — declaring a field nothing reads is the failure this
+ * project has committed four times (P27, NR-scms-004), and adding
+ * `observations` without a reader would have been the fifth.
+ *
+ * Access is checked against the OBSERVATION's own level, so a private note
+ * about a public article is not readable by a public caller.
+ */
+export function observationsFor(
+  snapshot: FrozenSnapshot, subject: string, access: AccessLevel,
+): SnapshotObservation[] {
+  const rank: Record<AccessLevel, number> = { public: 0, member: 1, owner: 2, admin: 3 };
+  return snapshot.observations.filter(
+    (o) => o.about === subject && rank[o.access] <= rank[access]);
 }
 
 /** Entries excluded from the current snapshot, with why — history stays legible. */
