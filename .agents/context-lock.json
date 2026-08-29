@@ -9,14 +9,14 @@
     "repositories": [
       {
         "path": ".",
-        "commit": "5ade90aef5d19a9ca9413e34f19172014843fcd4",
+        "commit": "8f524031abb720dbce3e88dc4574339918d415ba",
         "branch": "main",
-        "dirty": false,
+        "dirty": true,
         "remote": "https://github.com/zachshallbetter/semantic-cms.git"
       }
     ]
   },
-  "aggregateSourceDigest": "1628fad818753534d1755931ae37436f244e43e146976ea48cad172a02ac5aef",
+  "aggregateSourceDigest": "979b8d9a8ef1ebff875b9f851f9e6a441d7c5901d67faef5e3acea5ed9aa3e77",
   "sources": [
     {
       "path": ".agents/skills/compile-context/SKILL.md",
@@ -42,11 +42,6 @@
       "path": ".agents/skills/verify-outcome/SKILL.md",
       "bytes": 599,
       "sha256": "331bcc9c5179eef021d9edf48e76bedcaaef6fed17f97e91c6d20a20f1199117"
-    },
-    {
-      "path": ".claude/launch.json",
-      "bytes": 202,
-      "sha256": "4103853fab0ce6c2ab9f280e4d1637811e84ee70641335546cdd1a7307c76b81"
     },
     {
       "path": ".formal-bootstrap.json",
@@ -322,11 +317,6 @@
       "path": "impl/editor/test/editor.test.ts",
       "bytes": 13776,
       "sha256": "b353802092282f5b48d7da23a7ed05ab29eef834b3c114af134eb9f1f293ffca"
-    },
-    {
-      "path": "impl/editor/web/data.json",
-      "bytes": 111726,
-      "sha256": "44fd224f2c476b9c473c9e535100f2120b9a6e7c2307f582bab4715b855936da"
     },
     {
       "path": "impl/merge/package.json",
@@ -635,8 +625,8 @@
     },
     {
       "path": "scripts/gen-context.py",
-      "bytes": 7015,
-      "sha256": "4cab5cf07c5a69e7afd728844393958223495e3c01d339c0c8d6dbde8bb51322"
+      "bytes": 8036,
+      "sha256": "819eb2f67a5ec3943bae509d78eebfd690febff6b157a75fafa05f1b047848fa"
     },
     {
       "path": "scripts/validate-bootstrap.py",

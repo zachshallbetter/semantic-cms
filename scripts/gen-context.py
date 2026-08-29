@@ -88,6 +88,27 @@ def load_policy() -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def tracked_paths() -> set[str] | None:
+    """
+    The set of files git tracks, or None when this is not a git checkout.
+
+    The compiled context is built from TRACKED files only. Walking the
+    filesystem means any untracked local file — a build intermediate, a scratch
+    note — joins the digest, and CI, which does not have it, then reports STALE
+    against a tree the author never had. That is NR-scms-002 exactly: the gate
+    checking a different tree than the one you ran locally. Restricting to
+    tracked files makes local and CI identical by construction rather than by
+    remembering to keep the two in step.
+    """
+    try:
+        out = subprocess.run(
+            ["git", "ls-files", "-z"], cwd=ROOT,
+            capture_output=True, check=True).stdout
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    return {p for p in out.decode("utf-8").split("\0") if p}
+
+
 def source_files(policy: dict) -> list[tuple[str, bytes]]:
     ex_dirs = set(policy["excludeDirectories"])
     ex_paths = set(policy["excludePaths"])
@@ -95,12 +116,15 @@ def source_files(policy: dict) -> list[tuple[str, bytes]]:
     include_files = set(policy.get("includeFiles", []))
     max_bytes = int(policy["maxFileBytes"])
     include_vendor = bool(policy.get("includeVendor", True))
+    tracked = tracked_paths()
     result: list[tuple[str, bytes]] = []
 
     for path in ROOT.rglob("*"):
         if not path.is_file():
             continue
         rel = path.relative_to(ROOT).as_posix()
+        if tracked is not None and rel not in tracked:
+            continue
         parts = rel.split("/")
         if any(part in ex_dirs for part in parts[:-1]):
             continue
