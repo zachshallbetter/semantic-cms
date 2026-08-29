@@ -44,6 +44,7 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-027 | Extend the composed proof to the full landed surface | E1 | Done — awaiting owner verification | records/evidence.jsonl · scms-evidence-027 |
 | SCMS-028 | Map the zach-core corpus into Canon (first real workload) | E8 | Done — 215 real entries map, 22 source-collapse findings raised; awaiting owner verification | records/evidence.jsonl · scms-evidence-028 |
 | SCMS-029 | Reconcile the corpus against live Postgres (seed-time vs current) | E8 | **Blocked** — needs owner-authorized credentials (protected action) | — |
+| SCMS-030 | The site as a reader expression of Canon (round-trip out) | E8 | Done — real reader routes resolve; NR-scms-004 recorded; awaiting owner verification | records/evidence.jsonl · scms-evidence-030 |
 | SCMS-018 | R1 live co-authoring — **free lane only** (convergent merge) | E1 | **Blocked** — awaiting disposition of P7/P22 on PR #28 | records/blockers · scms-blocker-001 |
 | SCMS-010 | S4 cross-domain portability: a materially unrelated project (outside this repository, per owner doctrine 2026-08-28) consumes @semantic-systems/surface unmodified | external | Backlog — executes outside scms; scms records the conformance result | — |
 

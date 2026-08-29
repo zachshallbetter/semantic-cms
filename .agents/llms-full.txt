@@ -1,6 +1,6 @@
 # PROJECT COMPILED CONTEXT
 Generator: 0.5.0
-Source digest: 99c7e3dc46346c9ec0258d6af9071323ced02fbcb7c199538c0ca18c44683450
+Source digest: 2951d698962b4c35352c44b1d1af3f447d106307a0a1cb9d74240e3193ab5280
 
 > Generated projection. Canonical sources remain authoritative.
 
@@ -232,6 +232,10 @@ jobs:
       - name: Real-corpus migration (SCMS-028 · zach-core → Canon)
         run: node --test test/migration.test.ts
         working-directory: impl/migrate
+
+      - name: Reader routes over the real corpus (SCMS-030 · the round-trip out)
+        run: node --test test/reader.test.ts
+        working-directory: impl/reader
 
       - name: End-to-end spine (SCMS-019 · the composed narrow path)
         run: node --test test/spine.test.ts
@@ -1463,7 +1467,8 @@ above its rung.
 | R1 live co-authoring | **Partially established** | `required` lane proven (SCMS-012), `bounded` lane proven (SCMS-021); **free lane NOT built** — blocked on P7/P22 | Owner disposition of P7/P22, then the free lane |
 | R2 live propagation | **NOT established** | Nothing built: transport is P10-pending. Consistency *state* is determined (SCMS-017) but nothing moves it | Disposition of P10, then outbox + fan-out + replay |
 | R3 live honesty | **Implemented + Tested (semantic core)** | SCMS-017: six states, the drafting/consequential asymmetry, chips that never claim live without a check, presence expiring by construction | Transport-side freshness under real latency |
-| Real content maps into Canon without collapsing what the source keeps | **Implemented + Tested against a real corpus** | SCMS-028: 12 vectors over the actual 215-entry archive — unlisted preserved as itself, private content at owner access, model-generated field kept as a separate `derived` envelope, and the source's own status collapse surfaced as 22 findings rather than inherited | The same against the live Postgres state (SCMS-029), and a round-trip back out to a reader |
+| Real content maps into Canon without collapsing what the source keeps | **Implemented + Tested against a real corpus** | SCMS-028: 12 vectors over the actual 215-entry archive — unlisted preserved as itself, private content at owner access, model-generated field kept as a separate `derived` envelope, and the source's own status collapse surfaced as 22 findings rather than inherited | The same against the live Postgres state (SCMS-029) — the reader round-trip is now closed by SCMS-030 |
+| The site can be a reader expression of Canon rather than a content client | **Implemented + Tested over a real corpus** | SCMS-030: the real /writing and /work routes resolve as surfaces over the migrated archive; feed and sitemap derive from the page's own ResolvedSurface, so a feed cannot disagree with its page; unlisted content is reachable by link and in no index | Wiring the declarations into the site's renderer, and a deployment |
 | The published artifacts match their canonical sources | **Tested** | scripts/check-projection-sync.py in CI, with a self-test | — |
 | The system is empirically useful | **NOT established** — but no longer untested against reality | SCMS-028: a real 215-entry corpus maps into Canon and resolves, and the mapping found a genuine modelling collapse in the owner's live data (dual-vocabulary `status`, 22 findings). That establishes the *mapping*, not usefulness: nothing is deployed, no human has used the result, rcp-001 remains an active obligation | A person doing real work through it — which needs the authoring surface (E12/SH-8) and a deployment |
 
@@ -10047,8 +10052,10 @@ FILE: impl/migrate/src/zach-core.ts
  *    visible rather than inherited.
  *
  * 2. `visibility: unlisted` is neither public nor private. Mapping it to either
- *    would destroy a real distinction, so it lands as public access carrying an
- *    explicit `unlisted` attribute for discovery lenses to exclude.
+ *    would destroy a real distinction, so it lands as public access with
+ *    `attrs.listed = false`: reachable by link, excluded from every index. The
+ *    flag is written in positive form on every record, so discovery — which
+ *    includes on `listed === true` — excludes on absence rather than admitting.
  *
  * 3. The Semantic Article Field (`data.field`) is model-generated and the source
  *    itself flags it `model-inferred; unvalidated`. It therefore may NOT land as
@@ -10155,8 +10162,8 @@ export function migrateEntry(entry: SourceEntry): MigrationResult {
   if (unlisted) {
     findings.push({
       code: "unlisted-preserved", entry: entry.file,
-      detail: "visibility 'unlisted' is neither public nor private; landed as public access with attrs.unlisted=true " +
-        "so discovery lenses can exclude it without the distinction being destroyed",
+      detail: "visibility 'unlisted' is neither public nor private; landed as public access with attrs.listed=false, " +
+        "which the reader's discovery lens consumes (SCMS-030) — reachable by link, absent from every index",
     });
   }
   const state = mapState(fm.status, entry.file, findings);
@@ -10167,7 +10174,11 @@ export function migrateEntry(entry: SourceEntry): MigrationResult {
   const attrs: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(fm)) if (!structural.has(k)) attrs[k] = v;
   if (LIFECYCLE_LABELS.has(String(fm.status ?? ""))) attrs.lifecycleLabel = fm.status;
-  if (unlisted) attrs.unlisted = true;
+  // Positive form, and present on EVERY record: discovery includes on
+  // `listed === true`, so a missing or malformed value excludes rather than
+  // admits. An `unlisted` flag would have been the same fact stated in the
+  // direction where absence leaks.
+  attrs.listed = !unlisted;
 
   result.content.push(envelope(slug, access, {
     kind: "Content", contentKind: type,
@@ -10318,12 +10329,16 @@ test("the source's mixed status vocabulary is SURFACED, not inherited", () => {
 });
 
 test("unlisted is preserved as itself — neither public nor private", () => {
-  const unlisted = result.content.filter(
-    (e) => ((e.body as unknown as { attrs: Record<string, unknown> }).attrs).unlisted === true);
+  const attrsOf = (e: { body: unknown }) => (e.body as { attrs: Record<string, unknown> }).attrs;
+  const unlisted = result.content.filter((e) => attrsOf(e).listed === false);
   assert.equal(unlisted.length, 2, "the source's 2 unlisted entries");
   for (const e of unlisted) {
     assert.equal(e.minimumAccess, "public", "reachable by link");
   }
+  // The flag is positive and present on EVERY record, so discovery (which
+  // includes on listed === true) excludes on absence rather than admitting.
+  assert.ok(result.content.every((e) => typeof attrsOf(e).listed === "boolean"),
+    "every record declares its listability explicitly");
   assert.equal(result.findings.filter((f) => f.code === "unlisted-preserved").length, 2);
 });
 
@@ -12036,6 +12051,353 @@ test("round trip: promote → unpublish → promote, with all three landings in 
   assert.equal(journal.verifyChain().valid, true);
   const publicationHistory = journal.all().map((e) => e.envelope.state.publicationState);
   assert.deepEqual(publicationHistory, ["unpublished", "promoted", "unpublished", "promoted"]);
+});
+
+
+========================================================================
+FILE: impl/reader/package.json
+========================================================================
+
+{
+  "name": "@scms/reader",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "The site as a reader expression of Canon (SCMS-030, epic E8): the real zachshallbetter.com reader routes resolved as surfaces, with feeds and sitemap derived from the same resolved surface rather than a second query.",
+  "scripts": { "test": "node --test test/reader.test.ts" }
+}
+
+
+========================================================================
+FILE: impl/reader/src/routes.ts
+========================================================================
+
+/**
+ * The reader expression of the site (SCMS-030, epic E8).
+ *
+ * zachshallbetter.com's real reader routes, produced from Canon rather than from
+ * a second content query. The consolidation the owner directed — one project,
+ * CMS as substrate and site as reader expression — means the site stops being a
+ * system that *fetches* content and becomes a set of declared surfaces over it.
+ *
+ * One rule carries most of the safety here:
+ *
+ *   **A feed is an expression of the same ResolvedSurface as its page — never a
+ *   second query.**
+ *
+ * Index routes carry `where listed === true`. Unlisted content is public — a
+ * reader with the link may read it — but it appears in no index, no feed, and no
+ * sitemap. Discovery *includes* on the flag rather than excluding on its
+ * negation, so an entry with no flag at all stays out of the index.
+ *
+ * Feeds leak drafts in practice not because anyone intends it but because the
+ * feed is built by a separate code path that reimplements "which entries count"
+ * and drifts from the page's rules. Deriving the feed from the already-resolved
+ * surface makes that drift structurally impossible: if a subject is not in the
+ * surface, there is nothing for the feed to render, because the feed never sees
+ * the store at all (DESIGN.md §5 — access is decided once, at resolution).
+ */
+import { resolveSurface } from "../../surface-resolver/src/resolver.ts";
+import { isFailure } from "../../surface-resolver/src/types.ts";
+import type { ResolvedSurface, SurfaceRequest, AccessLevel } from "../../surface-resolver/src/types.ts";
+
+export interface RouteDeclaration {
+  /** The site path, as readers know it. */
+  path: string;
+  /** How the route asks Canon for its content. Access is the READER's, not the route's. */
+  request: (access: AccessLevel, subject?: string) => SurfaceRequest;
+  /** Detail routes take a subject from the path; index routes do not. */
+  parameterized: boolean;
+}
+
+/** The real reader routes, excluding owner-gated ones (those are E12's problem). */
+export const READER_ROUTES: RouteDeclaration[] = [
+  {
+    path: "/writing",
+    parameterized: false,
+    request: (access) => ({
+      profile: "collection", purpose: "discover", access,
+      lens: { include: { kinds: ["article", "note"] }, where: [{ attr: "listed", equals: true }] },
+    }),
+  },
+  {
+    path: "/writing/[slug]",
+    parameterized: true,
+    request: (access, subject) => ({
+      profile: "focus", purpose: "understand", subject, access,
+      lens: { traversal: { radius: 1 } },
+    }),
+  },
+  {
+    path: "/work",
+    parameterized: false,
+    request: (access) => ({
+      profile: "collection", purpose: "discover", access,
+      lens: { include: { kinds: ["project", "role"] }, where: [{ attr: "listed", equals: true }] },
+    }),
+  },
+  {
+    path: "/work/[slug]",
+    parameterized: true,
+    request: (access, subject) => ({
+      profile: "focus", purpose: "understand", subject, access,
+      lens: { traversal: { radius: 1 } },
+    }),
+  },
+];
+
+export interface RenderedRoute {
+  path: string;
+  surface: ResolvedSurface;
+  subjects: string[];
+}
+
+/** Resolve one route for one reader. Failure is returned, never rendered around. */
+export function renderRoute(
+  snapshot: unknown, route: RouteDeclaration, access: AccessLevel, subject?: string,
+): RenderedRoute | { path: string; failure: string } {
+  const surface = resolveSurface(snapshot as never, route.request(access, subject));
+  if (isFailure(surface)) return { path: route.path, failure: surface.failure };
+  return {
+    path: route.parameterized ? route.path.replace("[slug]", subject ?? "") : route.path,
+    surface,
+    subjects: surface.groups.flatMap((g) => g.members.map((m) => m.subject)),
+  };
+}
+
+export function isRouteFailure(
+  r: RenderedRoute | { path: string; failure: string },
+): r is { path: string; failure: string } {
+  return "failure" in r;
+}
+
+export interface FeedItem { subject: string; title: string; path: string }
+
+/** Supplies display material for ONE subject. Injected, so hydration cannot browse. */
+export type Hydrator = (subject: string) => { title?: string } | undefined;
+
+/**
+ * A feed derived from an ALREADY-RESOLVED surface.
+ *
+ * It takes no snapshot and no access level, because it makes no access decision.
+ * Display material arrives through a `Hydrator` that is called **only for
+ * subjects the surface already admitted** — hydration can look up, never look
+ * around. That is what keeps the classic feed leak structurally impossible: the
+ * feed has no path to a subject the page would not show, so it cannot drift from
+ * the page's rules even if someone later edits it carelessly.
+ */
+export function deriveFeed(rendered: RenderedRoute, basePath: string, hydrate: Hydrator): FeedItem[] {
+  return rendered.surface.groups
+    .flatMap((g) => g.members)
+    .map((m) => ({
+      subject: m.subject,
+      title: hydrate(m.subject)?.title ?? m.subject,
+      path: `${basePath}/${m.subject}`,
+    }));
+}
+
+/** Build a Hydrator over a Canon journal. Titles are authored content, so they live in Canon. */
+export function canonHydrator(entries: Array<{ envelope: { subjectId: string; body: unknown } }>): Hydrator {
+  const byId = new Map<string, { title?: string }>();
+  for (const e of entries) {
+    const slots = (e.envelope.body as { slots?: Record<string, Array<{ value?: unknown }>> }).slots;
+    const t = slots?.title?.[0]?.value;
+    byId.set(e.envelope.subjectId, typeof t === "string" ? { title: t } : {});
+  }
+  return (subject) => byId.get(subject);
+}
+
+/** Every route a reader at this access level can reach, with detail pages expanded. */
+export function siteMap(snapshot: unknown, access: AccessLevel): string[] {
+  const paths: string[] = [];
+  for (const route of READER_ROUTES) {
+    if (route.parameterized) continue;
+    const rendered = renderRoute(snapshot, route, access);
+    if (isRouteFailure(rendered)) continue;
+    paths.push(rendered.path);
+    for (const s of rendered.subjects) paths.push(`${route.path.replace("/[slug]", "")}/${s}`);
+  }
+  return paths.sort();
+}
+
+
+========================================================================
+FILE: impl/reader/test/reader.test.ts
+========================================================================
+
+/**
+ * SCMS-030 vectors: the site as a reader expression of the real corpus.
+ *
+ * Everything here runs over the 215 migrated entries, so what is asserted is
+ * asserted about the owner's actual archive, not about a shape invented to pass.
+ */
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { migrateAll } from "../../migrate/src/zach-core.ts";
+import type { SourceEntry } from "../../migrate/src/zach-core.ts";
+import { CanonJournal } from "../../canon/src/journal.ts";
+import { freeze } from "../../canon/src/freeze.ts";
+import { expressStructural, expressLinear } from "../../surface-expression/src/expressions.ts";
+import {
+  READER_ROUTES, renderRoute, isRouteFailure, deriveFeed, canonHydrator, siteMap,
+} from "../src/routes.ts";
+import type { RenderedRoute } from "../src/routes.ts";
+
+const manifest = JSON.parse(
+  readFileSync(fileURLToPath(new URL("../../../fixtures/zach-core-manifest.json", import.meta.url)), "utf8"),
+) as { entries: SourceEntry[] };
+
+const migrated = migrateAll(manifest.entries);
+const journal = new CanonJournal();
+for (const e of [...migrated.content, ...migrated.relations]) journal.append(e, "migration");
+const snapshot = freeze(journal, "reader-wave-0");
+const hydrate = canonHydrator(journal.current() as never);
+
+const privateSubjects = new Set(
+  migrated.content.filter((e) => e.minimumAccess === "owner").map((e) => e.subjectId));
+const publicSubjects = new Set(
+  migrated.content.filter((e) => e.minimumAccess === "public").map((e) => e.subjectId));
+
+const route = (path: string) => READER_ROUTES.find((r) => r.path === path)!;
+const render = (path: string, access: "public" | "owner", subject?: string) => {
+  const r = renderRoute(snapshot, route(path), access, subject);
+  assert.ok(!isRouteFailure(r), `${path} failed: ${JSON.stringify(r)}`);
+  return r as RenderedRoute;
+};
+
+test("the site's real index routes resolve over the real corpus", () => {
+  const writing = render("/writing", "public");
+  const work = render("/work", "public");
+  assert.ok(writing.subjects.length > 0, "/writing has readers' content");
+  assert.ok(work.subjects.length > 0, "/work has readers' content");
+  // 71 source-public entries plus the 2 unlisted ones, which are public-access
+  // but appear in no index — see the unlisted vector below.
+  assert.equal(publicSubjects.size, 73);
+});
+
+test("no public route exposes a private entry", () => {
+  for (const path of ["/writing", "/work"]) {
+    const rendered = render(path, "public");
+    for (const s of rendered.subjects) {
+      assert.ok(!privateSubjects.has(s), `${path} exposed private subject ${s}`);
+    }
+    // Control: the route is not trivially empty, so this check can fail.
+    assert.ok(rendered.subjects.length > 0);
+  }
+});
+
+test("a private entry's detail route is refused, not rendered empty", () => {
+  const somePrivate = [...privateSubjects][0];
+  const r = renderRoute(snapshot, route("/writing/[slug]"), "public", somePrivate);
+  assert.ok(isRouteFailure(r), "a private subject must not resolve for a public reader");
+  // The refusal names a closed class rather than leaking why.
+  assert.ok(["subject-not-found", "subject-inaccessible"].includes((r as { failure: string }).failure));
+});
+
+test("the owner sees more than the public reader — the difference is exactly the private set", () => {
+  const pub = new Set(render("/writing", "public").subjects);
+  const owner = new Set(render("/writing", "owner").subjects);
+  for (const s of pub) assert.ok(owner.has(s), "the owner sees everything the public sees");
+  const extra = [...owner].filter((s) => !pub.has(s));
+  assert.ok(extra.length > 0, "the owner sees drafts");
+  for (const s of extra) assert.ok(privateSubjects.has(s), `${s} appeared for the owner but is not private`);
+});
+
+test("the feed is derived from the page's surface, and cannot reach past it", () => {
+  const rendered = render("/writing", "public");
+  const asked: string[] = [];
+  const items = deriveFeed(rendered, "/writing", (s) => { asked.push(s); return hydrate(s); });
+
+  // Hydration looked up, it did not look around.
+  assert.deepEqual([...new Set(asked)].sort(), [...new Set(rendered.subjects)].sort(),
+    "hydration was called for exactly the surface's members");
+  assert.equal(items.length, rendered.subjects.length);
+  for (const i of items) assert.ok(!privateSubjects.has(i.subject));
+});
+
+test("the feed carries real authored titles, not slugs", () => {
+  const rendered = render("/writing", "public");
+  const items = deriveFeed(rendered, "/writing", hydrate);
+  const titled = items.filter((i) => i.title !== i.subject);
+  assert.ok(titled.length > 0, "titles hydrated from Canon");
+  assert.ok(titled.every((i) => i.title.length > 0));
+});
+
+test("the sitemap for a public reader lists no private path", () => {
+  const paths = siteMap(snapshot, "public");
+  assert.ok(paths.includes("/writing") && paths.includes("/work"));
+  for (const s of privateSubjects) {
+    assert.ok(!paths.some((p) => p.endsWith(`/${s}`)), `sitemap leaked ${s}`);
+  }
+  assert.ok(paths.length > 2, "detail paths were expanded");
+});
+
+test("a route's surface expresses two materially different ways over real content", () => {
+  const rendered = render("/work", "public");
+  const web = expressStructural(rendered.surface);
+  const voice = expressLinear(rendered.surface);
+  assert.notEqual(web.modality, voice.modality);
+  assert.deepEqual(web.presentedOrder, voice.presentedOrder,
+    "both expressions present the same subjects in the same order");
+  assert.notDeepEqual(web.morphology, voice.morphology, "morphology is genuinely free");
+});
+
+test("no expression of a public route presents a private subject", () => {
+  for (const path of ["/writing", "/work"]) {
+    const rendered = render(path, "public");
+    for (const artifact of [expressStructural(rendered.surface), expressLinear(rendered.surface)]) {
+      for (const s of artifact.presentedOrder) {
+        assert.ok(!privateSubjects.has(s), `${path} presented private subject ${s}`);
+      }
+      // And the emitted representation carries no private id as a whole token.
+      // (Token-wise, not substring: one private entry has the slug "ma", which
+      // occurs inside ordinary markup — a naive scan reports a leak that is not
+      // one, and would have been "fixed" by weakening the real check.)
+      const out = artifact.output;
+      for (const s of privateSubjects) {
+        assert.ok(!new RegExp(`(^|[^a-z0-9-])${s}([^a-z0-9-]|$)`).test(out),
+          `${path} output leaked private subject ${s}`);
+      }
+      // Control: a public subject IS present, so the scan is meaningful.
+      assert.ok([...publicSubjects].some((s) => artifact.output.includes(s)));
+    }
+  }
+});
+
+test("unlisted content is reachable by link and absent from every index", () => {
+  const unlisted = migrated.content
+    .filter((e) => ((e.body as unknown as { attrs: Record<string, unknown> }).attrs).listed === false)
+    .map((e) => e.subjectId);
+  assert.equal(unlisted.length, 2);
+
+  // Absent from the index route, its feed, and the sitemap...
+  const index = render("/writing", "public");
+  const feedSubjects = deriveFeed(index, "/writing", hydrate).map((i) => i.subject);
+  const paths = siteMap(snapshot, "public");
+  for (const s of unlisted) {
+    assert.ok(!index.subjects.includes(s), `${s} appeared in the index`);
+    assert.ok(!feedSubjects.includes(s), `${s} appeared in the feed`);
+    assert.ok(!paths.some((p) => p.endsWith(`/${s}`)), `${s} appeared in the sitemap`);
+  }
+
+  // ...but reachable by its own link, which is exactly what "unlisted" means.
+  // Mapping it to private would have broken this; mapping it to public would
+  // have put it in the index above.
+  for (const s of unlisted) {
+    const detail = renderRoute(snapshot, route("/writing/[slug]"), "public", s);
+    assert.ok(!isRouteFailure(detail), `${s} should be readable by link`);
+    assert.ok((detail as RenderedRoute).subjects.includes(s));
+  }
+});
+
+test("a detail route resolves a real project together with its real relation", () => {
+  const rendered = render("/work/[slug]", "public", "cursed-crypt");
+  assert.equal(rendered.path, "/work/cursed-crypt");
+  assert.ok(rendered.subjects.includes("cursed-crypt"));
+  assert.ok(rendered.subjects.includes("founder-cpo"),
+    "the relation declared in the owner's own frontmatter resolved into the page");
 });
 
 
@@ -17308,6 +17670,7 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-027 | Extend the composed proof to the full landed surface | E1 | Done — awaiting owner verification | records/evidence.jsonl · scms-evidence-027 |
 | SCMS-028 | Map the zach-core corpus into Canon (first real workload) | E8 | Done — 215 real entries map, 22 source-collapse findings raised; awaiting owner verification | records/evidence.jsonl · scms-evidence-028 |
 | SCMS-029 | Reconcile the corpus against live Postgres (seed-time vs current) | E8 | **Blocked** — needs owner-authorized credentials (protected action) | — |
+| SCMS-030 | The site as a reader expression of Canon (round-trip out) | E8 | Done — real reader routes resolve; NR-scms-004 recorded; awaiting owner verification | records/evidence.jsonl · scms-evidence-030 |
 | SCMS-018 | R1 live co-authoring — **free lane only** (convergent merge) | E1 | **Blocked** — awaiting disposition of P7/P22 on PR #28 | records/blockers · scms-blocker-001 |
 | SCMS-010 | S4 cross-domain portability: a materially unrelated project (outside this repository, per owner doctrine 2026-08-28) consumes @semantic-systems/surface unmodified | external | Backlog — executes outside scms; scms records the conformance result | — |
 
@@ -18892,4 +19255,72 @@ claims the corpus is current — only that what it contains maps faithfully.
 ## Closing state
 
 **Done — real content maps into Canon, and the mapping reports what it could not honestly decide.**
+
+
+========================================================================
+FILE: work/SCMS-030.md
+========================================================================
+
+# SCMS-030 — The site as a reader expression of Canon
+
+**Intent ref:** PROJECT_INTENT.md · **Epic:** E8 · **Effect class:** E1
+**Assigned by:** owner directive — *"We should be migrating both projects to a singular new one."*
+**State:** Ready → Claimed → Done (closing state at bottom)
+
+## The gap
+
+SCMS-028 landed the corpus. Nothing read it back out. The consolidation the owner directed —
+one project, CMS as substrate and site as reader expression — means the site stops being a
+system that *fetches* content and becomes a set of declared surfaces over it. Until a real
+reader route resolves from Canon, "substrate" is a word.
+
+SPEC_HEALTH names the missing half exactly: *"a round-trip back out to a reader."*
+
+## Ready predicate
+
+- **Scope:** declare zachshallbetter.com's real reader routes (`/writing`, `/work`, their detail
+  pages) as SurfaceRequests, resolve them over the migrated corpus, and derive feed and sitemap
+  from the resolved surface.
+- **Exclusions:** no deploy, no live-state change, no owner-gated routes (E12), no visual design.
+  No Astro integration in this slice — the route *declarations* are the contract; wiring them into
+  the site's renderer is the consolidation step that follows.
+- **Dependencies (satisfied):** SCMS-028 and the resolver/expression stack, CI-verified.
+- **Acceptance:**
+  1. The real index routes resolve over the real corpus and are non-empty.
+  2. No public route exposes any of the 142 private entries.
+  3. A private detail route is **refused with a closed failure class**, not rendered empty.
+  4. The owner's view differs from the public view by exactly the private set.
+  5. The feed is derived from the page's surface and hydration is called for exactly the
+     surface's members — it can look up, never look around.
+  6. Unlisted content is reachable by link and absent from index, feed, and sitemap.
+  7. Both expressions of a route present no private subject, with a control proving the scan works.
+
+## The rule this slice establishes
+
+**A feed is an expression of the same ResolvedSurface as its page — never a second query.**
+
+Feeds leak drafts in practice not because anyone intends it but because the feed is a separate
+code path that reimplements "which entries count" and drifts. `deriveFeed` takes no snapshot and
+no access level, so it makes no access decision and has no route to a subject the page would not
+show. Display material arrives through an injected `Hydrator` called only for members the surface
+admitted; a vector asserts that call set equals the member set exactly. The parameter list is the
+guarantee.
+
+## What the corpus caught (again)
+
+1. **A declared attribute with no consumer.** SCMS-028 preserved `unlisted` "so discovery lenses
+   can exclude it" — and no lens did. The first reader vector put both unlisted entries straight
+   into the public index. Recorded as **NR-scms-004**: this is the fourth instance of the failure
+   class this project exists to catch, committed by this project. Fixed by making the flag
+   *positive and always present* (`listed: boolean`, discovery includes on `true`), so absence
+   excludes rather than admits. The negation form would have leaked on any record that missed it.
+2. **A naive check that reported a leak that was not one.** One private entry has the slug `ma`,
+   which occurs inside ordinary markup, so a substring scan flagged it. The scan was made
+   token-wise rather than relaxed — a real check weakened to stop a false alarm is worse than no
+   check, because it still reads as protection.
+
+## Closing state
+
+**Done — the round-trip closes: real content in, real reader routes out, with the feed unable
+to disagree with the page.**
 

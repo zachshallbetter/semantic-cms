@@ -1,0 +1,8 @@
+{
+  "name": "@scms/reader",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "The site as a reader expression of Canon (SCMS-030, epic E8): the real zachshallbetter.com reader routes resolved as surfaces, with feeds and sitemap derived from the same resolved surface rather than a second query.",
+  "scripts": { "test": "node --test test/reader.test.ts" }
+}

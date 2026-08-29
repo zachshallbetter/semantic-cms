@@ -16,8 +16,10 @@
  *    visible rather than inherited.
  *
  * 2. `visibility: unlisted` is neither public nor private. Mapping it to either
- *    would destroy a real distinction, so it lands as public access carrying an
- *    explicit `unlisted` attribute for discovery lenses to exclude.
+ *    would destroy a real distinction, so it lands as public access with
+ *    `attrs.listed = false`: reachable by link, excluded from every index. The
+ *    flag is written in positive form on every record, so discovery — which
+ *    includes on `listed === true` — excludes on absence rather than admitting.
  *
  * 3. The Semantic Article Field (`data.field`) is model-generated and the source
  *    itself flags it `model-inferred; unvalidated`. It therefore may NOT land as
@@ -124,8 +126,8 @@ export function migrateEntry(entry: SourceEntry): MigrationResult {
   if (unlisted) {
     findings.push({
       code: "unlisted-preserved", entry: entry.file,
-      detail: "visibility 'unlisted' is neither public nor private; landed as public access with attrs.unlisted=true " +
-        "so discovery lenses can exclude it without the distinction being destroyed",
+      detail: "visibility 'unlisted' is neither public nor private; landed as public access with attrs.listed=false, " +
+        "which the reader's discovery lens consumes (SCMS-030) — reachable by link, absent from every index",
     });
   }
   const state = mapState(fm.status, entry.file, findings);
@@ -136,7 +138,11 @@ export function migrateEntry(entry: SourceEntry): MigrationResult {
   const attrs: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(fm)) if (!structural.has(k)) attrs[k] = v;
   if (LIFECYCLE_LABELS.has(String(fm.status ?? ""))) attrs.lifecycleLabel = fm.status;
-  if (unlisted) attrs.unlisted = true;
+  // Positive form, and present on EVERY record: discovery includes on
+  // `listed === true`, so a missing or malformed value excludes rather than
+  // admits. An `unlisted` flag would have been the same fact stated in the
+  // direction where absence leaks.
+  attrs.listed = !unlisted;
 
   result.content.push(envelope(slug, access, {
     kind: "Content", contentKind: type,

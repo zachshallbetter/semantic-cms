@@ -81,12 +81,16 @@ test("the source's mixed status vocabulary is SURFACED, not inherited", () => {
 });
 
 test("unlisted is preserved as itself — neither public nor private", () => {
-  const unlisted = result.content.filter(
-    (e) => ((e.body as unknown as { attrs: Record<string, unknown> }).attrs).unlisted === true);
+  const attrsOf = (e: { body: unknown }) => (e.body as { attrs: Record<string, unknown> }).attrs;
+  const unlisted = result.content.filter((e) => attrsOf(e).listed === false);
   assert.equal(unlisted.length, 2, "the source's 2 unlisted entries");
   for (const e of unlisted) {
     assert.equal(e.minimumAccess, "public", "reachable by link");
   }
+  // The flag is positive and present on EVERY record, so discovery (which
+  // includes on listed === true) excludes on absence rather than admitting.
+  assert.ok(result.content.every((e) => typeof attrsOf(e).listed === "boolean"),
+    "every record declares its listability explicitly");
   assert.equal(result.findings.filter((f) => f.code === "unlisted-preserved").length, 2);
 });
 
