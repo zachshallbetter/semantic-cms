@@ -118,6 +118,12 @@ jobs:
       - name: No duplicate record ids
         run: python3 scripts/next-id.py --check
 
+      - name: Declaration parity — self-test (gate can fail)
+        run: python3 scripts/check-declaration-parity.py --self-test
+
+      - name: Declaration–consumer parity (P27)
+        run: python3 scripts/check-declaration-parity.py
+
       - name: Canon write boundary — self-test (gate can fail)
         run: python3 scripts/check-canon-write-boundary.py --self-test
 

@@ -9,14 +9,14 @@
     "repositories": [
       {
         "path": ".",
-        "commit": "497f8aa0490973cf4966e878f2a539dcb4564249",
+        "commit": "f81b0f04c739baff07a47ea759652fee6088202c",
         "branch": "main",
         "dirty": true,
         "remote": "https://github.com/zachshallbetter/semantic-cms.git"
       }
     ]
   },
-  "aggregateSourceDigest": "7ab414ac6c9910dc05aad93430e265f6872d7445d918b5ae67de2db7134c7ea0",
+  "aggregateSourceDigest": "0e04557853ca6882ef76420b3f306b29cdc2d54a5d0e4ef3f1f9c28f36d40d1c",
   "sources": [
     {
       "path": ".agents/skills/compile-context/SKILL.md",
@@ -55,8 +55,8 @@
     },
     {
       "path": ".github/workflows/gates.yml",
-      "bytes": 4759,
-      "sha256": "39da5f4e431468a94865d1cb41968b7a43f37040b5219d920411dd270026c06d"
+      "bytes": 5000,
+      "sha256": "19a0ff0c65bc85805b64c6d68db933041bba4e3a1ffd03d441d4f2809e118ba4"
     },
     {
       "path": "AGENTS.md",
@@ -100,8 +100,8 @@
     },
     {
       "path": "SPEC_HEALTH.md",
-      "bytes": 19601,
-      "sha256": "1ea5a898ce72de5144b3121999cfa759f12ceeacf31cbc2ebebc31083974bf7d"
+      "bytes": 19823,
+      "sha256": "96628050e9c3ca82524c5ec34b9689dca844319b864338cb866b01a09bc3ebe0"
     },
     {
       "path": "VERSION",
@@ -375,13 +375,13 @@
     },
     {
       "path": "impl/observation/src/consistency.ts",
-      "bytes": 6682,
-      "sha256": "29f54622d9a49a242924b8a929d9106cfb9de73ebaa5c5706d56c58301569f4f"
+      "bytes": 8766,
+      "sha256": "e8f54b847f0e5d36882cf41f14e4ede8ba090310332b21e5bc679c513b337a90"
     },
     {
       "path": "impl/observation/test/observation.test.ts",
-      "bytes": 7520,
-      "sha256": "31aec5615441dc5c9c2c238eab1f6086f536e1792e649fb36ed3cb3e118fb12b"
+      "bytes": 10265,
+      "sha256": "0d850f782fb60c456a97ea18ce7de4e5c3057c0e9f544dbd0fb378696ab82fb2"
     },
     {
       "path": "impl/outbox/package.json",
@@ -664,6 +664,11 @@
       "sha256": "b9873a1a0d1e923db2801fed29d2e5c8fc8bfebb47202f618dca0351e663f66c"
     },
     {
+      "path": "scripts/check-declaration-parity.py",
+      "bytes": 5253,
+      "sha256": "f65a6df45fb5a7d0a46d38e149dd7855ebd0a83c2a875d25e3678e29a7f0b01c"
+    },
+    {
       "path": "scripts/check-projection-sync.py",
       "bytes": 3585,
       "sha256": "cceb026b05da54d231f6bbb2da42ff1cc9cb4fb785c3218631653105e61b1c06"
@@ -690,8 +695,8 @@
     },
     {
       "path": "work/GRAPH.md",
-      "bytes": 12387,
-      "sha256": "94fb5fb65eb4d985ff1a61b4ae07a53bcba1ebfc68dabdf52bcc420acd26101c"
+      "bytes": 12602,
+      "sha256": "23e5da62fbec8d83887931a5b01dac936f7be18b41d8b787759786e151ee10ba"
     },
     {
       "path": "work/SCMS-001.md",
@@ -887,6 +892,11 @@
       "path": "work/SCMS-047.md",
       "bytes": 3662,
       "sha256": "155327f80b720d7b7295e711d1fb1e8e9f26c7f7baa624e2ca5a539a381ab820"
+    },
+    {
+      "path": "work/SCMS-048.md",
+      "bytes": 3320,
+      "sha256": "5881e7fcc0c6e2ba70e1dd1e699a0bd37936d7703614800762fd6d7691f529e9"
     }
   ]
 }

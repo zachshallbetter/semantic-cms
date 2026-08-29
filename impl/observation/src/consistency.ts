@@ -97,6 +97,51 @@ export function permits(state: ConsistencyState, action: Action): boolean {
   return state === "current" || state === "stale-but-safe";
 }
 
+export type ConvergeResult =
+  | { converged: true; baseline: ClientBaseline; acknowledged: number }
+  | { converged: false; reason: string; state: ConsistencyState };
+
+/**
+ * Acknowledge remote activity that does not touch the held revision (SCMS-048).
+ *
+ * §8.6's table says consequential action in `stale-but-safe` is permitted
+ * **"✓ after converge"**, and nothing implemented converge — so the qualifier
+ * had no referent. `permits()` currently answers the whole question with "yes",
+ * which is why a client told it is 37 events behind can still publish (SH-17).
+ *
+ * This supplies the missing half **without** changing what `permits()` returns.
+ * That flip is a consequence-model decision and stays the owner's; what was
+ * missing was the mechanism it would depend on. With this landed, SH-17 becomes
+ * a one-line change rather than a design question.
+ *
+ * Converging is deliberately narrow. It acknowledges that Canon advanced
+ * *elsewhere*; it does not resolve a conflict, adopt a successor, or revive a
+ * revoked record. Those are different acts with different consequences, and a
+ * function that silently did them under the name "converge" would be exactly
+ * the kind of quiet widening this project keeps catching.
+ */
+export function converge(baseline: ClientBaseline, canon: CanonJournal): ConvergeResult {
+  const assessment = consistencyState(baseline, canon);
+  if (assessment.state === "current") {
+    return { converged: false, reason: "already current; nothing to acknowledge", state: "current" };
+  }
+  if (assessment.state !== "stale-but-safe") {
+    // Conflicted, superseded, revoked and unknown each need a decision a client
+    // cannot make by catching up.
+    return {
+      converged: false,
+      reason: `'${assessment.state}' cannot be resolved by converging — ${assessment.reason}`,
+      state: assessment.state,
+    };
+  }
+  const acknowledged = canon.all().length - baseline.observedCanonEntries;
+  return {
+    converged: true,
+    acknowledged,
+    baseline: { ...baseline, observedCanonEntries: canon.all().length },
+  };
+}
+
 export interface Freshness {
   /** Caller-supplied clock. No ambient time. */
   nowMs: number;

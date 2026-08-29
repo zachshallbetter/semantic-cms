@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 import { CanonJournal } from "../../canon/src/journal.ts";
 import type { Envelope, RecordState } from "../../canon/src/envelope.ts";
 import {
-  consistencyState, permits, chip, activePresence, heldLocks, CONSISTENCY_STATES,
+  consistencyState, permits, chip, activePresence, heldLocks, CONSISTENCY_STATES, converge,
 } from "../src/consistency.ts";
 import type { ClientBaseline, PresenceRecord } from "../src/consistency.ts";
 
@@ -145,4 +145,62 @@ test("no ambient time or randomness: every clock is an input", async () => {
   const { fileURLToPath } = await import("node:url");
   const src = readFileSync(fileURLToPath(new URL("../src/consistency.ts", import.meta.url)), "utf8");
   assert.ok(!/Date\.now|Math\.random|new Date\(\)/.test(src));
+});
+
+
+// ── SCMS-048: the converge step §8.6 names and nothing implemented ──────────
+
+test("converging acknowledges remote activity and leaves the client current", () => {
+  const j = new CanonJournal();
+  const v1 = j.append(doc("art-1", "first"), "t");
+  j.append(doc("art-2", "other"), "t");
+  const b = baseline(v1.envelope.revision!, { observedCanonEntries: 1 });
+  assert.equal(consistencyState(b, j).state, "stale-but-safe");
+
+  const r = converge(b, j);
+  assert.ok(r.converged);
+  assert.equal(r.acknowledged, 1, "it acknowledged the entry that landed elsewhere");
+  assert.equal(consistencyState(r.baseline, j).state, "current",
+    "which is what §8.6's '✓ after converge' requires to mean anything");
+});
+
+test("converging does not resolve what catching up cannot resolve", () => {
+  // A converge that silently adopted a successor or revived a revoked record
+  // would be a quiet widening of what the word means.
+  const j = new CanonJournal();
+  const v1 = j.append(doc("art-1", "first"), "editor-a");
+  const v2 = j.supersede(v1.envelope.revision!, doc("art-1", "remote"), "editor-b");
+
+  const conflicted = converge(baseline(v1.envelope.revision!, { hasLocalEdits: true }), j);
+  assert.equal(conflicted.converged, false);
+  assert.match((conflicted as { reason: string }).reason, /conflicted/);
+
+  const superseded = converge(baseline(v1.envelope.revision!), j);
+  assert.equal(superseded.converged, false);
+  assert.match((superseded as { reason: string }).reason, /superseded/);
+
+  j.revoke(v2.envelope.revision!, "t");
+  const revoked = converge(baseline(v2.envelope.revision!), j);
+  assert.equal(revoked.converged, false);
+  assert.match((revoked as { reason: string }).reason, /revoked/);
+
+  const unknown = converge(baseline(v1.envelope.revision!, { baselineEstablished: false }), j);
+  assert.equal(unknown.converged, false);
+  assert.match((unknown as { reason: string }).reason, /unknown/);
+});
+
+test("converging when already current is refused, not a silent no-op", () => {
+  const j = new CanonJournal();
+  const v1 = j.append(doc("art-1", "first"), "t");
+  const r = converge(baseline(v1.envelope.revision!), j);
+  assert.equal(r.converged, false);
+  assert.match((r as { reason: string }).reason, /already current/);
+});
+
+test("converge does not change what permits() allows — that flip stays the owner's", () => {
+  // SH-17 asks whether lag should gate promotion. This supplies the mechanism
+  // that question depends on and deliberately leaves the answer alone, so the
+  // register keeps describing the behaviour the system actually has.
+  assert.equal(permits("stale-but-safe", "consequential"), true);
+  assert.equal(permits("conflicted", "consequential"), false);
 });
