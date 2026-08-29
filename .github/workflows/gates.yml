@@ -36,6 +36,14 @@ jobs:
           fi
           python3 scripts/check-records-append-only.py --base "$BASE"
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Surface resolver vectors (SCMS-008 · SSS S0/S1 slice + S2 access property)
+        run: node --test test/resolver.test.ts
+        working-directory: impl/surface-resolver
+
       - name: Projection sync — self-test (gate can fail)
         run: python3 scripts/check-projection-sync.py --self-test
 
