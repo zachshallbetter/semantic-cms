@@ -1,8 +1,9 @@
 # Semantic CMS — Design
 
-**Status:** Declared design candidate (documented ≠ implemented ≠ tested ≠ empirically validated)
+**Status:** Declared design, **v2 candidate** — integrates amendments P1–P28 from SCMS-002 and SCMS-004 for owner disposition. Each integrated passage is tagged `[P#]`; strike or amend per hunk. (documented ≠ implemented ≠ tested ≠ deployed ≠ verified)
 **Authority:** project.owner
-**Formal resources (to pin on bootstrap):** SES v1.0.0 · SPS v0.1.0 · ICP v0.1.0 · EQP v0.1.0 · IEPE-001 v0.2.0 · HCML corpus v2 · Fundamental Engine v0.10.1 · rr-rsp-0.1 · formal-project-bootstrap v0.5.0
+**Formal resources (pinned):** SES v1.0.0 · SPS v0.1.0 · ICP v0.1.0 · EQP v0.1.0 · IEPE-001 v0.2.0 · HCML corpus v2 · Fundamental Engine v0.10.1 · rr-rsp-0.1 (provisional, UD-8) · formal-project-bootstrap v0.5.0 — plus, on acceptance of P18: agent-control-plane 0.1.0
+**Companions:** SPEC_HEALTH.md (deferred decisions + claim register) · records/upstream-debts.jsonl · research/ (evidence base)
 
 ---
 
@@ -16,28 +17,31 @@ Every consequential fact in the system is an explicit, typed, provenance-bearing
 - **R2 — Live propagation.** A committed change reaches every projection and every subscriber, with the freshness of what each viewer sees disclosed, not implied.
 - **R3 — Live honesty.** The system continuously shows what it actually is — drift, staleness, presence, degradation — rather than what it intends to be.
 
-Most realtime systems buy R1 and R2 by sacrificing R3: optimistic UI that lies about delivery, CRDTs that silently merge meaning, caches that serve superseded content with no admission. This design treats R3 as the constraint the other two must satisfy.
+Most realtime systems buy R1 and R2 by sacrificing R3. This design treats R3 as the constraint the other two must satisfy.
 
-## 2. The six planes
+## 2. The planes
 
-Adapted from SPS's layered stack. Each plane owns one kind of truth and is prohibited from owning its neighbors'.
+Adapted from SPS's layered stack, extended by review. Each plane owns one kind of truth, is prohibited from owning its neighbors' — and declares what it **must never become** `[P6]`.
 
-| Plane | Owns | Must not own |
-|---|---|---|
-| **1. Canon** (record graph) | Identity, revisions, typed relations, provenance, entitlement declarations | Layout, delivery state, live signals |
-| **2. Contracts** (write plane — ICP) | Authority, validation, instance lifecycle, receipts, recovery | Content meaning, visual styling |
-| **3. Qualification** (publish plane — EQP) | Claims, evidence, obligations, attestations | The publish decision itself (promotion is separate authority) |
-| **4. Projection** (read plane — SES resolver + derivations) | Expression resolution, derived artifacts, access projection | Any mutation of canonical state |
-| **5. Field** (live semantics — Fundamental) | Metrics, relationship signals, emphasis, workspace morphology | Canonical metadata — signals alter emphasis and explanation, never title, order, entitlement, or identity |
-| **6. Observation** (delivery + presence — rr-rsp) | Freshness, drift, presence, degradation | Authority — observations expire and may never drive decisions after expiry |
+| Plane | Owns | Must not own | Must never become `[P6]` |
+|---|---|---|---|
+| **0. Admission** `[P1]` | Source intake: custody, rights scope, processing authority, retention | Content meaning, identity resolution | A byte-processing authority for sources admitted metadata-only |
+| **1. Canon** | Identity, revisions, typed relations, provenance, entitlement declarations | Layout, delivery state, live signals | A mutable store; a second vocabulary authority |
+| **2. Contracts** | Authority, validation, instance lifecycle, receipts, recovery | Content meaning, visual styling | A hidden actor graph; a credential sink |
+| **3. Qualification** | Claims, evidence, obligations, attestations | The publish decision (promotion is separate authority) | A self-certifying scheme — its gates carry self-tests |
+| **4. Projection** | Access-safe derivation: access projection → surface resolution (SSS) → expression resolution (SES) → artifact derivation | Canonical mutation, interaction authority, qualification authority, field truth | A decision-maker — renderers are contractually decision-free; SSS is a derivation stage inside this plane, never a plane of truth |
+| **5. Field** | Live metrics, relationship signals, emphasis, workspace morphology | Canonical metadata | An identity system — only lossy verdicts cross its boundary; it does not know subject identities `[P13]` |
+| **6. Observation** | Freshness, drift, presence, degradation | Authority — observations expire | A second truth; a permanent behavioral history `[P13]` |
 
-Structural rule (ICP §4.5): read/reveal capabilities are **structurally separated** from write capabilities. The projection plane has no write path; the observation plane's only write path is appending observed records to Canon.
+Structural rules: read/reveal capabilities are structurally separated from write capabilities (ICP §4.5). **Instrument stratification** (incident-derived, NR-scms-001): wherever two record types can attach to one consequential effect, canon declares which instrument *authorizes* and which merely *observes or remembers* — and the weaker instrument grants nothing. Authorization-by-the-cheaper-record is a named illegal state, checked on every normative change. `[P6]` Every plane component ships a custody declaration — *owns / may consume / may issue / must never become*, with `forbidden_reads` / `forbidden_writes` / `forbidden_calls` — derived from its actual surface by tooling and confirmed by a human, and enforced by **constitutional CI**: doctrine compiled into executable checks (pattern rejection, forbidden-vocabulary lints, an illegal-states table of *anti-pattern → prevention mechanism → status → evidence*).
 
 ## 3. The record model (Canon)
 
-### 3.1 One envelope, five body kinds
+### 3.0 Admission `[P1]`
 
-Every record is a versioned envelope (rr-rsp shape):
+Nothing enters Canon without an admission record: `sourceType, sourceRef, custody, processingAuthority, rightsScope, acquiredAt, digest, actor, retentionPolicy, identityDisposition`. `processingAuthority` is a **set** of permitted operations — `inspect | normalize | ingest | enrich | train | redistribute` — because possession does not authorize processing. Outcomes: `rejected` (typed reason) · `held-for-review` · `admitted` · **`metadata-only`** (participates in discovery and collection with zero byte-processing authority). Comprehension is asynchronous: a source becomes a record in one transaction and becomes *understood* afterwards, never blocking readability — with enrichment enqueued inside the admitting transaction so no work can be silently missing.
+
+### 3.1 One envelope, five body kinds
 
 ```
 Envelope {
@@ -46,314 +50,175 @@ Envelope {
   compatibility       // { protocol, subject_schema } — checked independently of identity
   provenance          // { kind, authority, source, source_hash, observed_at?, expires_at? }
   minimum_access      // access floor for the whole record
-  body                // tagged union, below
+  body                // tagged: Schema | Content | Relation | Observation | Topology
 }
 ```
 
-Body kinds: **Schema** (content types, themes, contracts — definitions) · **Content** (documents: block/slot instances) · **Relation** (typed edges) · **Observation** (measurements, presence, delivery manifests) · **Topology** (sites, channels, renderers, edges of the delivery graph).
-
-Schema, service manifest, live measurement, and topology are peers in one store, differentiated by tag — uniform identity, access projection, and provenance for all of them.
+Content types, themes, and contract definitions (`Schema`), documents (`Content`), typed edges (`Relation`), measurements and presence (`Observation`), and the delivery graph (`Topology`) are peers in one store — uniform identity, access projection, and provenance for all.
 
 ### 3.2 Provenance is a four-class lattice
 
-`provenance.kind ∈ { declared, derived, observed, system-certified }`
+`provenance.kind ∈ { declared, derived, observed, system-certified }`. **Consumers must not promote one class into another.** Observed envelopes MUST carry `observed_at` + `expires_at`; declared/derived MUST NOT. Expiry governs *authority to decide*, not deletion — expired observations are retained for replay.
 
-- **declared** — asserted by the authority that owns it (an author's text, an editor's confidence rating)
-- **derived** — mechanically projected from an identified source (a rendered page, a search index, a summary)
-- **observed** — measured from a running system, time-bounded (presence, delivery state, engagement)
-- **system-certified** — emitted by an identified trusted pipeline from validated inputs (resolver output with trace)
+### 3.3 Identity
 
-**Consumers must not promote one class into another.** An observed engagement spike does not become declared importance. A derived summary does not become authored text. Observed envelopes MUST carry `observed_at` + `expires_at`; declared/derived envelopes MUST NOT. Expiry governs *authority to decide*, not deletion — expired observations are retained for replay.
-
-### 3.3 Four identity classes, never conflated
+Four identity classes, never conflated:
 
 | Class | Stability contract | CMS instance |
 |---|---|---|
 | Process-local | one session | editing session id, subscription id |
-| Build-local | one artifact | revision hash (JCS canonicalization → SHA-256) |
+| Build-local | one artifact | revision hash (JCS → SHA-256) |
 | Schema key | stable across declared-compatible releases | content id, semantic slug namespace |
 | Human name | display only, no uniqueness | title, byline |
 
-A semantic replacement gets a **new id**; editorial correction keeps the id. Content hash answers "same bytes"; compatibility answers "may be exchanged" — different questions, checked by different mechanisms.
+A semantic replacement gets a **new id**; editorial correction keeps the id. Content hash answers "same bytes"; compatibility answers "may be exchanged."
+
+`[P20]` **Hashing discipline.** Identity hashes are two-tier: a **structural hash** over the canonical content alone, and a **contract hash** over the rendering/exchange agreement (schema name+version, declared offsets, hints) — so presentation-policy churn never invalidates content-keyed caches. Rules: hash the source, never a derived rendering, and never round-trip a projection back into identity; domain-separate every hash (a separator byte + purpose tag) and bind to relative, portable paths; strip presentation metadata (frontmatter-class fields) from content identity so `reviewed: true` invalidates nothing downstream; **quantize continuous inputs before hashing** so measurement noise cannot churn identity; run cheap and expensive derivations on **independent staleness axes** (a tree-level hash and a semantic-level hash that invalidate separately). *(Design adopted from imagetracer/graphify; imagetracer's reference implementation of the contract hash is defective — see UD-11 — adopt the design, not the code.)*
+
+`[P14]` **Minting discipline.** Identity is minted, never derived from anything a downstream process can change: a per-job mint ledger inside the committing transaction makes retried commits idempotent while new jobs mint fresh identity for identical bytes; identity-scheme version columns carry **no DEFAULT** (a default silently labels rows nobody classified); every identity documents its hash inputs **and its exclusion list** `[P19]` — time, randomness, iteration order, and display strings are named as excluded, which is what makes a frozen record re-verifiable. Nothing derived from a detector or model output is identity-stable across detector versions.
 
 ### 3.4 Append-only, enforced by grants
 
-Revisions are append-only rows with **no UPDATE grant** (PDP's custody-in-the-database pattern). There is no destructive edit and no destructive delete — only:
-
-- **Supersession** — a new revision names what it supersedes; the old becomes historical-only.
-- **Revocation** — prevents new use; retains all provenance needed to explain past use.
-- **Entitlement hiding** — content participates in discovery as a *protected resource* (geometry, relations, metrics visible; text layer gated).
-
-The receipt chain is hash-linked. Negative results (failed qualification, rejected candidates, discredited metrics) are permanent project memory — never deleted, renumbered, or rewritten.
+Revisions and receipts are append-only rows with no UPDATE grant. No destructive edit, no destructive delete — only **supersession**, **revocation** (retaining the provenance that explains past use), and **entitlement hiding** (content participates in discovery as a protected resource). The receipt chain is hash-linked. Negative results are permanent memory. Enforcement educates: append-only triggers state the correct alternative procedure in their error messages. Every record family declares a **loss hierarchy** `[P23]`: which fields are load-bearing (attribution — never dropped) and which are decorative (droppable individually, with the loss counted and reported).
 
 ### 3.5 Multi-axis state — the one-enum `status` field is prohibited
 
-A document's condition is four orthogonal axes, never one value:
-
-- **Semantic maturity:** `draft → complete → superseded`
-- **Evidence state:** `unqualified → qualified → stale → invalidated`
-- **Publication state:** `unpublished → promoted → embargoed → superseded → revoked`
-- **Delivery state:** `unpropagated → propagating → synchronized → drifted`
-
-And absence vocabulary never collapses: `hidden ≠ unavailable ≠ absent ≠ unknown ≠ unsupported ≠ missing`. A renderer that merges any two of them has changed the reader's understanding without computing anything.
+Semantic maturity · evidence state · publication state · delivery state: orthogonal axes, never one value. Absence vocabulary never collapses: `hidden ≠ unavailable ≠ absent ≠ unknown ≠ unsupported ≠ missing`.
 
 ### 3.6 Relations associate; patterns couple
 
-Typed edges (`supports`, `contradicts`, `precedes`, `part-of`, `adapts`, `references`, `same-creator`…) are **non-causal by default**. An edge moves nothing — no feed reordering, no emphasis change — until a named field pattern explicitly turns the association into a coupling, with the coupling declared in the pattern's passport. This is the guardrail that keeps the system semantic and authorable rather than haunted.
+Typed edges are non-causal by default; only a named field pattern turns association into coupling, declared in the pattern's passport. `[P7]` Additionally, edge *semantics* and edge *reachability* are separate declarations: every relation type states whether it is **traversable** for context derivation — `contradicts` and `questions` are recorded but do not propagate into derived context unless declared so.
 
 ## 4. Content types (the SES semantic model)
 
-The content type system is SES's semantic model, mapped:
-
-| SES primitive | CMS meaning |
-|---|---|
-| **Element** | Smallest meaningful unit (heading, image, button). Owns semantics + accessibility, minimal visual identity |
-| **Slot** | A field: named, typed content participation *inside* a block (`title`, `media`, `meta`, `actions`…) |
-| **Block** | A content component (Article body section, MediaCard, Hero) — semantic composition of elements and slots |
-| **Socket** | A region with an **admission policy**: which blocks, what cardinality, what importance, which operations required |
-| **Composition** | A page type: semantic arrangement of sockets — hierarchy and participation, not pixel layout |
-| **Variant / State** | Semantic specialization (`primary`, `quiet`) / condition (`selected`, `loading`, `read`, `locked`) |
-| **Operation** | Stable action identity (`open-article`, `save`, `request-access`) shared by UI, API, and agents — one operation, many actors |
-
-Expression is separate and *granted*: Visual Language → Theme → Recipe, resolved through a **pure, deterministic 12-layer cascade** with a per-field trace (source layer, prior value, resulting value, permitting contract clause, merge rule). Failure is closed: unknown token, unknown asset, undeclared transform, ambiguous conflict — all typed hard failures, never silent defaults.
-
-Each rendering surface holds a **Projection Contract**: `preserve / transform / mayOmit / mayIntroduce`, plus six invariance dimensions (`semantic, behavioral, actionIdentity, structural, morphological, visual`), each `required | bounded | free`. Two renderings of the same content are *equivalent* iff identities, required content and priority, operation identity/exposure/reachability, accessible names/roles/order, and responsive reachability all match. **Pixel equality is explicitly not required.** That is the definition of "the same page in two themes."
-
-Protected fields (identity, required content types, semantic roles, operation identity, contract invariance levels, routing intent) are never overridable by any layer — including accessibility overrides and user style options.
+Element / Slot / Block / Socket / Composition / Variant / State / Operation, mapped as v1 §4. Expression is granted through Visual Language → Theme → Recipe, resolved by a pure deterministic 12-layer cascade with per-field trace; failure is closed. Each rendering surface holds a **Projection Contract** — `preserve / transform / mayOmit / mayIntroduce` plus six invariance dimensions each `required | bounded | free`. Protected fields are never overridable. Two renderings are equivalent iff identities, required content and priority, operation identity/exposure/reachability, accessible names/roles/order, and responsive reachability match — pixel equality explicitly not required.
 
 ## 5. The write path (Contracts)
 
-**No persistent mutation executes outside a registered contract.** Contract definitions are versioned records (`content.revise@1.0`, `content.promote@1.0`, `entitlement.grant@1.0`, `schema.migrate@1.0`); executions are instances with the ICP canonical lifecycle (`declared → ready → started → validating → … → completed | blocked | conflicted | …`). `blocked` is not `error`; every blocking outcome carries an executable recovery action (`refresh_record`, `review_conflict`, `reauthenticate`, `provide_proof`…) or a declared terminal reason.
+No persistent mutation executes outside a registered contract. Contract definitions are versioned records; executions are ICP instances (`declared → ready → started → validating → … → completed | blocked | conflicted`); `blocked` is not `error`; every blocking outcome carries executable recovery or a declared terminal reason. Verification levels derive from effect class (E0–E4), not UI preference. Every landed mutation produces a hash-chained **change receipt**.
 
-Verification level is **derived from consequence, not UI preference**:
+`[P8]` **Write outcomes carry certainty.** Alongside `changed: boolean`, every outcome states `changeCertainty ∈ { asserted, derived, indeterminate }` — *asserted* (the server said), *derived* (contract semantics settle it: a 409 from an optimistic endpoint cannot have committed), *indeterminate* (unknown). An `indeterminate` outcome MUST carry a retry bound to the **original** idempotency key — "we don't know whether it saved" is the only state whose safe remedy is resend-same. Receipt-shaped responses that are not receipts travel as **`receiptSurrogate`**, named as such with their gap documented — a client that constructs a receipt has produced an audit record for an event it did not witness.
 
-| Effect class | Example | Verification |
-|---|---|---|
-| E0 observational | read, subscribe | none |
-| E1 reversible draft mutation | keystrokes, block reorder in draft | none — batched, receipted at session granularity |
-| E2 compensable operational | unpublish, cache purge | confirm |
-| E3 consequential external | publish, entitlement change, price/legal content | confirm → reauthenticate |
-| E4 durable/irreversible | revocation with takedown obligations | prove |
+`[P23]` **Accepted-with-disclosed-anomaly is an outcome class.** A write may land *and* diverge (the converged state differs from what the writer composed): the success envelope then carries a warning with the converged content inline (bounded size) so the writer recovers without a second read. The honesty channel is grouped **by remedy, not severity** — re-read anomalies vs. fix-and-re-edit anomalies — and encodes absence precisely: an empty array is a positive assertion ("all links verified"); an absent field is absence of evidence; an errored listing refuses to return empty (byte-identical to "all clear" otherwise).
 
-Every mutation that lands produces a **change receipt**: actor, resource, before/after revision, path-level changes, evidence ids, verification id, reversibility class, compensation interaction, integrity digest — hash-chained into the append-only ledger.
+`[P9]` **Destructive operations are rendered-set-bounded.** A delete or retirement is authorized only for records the actor was actually shown, fenced by the shown-ID set and the context it was rendered for; omitting the set means "shown nothing," so nothing may be deleted. On stale-view conflicts there is deliberately no "try again" recovery where resending would discard another writer's work — retry only where retrying helps.
+
+Ingest idempotency: same key + same payload → deduplicate and return the original; same key + **different** payload → typed conflict (422-class), never silent overwrite.
 
 ## 6. The publish path (Qualification, then Promotion)
 
-Publishing decomposes into two gates that must not collapse:
+Two gates that must not collapse: **qualification** (is the required evidence present, valid, current, sufficient — for this exact revision and claim set) and **promotion** (a separate E3 contract by a named authority; `QUALIFIED` does not mean live; embargo is promotion with a world-time trigger). Re-qualification is incremental (the `RequiredEvidence` equation, v1 §6) at the appropriate radius R1–R4.
 
-1. **Qualification (EQP):** given this exact revision, this exact claim set, this exact context — is the required evidence present, valid, current, and sufficient? Evidence results keep `PASS / FAIL / PARTIAL / INCONCLUSIVE / BLOCKED / NOT_RUN` distinct; missing evidence yields `inconclusive`, never pass.
-2. **Promotion:** a separate E3 contract executed by a named authority. `QUALIFIED` does not mean live. Embargo is promotion with a declared world-time trigger.
+`[P3]` **Verdicts are four-column.** Every qualification run reports `passed / failed / could-not-run / not-run` as separate lists — and **all three non-pass columns block promotion identically**: promotion over partial coverage asserts more than was established; full coverage or no promotion. `UNKNOWN` never collapses into a neighbor — an obligation that could not be evaluated is a coverage gap, not a finding, and yields disposition `BLOCKED`, distinct from `NOT_QUALIFIED`. Every evaluator ships a **self-test proving it can fail**, and a **vacuous-pass gate** runs each evaluator against a populated corpus and an empty one — an evaluator that can observe absence must not return green on the empty corpus. Each obligation declares its own **freshness/invalidation event** ("a redeploy invalidates it") so evidence currency derives from the claim, not a global TTL — and qualification examines **what is served, not what is configured**.
 
-Re-qualification is incremental — the design's realtime publish equation:
+`[P5]` **Two-tier materiality.** Machine-produced attachments are **non-material**: they attach beside canon (multiplicity is the default — disagreement stays visible), mint no revision, and are superseded only within their own producer class, by declaration, never by timestamp inference; human re-verification is never displaced by a machine re-run. Human-verified work may be **promoted to material attachment**, which writes into the record and mints a revision — editorial judgment becomes part of content identity; machine output never does on its own.
 
-```
-RequiredEvidence(rev_n) = InvalidatedEvidence(rev_{n-1} → rev_n)
-                        + EvidenceForNewClaims(rev_n)
-                        + MandatoryProfileEvidence
-```
+`[P21]` **Evidence discipline.** Confidence is provenance-typed — `EXTRACTED / INFERRED / AMBIGUOUS` — answering *how do we know*; scalar confidence without provenance is prohibited (a completeness count is not confidence). Evidence codes travel **inside** the content-addressed artifact they qualify, so qualification cannot desynchronize from content. Machine-asserted evidence is quote-anchored (the literal span, a typed signal from a closed vocabulary, the hypotheses it supports, a strength hint); every inference is stamped with its `taxonomyVersion` so vocabulary drift is findable; calibrated outputs reserve probability mass for unmodeled hypotheses and self-report entropy ("I don't know" as a value); declared **contradiction pairs** act as model-free hallucination tripwires; sanitization of machine output **counts and reports** what it dropped.
 
-Editing a typo invalidates nothing structural (radius R1 — local); changing a slug is R2 (references, redirects must re-verify); changing a content-type schema is R3 (every instance re-validates); changing shared vocabulary is R4. The editor watches obligations resolve **live**: "publishable — blocked on 2 obligations" is a realtime surface, updating as evidence runs.
+`[P12]` **Delivery-time qualification** for generated or cited content: every citation in a generated response must resolve into the exact evidence set retrieved *for that request* — one unresolvable citation blocks the entire artifact, never a partial. A conditional adversarial challenger may force regeneration under an injected constraint; the challenger is **non-blocking** (its errors degrade, never break). The *decision* is fingerprinted — over policy version, outcome, attempts, and the verified set — so a block is as auditable and reproducible as a publish, and a policy change provably changes the fingerprint.
 
-### 6.1 Consequence profiles — the stopping condition
-
-Formalism's warning is honored in the schema: the specify→check loop needs an exit that is part of the specification. Every content class declares its **gate roster and its end**:
-
-| Profile | Example | Required evidence | Explicitly not required |
-|---|---|---|---|
-| **note** | personal post, changelog entry | schema-valid, access declared | link checks, review, a11y audit beyond defaults |
-| **article** | essay, feature | + links resolve, media has alt text, relations valid | legal review, human comprehension evidence |
-| **commitment** | pricing, legal, medical, promises to named recipients | + entitlement declared, recipient contract present, reauthenticated promotion, second attestation | — |
-
-"No further gates" is a declared statement, not silence. A draft note must never be gated like a legal page; a legal page must never ship like a note.
+**Consequence profiles** (v1 §6.1) remain the stopping condition: every content class declares its gate roster *and its end*; "no further gates" is a declared statement, not silence.
 
 ## 7. Projections (the read path)
 
-Every consumable artifact is a derived projection of Canon: HTML pages, feeds, search index, sitemaps, notifications, embeddings, OG images, and the **agent corpus** (`llms.txt` / `llms-full.txt` — compiled context whose validity is an aggregate source digest; contradictions are repaired in the source and recompiled, never by editing the projection).
+Every consumable artifact is a derived projection: pages, feeds, indexes, notifications, embeddings, the agent corpus. The complete derivation sequence:
 
-Three disciplines govern derivation:
+```text
+Canon → freeze → access projection → surface resolution (SSS)
+      → expression resolution (SES) → artifact materialization
+      → fingerprint-scoped invalidation
+```
 
-- **Frozen snapshot, one-way materialization.** Derivation runs against frozen state S0, produces G0, materializes S1 = S0 + G0. Generated artifacts are not visible to their own producing pass — no fixed-point loops. Derived content (summaries, embeddings, cross-links) enters future passes as input only explicitly, as `derived` records.
-- **Access projection before serialization.** `project_for(access)` removes invisible members and dangling edges *before* any handle exists. Projection is subtractive with respect to power: it may hide, withhold, relabel, understate; it may never manufacture capability or grant permission. Internally, `exposed / hidden / unavailable` stay unmerged; outwardly, mapping hidden→absent for low-access viewers is a *declared omission* in that surface's projection contract.
-- **Fingerprint-scoped invalidation.** Every derived artifact records fine-grained dependency edges on its *access-projected* inputs, and receives a structural fingerprint independent of execution order. A change to a field a given projection could not observe produces **no invalidation for it** — which is simultaneously the correct caching model and a side-channel guarantee (invalidation timing cannot leak hidden edits).
+(Precisely: the fingerprint is computed from the observable dependency set during derivation; the sequence above is the conceptual ordering of responsibilities.) Read as a sentence, this is the system: **what exists** (Canon) → **what may participate** (access) → **what matters here** (SSS) → **how it may appear** (SES) → **what is actually produced** (the artifact). Discipline (v1 §7): frozen-snapshot one-way materialization; access projection before serialization (subtractive with respect to power; `exposed / hidden / unavailable` unmerged internally); fingerprint-scoped invalidation along observable edges only (cache correctness and side-channel safety in one mechanism); a published transformation ledger (`lossless / lossy-disclosed / interpretive / unsupported`).
 
-Every projection stage is classified in a published **transformation ledger**: `lossless / lossy-disclosed / interpretive / unsupported` — with `unsupported` transformations listed so the refusal is auditable. A renderer can compute nothing and still mislead; the ledger is how it proves it didn't.
+`[SSS]` **Surface resolution.** Between access projection and expression sits the surface: `Resolve(D, P, Q, C, L, A, T) → ResolvedSurface` — purpose-bound semantic participation (eligibility, membership, grouping, semantic priority, operation exposure, trace, fingerprint) under the pinned Semantic Surface System (`sss:protocol/semantic-surface` v0.1.0). `CANON ≠ SURFACE ≠ EXPRESSION ≠ REPRESENTATION`: the surface says *what matters here and why*; SES says *how it may appear*; SPS's evidence-resolved morphology decomposes accordingly (selection and evidence tone are surface semantics; container form is an expression recipe over them — bindings, 2026-08-28). Surface resolution runs read-only inside the derive phase; access projection precedes candidacy (the S2 non-leak property is tested in `impl/surface-resolver`); agent semantic slices (§11) are ResolvedSurfaces. Eligibility outcomes `eligible/ineligible/unknown/withheld/unsupported` join the non-collapsible vocabulary of §3.5.
+
+`[P4]` **Staleness is queryable, refresh is declared.** Every projection row carries `computed_from` — the set of input digests it was computed from. *Stale* is a join against append-only invalidation records; *never-computed* is distinct from stale; stale-while-revalidate is permitted only while the marker stays visible. Each projection declares its **refresh policy** — `eager` (writer pays) / `lazy-on-read` (first reader pays) / `scheduled` (batch pays) — defaulting to lazy, with one override: **human-verified corrections recompute eagerly regardless of policy**, because serving a machine's superseded guess after a human ruled squanders exactly the authority the two-tier model protects. Supersession between derived documents is declared (same scope, same producer class, explicit lineage), never inferred from timestamps.
+
+`[P24]` **Editable projections carry a round-trip contract.** Any projection that claims to be editable states and *tests* its inversion — `serialize(parse(x)) === x` — against a corpus of goldens, with a declared support matrix separating stable constructs from in-progress ones: no silent data loss for supported syntax. A rendering is legitimate only if it inverts. (First instance: the markdown core — UD-3.)
+
+The read surface is **enriched, not multiplied**: governance context (backlinks, history, applicable constraints) arrives with the content rather than on a second round-trip. Renderers are contractually decision-free. Destructive re-projection (mirror-style) carries preserve-lists protecting locally-owned facts.
 
 ## 8. Realtime machinery
 
 ### 8.1 The commit cycle
 
-One one-way loop per commit wave, the frame-scheduler discipline applied to a CMS:
+`ingest → freeze → derive → commit → notify → observe`, one one-way loop per commit wave (v1 §8.1). No phase reads what a later phase writes; derived output and observations enter only the next wave.
 
-```
-ingest → freeze → derive → commit → notify → observe
-```
+### 8.2–8.3 Transport `[P10]`
 
-1. **ingest** — contract instances validate and land revisions + receipts (the only writes)
-2. **freeze** — snapshot S0 of Canon for this wave
-3. **derive** — pure resolvers produce projections against S0; no reads of live state, no side effects
-4. **commit** — S1 materializes; projection versions recorded as `derived` records
-5. **notify** — fingerprint invalidations fan out through lenses
-6. **observe** — delivery and client acknowledgments return as `observed` records for the *next* wave
+The **transactional outbox is the sole emission source**: the domain write and its event row commit in one transaction — "nothing happens without an emission" — and the audit trail, dashboards, dead-letter queue, SLA monitors, and replicas are all subscribers to the same stream the system needs for its own integrity. Fan-out via the store's native notification channel (no second infrastructure); subscriptions are access-projected lenses. Clients connect with **backfill-burst-then-live**; reconnect replays from the outbox by `last_event_id` ("no event loss" is an acceptance criterion, not a hope); a subscriber that falls behind receives a **`lagged`** disclosure — staleness as a protocol message — with catch-up-then-live as the canonical recovery. Readers hold a committed snapshot baseline; failure degrades to truth, not to a spinner; every live surface carries the provenance chip.
 
-No phase reads what a later phase writes; derived output never feeds its own pass.
+### 8.4 Presence is observation `[P11]`
 
-### 8.2 Subscriptions are lenses
-
-A subscription is a declarative, **allow-list** scope: records, metrics, relationship types, radius around a subject — composed with the subscriber's access projection. A lens narrows; it can never widen power. The wire format is the envelope itself: provenance travels with every message, and clients are bound by the no-promotion rule (an `observed` push can update a chip; it cannot overwrite a `declared` field in the local model).
-
-### 8.3 Invalidation, not state push
-
-Readers hold a **committed snapshot baseline** (SSR truth, no-JS truth, deterministic builds). The notify phase pushes invalidation keys; clients re-fetch through access projection. If the live channel fails, the client silently keeps its snapshot and says so — failure degrades to truth, not to a spinner.
-
-Every live surface carries a **provenance chip** — the UI of the consistency state machine:
-
-> `live · checked 4s ago` · `snapshot · Aug 27` · `+2 revisions since snapshot` · `local, unsent` · `conflicted — review`
-
-### 8.4 Presence is observation
-
-Cursors, selections, "Zach is editing," view counts, soft locks: all `observed` envelopes with mandatory `observed_at` + `expires_at`. Consequences fall out structurally:
-
-- **Soft locks self-release** — an expired presence record may not drive decisions, so an abandoned lock cannot hold content hostage.
-- **Ghost cursors are impossible by construction** — an expired cursor is no longer authoritative for rendering decisions.
-- Presence history is retained after expiry for replay, never for authority.
-- Cadence honesty: presence at seconds, metrics at their real rate, daily aggregates once per visit — polling a daily aggregate is theater, and the surfaces say so.
+Presence has **two independent axes**: presence state (`hot / active / idle / stale / offline / unknown`) and transport state (`healthy / degraded / unhealthy / offline / unknown`) — with **UNKNOWN rendered** as its own state ("we don't know" ≠ "not here"). Presence is **announced, not inferred**: an actor that starts healthy and never transitions must not be indistinguishable from one that is gone. Freshness is computed against **server-issued time with tracked skew** — an "updated 3s ago" badge against a client clock is a lie. State transitions carry **hysteresis** (anti-flicker buffering, instrumented) and fire as **edges against persisted state**, not ticks. Presence vocabulary distinguishes actor kinds (`writing` for batch-writing agents ≠ `editing` for humans); a presence entry with no current subject means "not working." All presence records carry mandatory expiry: soft locks self-release; ghost cursors are impossible by construction; cadence matches the source's real rate.
 
 ### 8.5 Concurrency discipline is derived from invariance
 
-The same typed invariance that governs what a theme may change governs what concurrent editors may merge. One declaration, two enforcement surfaces:
+The invariance table (v1 §8.5) stands: `free` → convergent merge; `bounded` → merge-then-validate, violations surface as `conflicted`, never a silent fallback winner; `required` → serialized through a contract, the loser receiving `conflict` + executable recovery.
 
-| Invariance of the field | Projection meaning | Concurrency discipline |
-|---|---|---|
-| **free** (visual, morphological; prose body text) | themes may restyle freely | CRDT/OT merge; concurrent edits combine; E1, no ceremony |
-| **bounded** (structural: block order, slot membership, socket population) | themes may rearrange within declared bounds | merge, then validate against admission/cardinality invariants; violation → `conflicted`, surfaced — never a silent fallback winner |
-| **required** (identity, operations, entitlement, schema refs, routing) | no surface may alter | serialized through a contract; the second concurrent attempt gets outcome `conflict` + executable recovery (`refresh_record`, `review_conflict`) |
+`[P7]` **The divergence-first lane.** Convergent merging (CRDT) is confined to *intra-draft* `free` fields. At document scale, divergence is lawful and durable: branches over the immutable record DAG, structurally invisible to each other, with **merge as an explicit authored act** in declared modes (`synthesize / replace / augment / overlay / compare_then_merge` — overlay preserving each voice) and multi-parent lineage recorded. `[P22]` **Every merge is justified by a serializable decision map** — per-hunk `accept / reject / keep` — replayable to reproduce the result and attached to the merged record as its justification. Reconciliation outcomes include **`refused`** as a legitimate, disclosed terminal state, for semantic reasons (the input carries conflict markers) and for resource reasons (a stated computation bound); conflict *shape* (`both-modified / delete-modify / modify-delete`) selects the legal strategies; reconciliation runs against the **live view the human sees**, never against disk behind their back.
 
-Silent merge is a *granted* behavior, granted exactly where meaning is not at stake.
+### 8.6 Consistency states
 
-### 8.6 Consistency states (HCML)
+Current / Stale-but-safe / Conflicted / Superseded / Revoked / Unknown (v1 §8.6): conflict freezes *consequential* action while drafting continues.
 
-Each client's relationship to each record is one of six states, and the state — not optimism — decides what is permitted:
+### 8.7–8.8 Events and degradation
 
-| State | Meaning | Drafting | Consequential action (publish, entitle) |
-|---|---|---|---|
-| **Current** | in sync | ✓ | ✓ |
-| **Stale-but-safe** | remote commits observed, no overlap on required fields | ✓ (disclosed, converging) | ✓ after converge |
-| **Conflicted** | overlap on bounded/required fields | ✓ continues | **frozen** — conflict surfaced, never auto-merged |
-| **Superseded** | this revision is historical-only | read-only | ✗ (act on successor) |
-| **Revoked** | authority withdrawn | ✗ | stop; compensate in-flight work |
-| **Unknown** | consistency cannot be established | ✓ local-only, disclosed | **stop at the protected boundary** |
+Hysteretic edge-triggered events, never a firehose. Degradation sheds cadence, never correctness, asymmetrically (fast down, slow recover); degraded state is itself an observed record.
 
-The load-bearing asymmetry: conflict freezes *consequential* action while drafting continues. A CMS that blocks typing on conflict is unusable; one that publishes through conflict is lying.
+## 9. The field plane
 
-### 8.7 Events are edges, not a firehose
+Records as bodies; meaning mapped to measurable channels; metric provenance typed (`computed` / `supplied-only` — confidence never inferred, risk never defaulted / `designed` with inert-lint); association ≠ coupling; five senses of time; the causality ladder for analytics claims (v1 §9).
 
-Live signals cross thresholds hysteretically (enter at 0.6, exit at 0.2) and emit one clean edge per crossing: `content:trending`, `content:staleness-warning`, `presence:entered/left`, `qualification:blocked/cleared`, `delivery:drifted/synchronized`. Subscribers get transitions, not ticks.
+`[SSS]` **Workspace participation is resolved, not templated.** SSS resolves membership, grouping, semantic priority, and evidence tone from purpose, context, lens, access, and available evidence. SES consumes those semantic results through expression recipes and determines graphical morphology. A `primary` group may become a hero, banner, rail, split, matrix, portal, or another permitted form; SSS does not prescribe which. Dashboardlessness is thereby structural, not stylistic: an application does not start from `DashboardPage → HeroWidget → RecentWidget`; it starts from purpose + current semantic state + context + available evidence, and obtains its surface structure from actual state — SSS resolving roles (`primary / supporting / attention / warning / relationship / history / unknown`), SES choosing each role's morphology.
 
-### 8.8 Degradation is governed and asymmetric
-
-Under load, a quality governor sheds *cadence*, never *correctness*: projection refresh and notification frequency step down quickly (a few over-budget waves) and recover slowly (a sustained run of clean ones). The contract, qualification, and receipt planes never degrade. Degraded state is itself an observed record — visible on the chip, honest on the status page.
-
-## 9. The field plane (live semantics)
-
-The workspace is a Fundamental field in which records are bodies (identity doctrine: `id / namespace / kind / host`) and typed relations are edges with fast `strength` and slow `memory`.
-
-**Meaning maps to measurable channels** (the semantic layer table): importance→attention · urgency,recency→heat · confidence→coherence · uncertainty→entropy · relationship,history→memory · status→phase · hierarchy→pressure. The editorial dashboard is a *reading* of these channels: what is hot, what is stale, what is conflicted, what is quietly accumulating memory.
-
-**Metric provenance is typed:**
-
-- **computed** — the engine writes it (attention, recency, staleness)
-- **supplied-only** — only present when a human supplies it; *never inferred*: `confidence` ("a citation is not certainty") and `risk` ("'no risk' is a claim, not a safe blank" — never defaulted to 0)
-- **designed** — pattern-referenced lanes the host must supply, or they are flagged inert by lint
-
-**Workspace morphology is resolved, not templated** (SPS's contribution): each shelf of the editorial UI declares `{ purpose, lens, form }`, and its container form (`hero / banner / rail / split / matrix / portals`) resolves from semantic purpose **plus evidence density** — with an evidence tone (`earned / steady / fading`) reflecting how many records actually satisfy the lens. The layout is a function of how much evidence supports the grouping. No generic dashboard shell.
-
-**Editorial time is five separate senses:** simulation time ticks (the field), host time is supplied (the platform), world time is declared (`publishedAt`, embargo instants — declaration beats inference), semantic time is derived (freshness half-lives per content class, imminence ramps toward embargo horizons, retention curves for archives), replay time is reconstructed (audit).
-
-**Analytics claims sit on the causality ladder** — `observed → attributed → explained → replayed → predicted` — and every surface quotes the highest level its data supports, and no higher. "Attention 0.8" is observed; "the rise is attributable to feed placement" is attributed; "readers love this" requires human evidence and is otherwise unsupported. Prohibited interpretations ship with the metric.
+`[P13]` **Evidence governance in the Field.** The evidence floor is a *surfaced, unit-labeled control*, not a buried constant. Derived groupings earn names only when their signature matches a curated lexicon **and** cohesion clears a declared floor — otherwise the surface renders the machine description *and the refusal, with the actual and required numbers*. Cluster lifecycle (`strong / steady / weak — name withheld`) is a drift signal. A standing **expectation harness** — assertions about the corpus re-evaluated on every measurement pass, "N of M hold" visible — tests *meaning* over live data, not code. Field observations are **revision-scoped with named confounds** (the same work measures differently per edition; normalize per revision before clustering). Derived behavioral metrics carry **mandatory TTLs** — permanent behavioral histories are forbidden — and only coarse, lossy verdicts cross the Field boundary outward; the Field does not know subject identities. Every metric that can be misread ships its **misreading guard**: prose stating what the number does *not* mean. Fields carry **truth types** (`semantic / canonical / operational / abstain`) driving both retrieval policy and re-derivation policy (parser change → reprocess; vocabulary change → re-label; model change → re-run), with stale-operational-data as a named error class and over/under-confidence as first-class calibration failures.
 
 ## 10. Access, entitlement, and delivery honesty
 
-- **Discovery without exposure.** Entitlement-gated content participates in search, relations, and field signals through geometry, metadata, and observations — the text layer is a protected resource behind a `staged-access-request` state and an entitlement contract.
-- **Delivery is observed, drift is explicit.** Topology records declare what each edge/channel *should* serve; observed manifests report what it *does* serve. Divergence is `ObservationStatus: Drifted` with an explicit `differences[]` list — driving purge contracts and shown honestly on status surfaces.
-- **Gates must be able to fail.** Every health check and CI gate has a declared trigger, a declared evidence requirement, and a demonstrable failure mode — a checker that crashes green, or a validator that no-ops outside its artifact class and exits 0, is a finding, not a gate. Validators report how many checks *actually ran*.
-- **The wallpaper rule applies to the UI.** Any surface that appears live must be derived from real state or declared as decoration — remedies in order: derive, declare, demote, sugar. Determinism is part of honesty: injected clocks, seeded randomness; an unseeded animation claiming to be a replay is a false claim.
+`[P2]` **Entitlement is a cross-plane model, specified to the field level.** Every semantic section of a record is classed `open` (geometry, structure, metrics, relation topology — what discovery, shelves, and similarity run on) or `entitled` (text layers and anything precise enough to reconstruct the work); the classing rule is mechanical (text is never `open`), and **one shared restriction function** serves every surface, so no route can become a second, laxer definition of open. Externally-sourced entitlements keep the five-record independence chain — provider assertion ≠ provider transaction ≠ entitlement claim ≠ entitlement projection ≠ library entry — evidence flowing one way, claims never destructively merged, projections **recomputable from claims** with a fixture-replay gate making the requirement executable. Owner-scoped absence answers **404-not-403**: absence copy must not confirm existence to a prober.
+
+Delivery is observed, drift explicit (`differences[]` driving purge contracts, honest status surfaces). Gates have a declared trigger, evidence requirement, and demonstrable failure mode; validators report how many checks *actually ran*. `[P27]` **Declaration-consumer parity is itself a gate**: every declared schema field, smoke, or contract clause must have an executing consumer — or be flagged `inert` — because a declaration richer than its checker silently becomes decoration. `[P26]` Findings carry `next_action` (machine-readable remediation) and use `private_expected` as a first-class severity — a 401 from a gated surface is positive evidence, neither pass nor fail. Fleet-wide consistency uses **reference fingerprints** (one artifact designated the reference, everything hashed against it). Deployed artifacts are verified against their declared kind. Policy rules carry their provenance — incident-derived rule lists ("the bugs we already paid for"). `[P15]` **Prose is gated too**: a claim-reconciliation table scores every public claim against code evidence ("anything not ✅ does not ship in copy"); an **operational promise register** extracts promises with no code identifier ("nightly backups") into machine-checked entries — verifiable claims fail loudly, promises fail silently; a **spec-health register** (GUESS/GAP/THIN/CAVEAT) beside this document keeps ambiguity a decision rather than an invention (see SPEC_HEALTH.md); deviations are typed, owned, and auto-escalate if unfiled. `[P19]` The system maintains a **claim register** about itself — every claim, its admissible rung on the evidence ladder, and the evidence that would strengthen it — and its vocabulary is controlled with **prohibited substitutions** (each term defined with the synonyms it must never be called, greppable). Observation states are five-valued — `measured / disabled / unavailable / unsupported / stale` — with the no-fabrication rule: no non-measured state may be rendered as zero, "Normal," or any plausible value.
+
+The wallpaper rule applies to the UI: derive, declare, demote, or sugar — never fake. Determinism is part of honesty.
 
 ## 11. Agents and AI participation
 
-- **Read:** agents receive *semantic slices* — radius-bounded, access-filtered neighborhoods with provenance flags traveling with the slice — plus the `agent-json` projection surface and the compiled corpus (`llms.txt` / `llms-full.txt`). The read facade is safe by shape: there is nothing on it to call that mutates.
-- **Write:** machine output enters as a **Candidate** and never self-promotes. Candidate → qualified → accepted crosses the same EQP evidence and promotion authority as human work. An agent's draft revision, suggested relation, or generated summary is `derived`/`declared-by-agent` provenance, visibly so.
-- **Decide:** high-uncertainty editorial decisions (takedowns, disputed corrections, taxonomy changes) may convene a PDP panel — consensus discounted by shared provenance (agreement counts once per independent axis), invalidation conditions pre-committed and asymmetric to pressure, and the human owning the weights, the stakes, and the exit. A model that flips under pressure has produced information about the model, not about the decision.
-- **For whom:** content classes may require an RCP recipient record — a named person, their need in their framing, an obligation with a date. Status is derived, never assigned: `active / delivered / lapsed / primitive`. A lapsed recipient is retained, never deleted.
+Read `[SSS]`: an agent's semantic slice **is a ResolvedSurface** — the same selection machinery as every human view, differently expressed: human surface = ResolvedSurface → SES → visual representation; agent surface = ResolvedSurface → structured machine representation. An agent asks `{ purpose: resolve, subject: article-42, lens: { relationTypes: [supports, contradicts, references], radius: 2 } }` and receives exactly the surface semantics a human interface could subsequently express — with trace, basis, and fingerprint. The agent path is therefore not a parallel retrieval architecture. Plus the compiled corpus (digest-valid, never hand-edited — and **corpus staleness is an admission blocker** `[P18]`). Write: machine output enters as a Candidate and never self-promotes; agent provenance is visible for as long as the content lives; generated/cited output passes delivery-time qualification `[P12]`. Decide: PDP panels for high-uncertainty editorial decisions — consensus discounted by shared provenance, invalidation conditions pre-committed, the human owning weights, stakes, and exit. For whom: content classes may require a recipient record — named person, need in their framing, obligation with a date; status derived, never assigned (the project's own recipient register lives at records/recipients.jsonl).
 
-## 12. Versioning, schema change, and compatibility
+## 12. Versioning, compatibility, and dependencies
 
-Five version axes move independently: content identity · content-type schema · theme/visual language · resolver/pipeline · wire protocol. **Equal version numbers imply nothing.** Cross-axis compatibility is a declared conformance record over six dimensions (`syntax, schema, behavior, semantics, authority, evidence`) — never inferred.
+Five version axes move independently; equal numbers imply nothing; cross-axis compatibility is a declared six-dimensional conformance record. Schema changes are classed with required review; deprecated identities resolve through a declared window; breaking migrations are qualification events at R3+.
 
-Schema changes are classed (documentation / additive / conformance-tightening / breaking-semantic / breaking-expression / deprecation), each with required review; deprecated semantic identities remain resolvable through a declared compatibility window; a breaking-semantic migration is a qualification event at radius R3+ with its own evidence.
+`[P16]` **Vocabulary collisions with pinned resources are bindings decisions.** Where an imported system's terms collide with this design's (e.g. Titan's "planes": Record/Event/Workflow/Policy/Retrieval vs. our six), the binding explicitly aligns or diverges per term in `bindings/PROJECT_BINDINGS.yaml` — silence is drift.
 
 ### 12.1 Dependency doctrine (owner directive, 2026-08-28)
 
-The system is built **in isolation**. Formal resources and capabilities — SES, SPS, ICP, EQP, IEPE, HCML, Fundamental Engine, rr-rsp, and any reference system later accepted — are consumed **as dependencies**: pinned by version and revision/digest in `FORMAL_RESOURCE_MANIFEST.json`, imported through declared bindings, never absorbed into this codebase.
+The system is built in isolation; capabilities are consumed as pinned dependencies; repair is upstream-first; divergence is a typed deviation; a re-pin is a compatibility event (v1 §12.1 in full).
 
-- **Consumption mechanisms** (whichever fits the artifact): a package/crate dependency, a schema-pack import, or a mechanical sync from a pinned upstream revision. A synced copy is a cache of the pin, not a fork.
-- **Upstream-first repair.** When a capability is needed, broken, or missing in a dependency, the change is made *in the owning project*, under that project's own authority and process; this project then re-pins the new revision. Local modification of consumed code or specs is prohibited.
-- **Divergence is a deviation.** If temporary divergence is unavoidable, it is a typed, owner-authorized deviation record — bounded, visible, with the upstream fix landing as its reversal trigger — never a silent patch.
-- **Re-pin is a compatibility event.** Equal version numbers imply nothing (§12); a re-pin therefore carries a declared compatibility statement and may trigger re-qualification at the appropriate radius.
-- Worked example of the doctrine: SES currently ships no package manifest. If the implementation needs SES as an installable dependency, packaging is added upstream in `semantic-expression-system` and pulled — not vendored ad hoc here.
+`[P17]` **Admission gate for dependencies.** Every pin passes a supply-chain admission check before entering the manifest: full-history scanning (including deleted content), encoded-payload and whitespace-evasion detection, lifecycle-hook triggers, and **exact-or-subdomain** allowlist matching (substring matching is an evasion invitation). Pins are recorded content-hash-locked — `{source, sourceType, computedHash}` — and risk is scored by **convergent evidence**: a fingerprint match is a pointer, not a verdict; N independent signals agreeing outweigh any single flag.
+
+`[P28]` **The upstream-debt ratchet.** The ratchet is memory and pressure, never permission. Deploying a locally patched dependency requires this section's **deviation instrument first** — typed, owner-authorized, bounded, with the upstream fix landing as its reversal trigger — before any patched artifact runs; a debt record does not establish that authorization, and filing one grants nothing. At deviation approval, the patch is captured as a diff against the owning project (a receipt, never a vendored fork) and a debt is registered in `records/upstream-debts.jsonl` **referencing the deviation**. Registered debts **age** — a standing warning that escalates — so neither the deviation nor its debt can sit open indefinitely; closing the debt (upstream fix landed, re-pinned here) discharges the deviation. Vendored upstream clones are replaced with pins; permanent forks are violations to remediate; and a deployed local patch without a live deviation is the same violation, however faithfully its debt is recorded.
 
 ## 13. Reference implementation sketch (non-normative)
 
-- **Store:** Postgres. Revision and receipt tables append-only *by grant* (no UPDATE/DELETE for the runtime role). Logical decoding feeds the notify phase.
-- **Resolver:** one pure TypeScript library (no ambient time, no I/O) shared by server, edge, and client — the same cascade everywhere, held to golden conformance vectors (construct → canonicalize → hash → compare, with a negative vector proving the gate can fail).
-- **Wire:** WebSocket lenses with SSE fallback; JSON envelopes; JCS canonicalization for hashing; Ed25519 attestation on promoted projections (verification keys distributed out-of-band — a key carried alongside untrusted content only authenticates the attacker to itself).
-- **Editor:** CRDT (e.g. Yjs) strictly for invariance-`free` fields; `bounded`/`required` fields go through contract RPC. Presence over the observation channel with short expiries.
-- **Edge:** projection versions in KV; edges report served-version manifests back as observations; drift drives purge contracts.
-- **The project itself** bootstraps under formal-project-bootstrap v0.5.0: `PROJECT_INTENT.md`, `PROJECT_PROFILE.json`, pinned formal-resource manifest (the eight resources above, by revision digest), `records/*.jsonl`, compiled context, and CI gates that demonstrably fail.
+As v1 §13 (store with append-only grants; one pure resolver library shared server/edge/client with golden vectors including a negative vector; envelope wire with JCS hashing and out-of-band attestation keys; CRDT confined to invariance-free fields; edge KV with observed manifests), plus: `[P25]` the collaboration core may be previewed by consuming **open-knowledge as a service** across a strict process boundary (GPL-3: pin the published CLI, drive the MCP/HTTP surface, never link or vendor; counsel review before distribution) — while its writer-ID taxonomy, layered-liveness presence contract, and warning-on-success envelopes are adopted natively in our own planes. Stack defaults and open implementation decisions live in SPEC_HEALTH.md, not here.
 
-## 14. Narrowest end-to-end path (first milestone, exit evidence not features)
+## 14. Narrowest end-to-end path
 
-1. Canon holding one content type (**Article**: title/media/body/meta slots) and one composition (**Home**: hero + rail sockets) as Schema records.
-2. `content.revise@1` contract landing draft revisions with session receipts.
-3. Two-editor live drafting: body text merges (free), block reorder validates (bounded), slug conflicts freeze publish (required) — R1 demonstrated.
-4. Live qualification panel resolving the **note** profile's obligations as evidence runs — the incremental RequiredEvidence equation observable.
-5. `content.promote@1` with confirm verification, producing a receipt and an attested projection version.
-6. Reader page rendered from renderer-neutral output under **two themes**, passing the projection-equivalence vectors (identical semantics, radically different pixels).
-7. Provenance chip cycling `snapshot → live → stale → live` under induced channel failure — R3 demonstrated.
-8. Fingerprint invalidation: an edit to an entitlement-hidden field produces no invalidation on the public lens — cache-correctness and non-leakage in one test.
-9. `llms.txt` corpus projection regenerating deterministically, diff-gated in CI.
-
-Each step lands with evidence records; the milestone's exit is the evidence set, not the feature list.
+The nine-step first milestone (v1 §14) stands, exit by evidence — targeting the confirmed recipient workload (records/recipients.jsonl · rcp-001, pending owner confirmation). Quantitative acceptance numbers are proposed in SPEC_HEALTH.md SH-6.
 
 ## 15. Traceability
 
-| Design element | Concept | Source |
-|---|---|---|
-| Envelope, provenance lattice, no-promotion rule | rr-rsp descriptor protocol | reflective-rust |
-| Four identity classes; hash ≠ compatibility | runtime identity doctrine | reflective-rust |
-| Append-only by grants; hash-chained ledger | custody in the database | PDP |
-| Multi-axis state; no single status enum | multi-dimensional maturity | CALP exemplar / bootstrap |
-| Slot/Block/Socket/Composition/Operation type system | semantic model | SES |
-| Projection Contracts; typed invariance; equivalence without pixels | expression governance | SES |
-| Pure 12-layer resolver; closed failure; field-level trace | resolution model | SES |
-| Contract-gated writes; receipts; blocked ≠ error; executable recovery | interaction lifecycle | ICP |
-| Qualification vs promotion; incremental RequiredEvidence; radius | evidence discipline | EQP |
-| Consequence profiles as declared stopping condition | the formalist's correction | Formalism essay |
-| Consistency states; conflict freezes consequence, not drafting | temporal consistency | HCML |
-| Candidate never self-promotes; typed uncertainty retained | shared-state invariants | HCML / IEPE |
-| Records as bodies; meaning→metric; supplied-only confidence/risk | semantic layers, metric provenance | Fundamental |
-| Association ≠ coupling; no haunted feeds | dimensional coupling | Fundamental |
-| Evidence-resolved morphology; no dashboard template | shelf resolver | SPS |
-| Provenance chips; snapshot-first; cadence honesty | live-data contract | Fundamental |
-| Hysteretic events; asymmetric degradation | event agent, quality governor | Fundamental |
-| Frozen-snapshot derivation; fingerprint invalidation | staging model, dependency tracking | reflective-rust |
-| Transformation ledger; non-collapsible absence vocabulary | Observatory | Fundamental |
-| Discovery without text exposure; reader ≠ detail projections | publication boundaries | SPS |
-| Gates that can fail; validator applicability | register findings | Gate & Protocol Register / NPS |
-| Compiled agent corpus; digest validity; never hand-edited | context compilation | IEPE / bootstrap |
-| Recipient contracts; derived status | RCP | Register |
-| Five senses of time; declaration beats inference | temporal model | Fundamental |
-| Causality ladder for analytics claims | causality and truth | Fundamental |
+v1's traceability table stands for the original design. Integrated amendments trace as follows: P1–P16 to research/titan-infinite-verse-review.md §6 (sources: Infinite-Verse, Titan, GRP, Formalism); P17–P28 to research/titan-node-observatory-tools-review.md §5 (sources: agent-control-plane, open-knowledge, imagetracer, graphify, text-diff-tool, markdown-native-editor, reference-detective, Context Mend, titan-node, titan-observatory, AntiRepoThreat, stitch-skills, design.md). Verification status of the underlying claims: records/evidence.jsonl (adversarial passes, SCMS-005).
+
+## 16. Operating the project `[P18]`
+
+Work on this system is governed the way the system governs content. The board of record is GitHub, worked through the **agent-control-plane** (pinned dependency): work enters as closed **issue packets** (authorized paths, exclusions, acceptance criteria, evidence requirements, definition of done — `additionalProperties: false`); admission yields one of five typed decisions (`INVALID / BLOCKED / APPROVED / REJECTED / QUALIFIED`) with content-addressed decision IDs; evidence climbs the five-tier ladder (`Documented ≠ Implemented ≠ Tested ≠ Deployed ≠ Browser-verified`, no lower tier satisfying a higher requirement); approval carries provenance (`self-approved` ≠ `independent-approved`, never interchangeable); provider outages produce **degraded** operation (prepare, queue, inspect — never mutate) and authorization failures produce **paused** (correction, not waiting); a stale compiled corpus blocks admission; the board carries `Gate` and `Evidence State` as first-class fields. Credentials stay behind the hosted gateway — agents read project state without ever holding a token.
+
+**Design-iteration stopping condition** (the formalist's correction, applied to ourselves): with v2 dispositioned, no further review sweeps or amendment batches are undertaken until the E1 vertical slice (§14 steps 1–2) lands with its gates green. Reviews resume only when building surfaces questions the design cannot answer.
 
 ---
 
-*This document is a `declared` record. Its rendered artifact is a `derived` projection of it. Contradictions are repaired here and re-projected — never by editing the projection.*
+*This document is a `declared` record; v2 is a Candidate and does not self-promote — it becomes canonical only by owner disposition of this PR. Its rendered artifact is a `derived` projection, republished on acceptance (the projection-sync gate enforces this).*
