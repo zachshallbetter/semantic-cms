@@ -14,6 +14,8 @@ import { fileURLToPath } from "node:url";
 import { migrateAll, migrateEntry, unresolvedRelations } from "../src/zach-core.ts";
 import type { SourceEntry } from "../src/zach-core.ts";
 import { validateEnvelope } from "../../canon/src/envelope.ts";
+import { governedImport } from "../src/governed.ts";
+import { narrowPathRegistry } from "../../contracts/src/runtime.ts";
 import { CanonJournal } from "../../canon/src/journal.ts";
 import { freeze } from "../../canon/src/freeze.ts";
 import { resolveSurface } from "../../surface-resolver/src/resolver.ts";
@@ -181,4 +183,69 @@ test("access holds over real content: a public reader sees no private entry", ()
   assert.equal(leaked, 0, "no private entry appears in a public surface");
   // Control: at least one public article does appear, so the check can fail.
   assert.ok(surface.groups[0].members.length > 0, "public articles resolve");
+});
+
+// ── The governed import (SCMS-041) ─────────────────────────────────────────
+// Routing the corpus through a contract rather than appending it directly. This
+// is what the owner's "migrate through the editor" instruction actually
+// requires, and building it revealed that creation had never been governed.
+
+const importCtx = { occurredAt: "2026-08-29T00:00:00Z", authority: "owner" as const };
+const importActor = { id: "project.owner", role: "owner" };
+
+function runImport() {
+  const journal = new CanonJournal();
+  const report = governedImport({
+    journal, registry: narrowPathRegistry(), envelopes: result.content,
+    context: importCtx, actor: importActor,
+  });
+  return { journal, report };
+}
+
+test("the whole corpus lands through a contract, with zero direct appends", () => {
+  const { journal, report } = runImport();
+  assert.equal(report.landed.length, 215);
+  assert.deepEqual(report.refused, []);
+  assert.equal(journal.current().length, 215);
+  // Every landing announced itself; the outbox is not optional.
+  assert.equal(report.eventsEmitted, 215);
+});
+
+test("publication does not survive the migration \u2014 it has to be re-earned", () => {
+  const { journal, report } = runImport();
+  // 51 entries were 'published' at the source.
+  assert.equal(report.publicationNotCarried.length, 51);
+  // And not one of them arrived published.
+  assert.equal(journal.current().filter(
+    (e) => e.envelope.state.publicationState === "promoted").length, 0);
+  assert.ok(journal.current().every((e) => e.envelope.state.evidenceState === "unqualified"));
+  // The system's central claim applied to its own migration: publishing is
+  // qualification plus promotion, and neither is inherited by being copied.
+});
+
+test("a governed import is idempotent \u2014 re-running it lands nothing twice", () => {
+  const journal = new CanonJournal();
+  const registry = narrowPathRegistry();
+  const first = governedImport({ journal, registry, envelopes: result.content, context: importCtx, actor: importActor });
+  const second = governedImport({ journal, registry, envelopes: result.content, context: importCtx, actor: importActor });
+
+  assert.equal(first.landed.length, 215);
+  assert.equal(second.landed.length, 0, "nothing new landed");
+  assert.equal(second.refused.length, 215);
+  assert.ok(second.refused.every((r) => r.outcome === "conflict"),
+    "each is refused as an existing subject, not silently replaced");
+  assert.equal(journal.current().length, 215);
+  assert.equal(second.eventsEmitted, 0, "and nobody was told about a change that did not happen");
+});
+
+test("an import without proven authority lands nothing at all", () => {
+  const journal = new CanonJournal();
+  const report = governedImport({
+    journal, registry: narrowPathRegistry(), envelopes: result.content.slice(0, 10),
+    context: { ...importCtx, authority: "public" }, actor: { id: "anon", role: "anonymous" },
+  });
+  assert.equal(report.landed.length, 0);
+  assert.equal(report.refused.length, 10);
+  assert.equal(journal.all().length, 0);
+  assert.equal(report.eventsEmitted, 0);
 });

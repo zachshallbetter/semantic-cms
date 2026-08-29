@@ -6,7 +6,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { CanonJournal } from "../../canon/src/journal.ts";
 import type { Envelope, RecordState } from "../../canon/src/envelope.ts";
-import { narrowPathRegistry, receiptDigest, CONTENT_REVISE, ContractRegistry, reviseHandler } from "../src/runtime.ts";
+import { narrowPathRegistry, receiptDigest, CONTENT_REVISE, CONTENT_CREATE, ContractRegistry, reviseHandler } from "../src/runtime.ts";
 import type { ExecutionRequest } from "../src/runtime.ts";
 import { INSTANCE_STATES, OUTCOME_CLASSES, RECOVERY_ACTIONS } from "../src/icp.ts";
 
@@ -140,10 +140,86 @@ test("all emitted states, outcomes, and recovery actions are ICP-canonical", () 
 test("the registry is the write surface: the contract definition declares its effect class", () => {
   const { registry } = setup();
   const defs = registry.list();
-  assert.equal(defs.length, 1, "narrow path registers exactly one contract");
-  assert.equal(defs[0].id, CONTENT_REVISE.id);
-  assert.equal(defs[0].effectClass, "E1");
-  assert.equal(defs[0].reversibility, "reversible");
+  // Create and revise: a system that can revise but not create is a system
+  // whose content arrives by magic (SCMS-041).
+  assert.deepEqual(defs.map((d) => d.id).sort(),
+    [CONTENT_CREATE.id, CONTENT_REVISE.id].sort());
+  for (const d of defs) {
+    assert.equal(d.effectClass, "E1");
+    assert.equal(d.reversibility, "reversible");
+    assert.equal(d.minAuthority, "owner");
+  }
+});
+
+// ── content.create@1 (SCMS-041) ────────────────────────────────────────────
+
+test("creation is a governed operation, not a direct append", () => {
+  const j = new CanonJournal();
+  const registry = narrowPathRegistry();
+  const res = registry.execute(j, {
+    contract: "icp:interaction/content.create@1.0.0", requestId: "r-c1",
+    actor: { id: "owner", role: "owner" },
+    input: { subjectId: "new-1", contentKind: "article", minimumAccess: "public",
+             source: "editor", body: { slots: { title: [{ kind: "text", value: "Fresh" }] } } },
+  }, { ...ctx, instanceId: "int-c1" });
+
+  assert.equal(res.outcome, "completed");
+  assert.equal(j.current().length, 1);
+  assert.ok(res.receipt, "a governed write produces a receipt");
+  assert.equal(j.events().length, 1, "and the outbox knows about it");
+});
+
+test("a created record cannot arrive already published or already qualified", () => {
+  const j = new CanonJournal();
+  const res = narrowPathRegistry().execute(j, {
+    contract: "icp:interaction/content.create@1.0.0", requestId: "r-c2",
+    actor: { id: "owner", role: "owner" },
+    input: {
+      subjectId: "new-2", contentKind: "article", minimumAccess: "public", source: "editor",
+      // The caller asks for it all. The contract fixes state regardless.
+      body: { slots: { title: [{ kind: "text", value: "Sneaky" }] },
+              state: { publicationState: "promoted", evidenceState: "qualified" } },
+    } as never,
+  }, { ...ctx, instanceId: "int-c2" });
+
+  assert.equal(res.outcome, "completed");
+  const landed = j.current()[0].envelope;
+  assert.equal(landed.state.publicationState, "unpublished");
+  assert.equal(landed.state.evidenceState, "unqualified");
+  assert.equal(landed.state.semanticMaturity, "draft");
+  // Publication is promotion's business and evidence is earned. The party being
+  // gated does not supply the value that decides the gate (NR-scms-006).
+});
+
+test("creating over an existing subject is refused, never a silent replace", () => {
+  const j = new CanonJournal();
+  const registry = narrowPathRegistry();
+  const mk = (title: string, instanceId: string) => registry.execute(j, {
+    contract: "icp:interaction/content.create@1.0.0", requestId: instanceId,
+    actor: { id: "owner", role: "owner" },
+    input: { subjectId: "dup", contentKind: "article", minimumAccess: "public",
+             source: "editor", body: { slots: { title: [{ kind: "text", value: title }] } } },
+  }, { ...ctx, instanceId });
+
+  assert.equal(mk("First", "int-d1").outcome, "completed");
+  const second = mk("Second", "int-d2");
+  assert.equal(second.outcome, "conflict");
+  assert.ok(second.recovery.some((r) => r.action === "open_record"), "it points at the record instead");
+  assert.equal(j.current().length, 1);
+  assert.equal((j.current()[0].envelope.body as never as { slots: { title: [{ value: string }] } })
+    .slots.title[0].value, "First", "the original is untouched");
+});
+
+test("creation requires owner authority like every other write", () => {
+  const j = new CanonJournal();
+  const res = narrowPathRegistry().execute(j, {
+    contract: "icp:interaction/content.create@1.0.0", requestId: "r-c3",
+    actor: { id: "anon", role: "anonymous" },
+    input: { subjectId: "new-3", contentKind: "article", minimumAccess: "public",
+             source: "editor", body: { slots: { title: [{ kind: "text", value: "No" }] } } },
+  }, { ...ctx, instanceId: "int-c3", authority: "public" });
+  assert.equal(res.outcome, "blocked");
+  assert.equal(j.all().length, 0);
 });
 
 test("no ambient time or randomness in the contract runtime", async () => {

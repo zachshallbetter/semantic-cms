@@ -1,6 +1,6 @@
 # PROJECT COMPILED CONTEXT
 Generator: 0.5.0
-Source digest: ce7890c0b552aa9afd6f585847773d7bd7b72498054538741432483ffa28a0b8
+Source digest: 73ada23914a75968c87b07406ad67dd7ab60659cc27248cd22df465516295f26
 
 > Generated projection. Canonical sources remain authoritative.
 
@@ -1459,6 +1459,7 @@ decision record) — never by deletion.
 | SH-11 | CAVEAT | GPL boundary | open-knowledge consumed as a service (P25) — process-boundary isolation believed sufficient; not yet reviewed by counsel. | Keep strict service boundary (no linking, no vendoring); counsel review before any distribution of a combined work. |
 | SH-13 | **GAP — security** | Attestation provenance | Attestations are caller-supplied: `disposition: QUALIFIED` is trusted because it was passed in, and nothing binds an attestation to an evaluator. The evidence gate accepts evidence from the party being gated. Anonymous exploitation is closed by SCMS-031's authority gate; owner self-certification is not. | Options recorded in scms-blocker-003 — signed attestations bound to a named evaluator, or attestations read from Canon by revision and never accepted from input. Needs owner disposition. |
 | SH-14 | **GAP — read path** | Derived observations are unreachable | `freeze()` projects only `Content` and `Relation` bodies into the snapshot, so `Observation` bodies never become snapshot subjects at any access level. SCMS-028's derived Semantic Article Field lands in Canon and is then invisible to every surface, including the owner's. Found incidentally by the NR-scms-007 adversarial pass. | Either project observations into the snapshot with their own access, or state explicitly that observations reach surfaces through the Field plane rather than through resolution — currently neither is true. |
+| SH-15 | **DECISION — owner** | Migrated publication status | `content.create@1` fixes a new record to draft/unqualified/unpublished and will not read state from input, so **51 entries that were published on the old site arrive unpublished**. This is the system's own claim applied to its migration: publishing is qualification plus promotion, and neither is inherited by copying. It is either exactly right, or an unacceptable amount of ceremony for content that has been live for years. | Three options: (a) keep it strict — re-publish each with real evidence, which is the current behaviour; (b) a distinct owner-authorized `content.adopt` contract that carries prior publication with its provenance recorded as adopted-not-qualified; (c) a migration consequence profile whose obligations are satisfiable by the fact of prior publication. Needs owner disposition. |
 | ~~SH-12~~ | **RESOLVED** | Wire protocol concretes | *Closed by SCMS-024:* `schemas/scms/envelope.schema.json` (closed, hash-pattern-typed, freshness rule encoded conditionally) and `schemas/scms/golden/canonicalization.json` (4 positive vectors + 1 negative proving the check can fail). Residual limitation, recorded not hidden: no JSON-Schema library is available under the zero-dependency policy, so the schema document is not meta-validated and schema/runtime agreement is asserted case-wise. |
 
 ## Claim register
@@ -1485,6 +1486,7 @@ above its rung.
 | The site can be a reader expression of Canon rather than a content client | **Implemented + Tested over a real corpus** | SCMS-030: the real /writing and /work routes resolve as surfaces over the migrated archive; feed and sitemap derive from the page's own ResolvedSurface, so a feed cannot disagree with its page; unlisted content is reachable by link and in no index | Wiring the declarations into the site's renderer, and a deployment |
 | An editor cannot offer an affordance nothing implements | **Implemented + Tested** | SCMS-031: operations are derived from the live contract registry, unimplemented intents are withheld with a stated reason, and a compensatable operation is not offered while its compensation is unregistered | A rendered editor, and the visual half of SH-8 |
 | An author can see the system's honesty, not just be told about it | **Implemented + Tested** | SCMS-040: the chip flips to `local · unsent` on the first keystroke, publishing stays refused with its reason visible while no attestation covers the revision, and conflict keeps typing open while freezing publication | A person actually using it (SCMS-041) |
+| Content can only come into existence through a contract | **Implemented + Tested** | SCMS-041: `content.create@1` exists, the whole corpus enters through it with zero direct appends, the import is idempotent, and a created record cannot arrive published or qualified however the input is shaped | The same under concurrency, and a persistence engine (SH-1) |
 | The published artifacts match their canonical sources | **Tested** | scripts/check-projection-sync.py in CI, with a self-test | — |
 | The system is empirically useful | **NOT established** — but no longer untested against reality | SCMS-028: a real 215-entry corpus maps into Canon and resolves, and the mapping found a genuine modelling collapse in the owner's live data (dual-vocabulary `status`, 22 findings). That establishes the *mapping*, not usefulness: nothing is deployed, no human has used the result, rcp-001 remains an active obligation | A person doing real work through it — which needs the authoring surface (E12/SH-8) and a deployment |
 
@@ -9382,6 +9384,16 @@ export interface ExecutionResult {
   detail?: string;
 }
 
+export interface CreateInput {
+  subjectId: string;
+  contentKind: string;
+  /** The authored body. State is NOT taken from here — see the handler. */
+  body: Record<string, unknown>;
+  minimumAccess: AccessLevel;
+  /** Where this record came from, for the provenance lattice. */
+  source: string;
+}
+
 export interface ReviseInput {
   subjectId: string;
   /** The revision the caller believes is current — optimistic concurrency. */
@@ -9495,6 +9507,107 @@ export const CONTENT_REVISE: ContractDefinition = {
 };
 
 /**
+ * content.create@1 — bring a record into existence.
+ *
+ * This contract did not exist until SCMS-041, and its absence was a hole big
+ * enough to drive the whole system through: `content.revise` requires an
+ * existing revision, so the ONLY way content had ever entered Canon was a
+ * direct `journal.append` — which DESIGN.md §5 forbids outside the Canon,
+ * Contracts and Qualification packages. Every migration and every vector did it
+ * from a test file, where the write-boundary gate exempts fixture construction,
+ * so nothing ever surfaced the fact that **creation was not a governed
+ * operation at all**. A system that can revise, publish, unpublish and merge but
+ * cannot lawfully create is a system whose content arrives by magic.
+ *
+ * Effect class E1: a created record is unpublished by construction, so it makes
+ * no external commitment and nothing needs compensating.
+ */
+export const CONTENT_CREATE: ContractDefinition = {
+  id: "icp:interaction/content.create",
+  version: "1.0.0",
+  minAuthority: "owner",
+  effectClass: "E1",
+  reversibility: "reversible",
+  resourceType: "content",
+};
+
+export const createHandler: Handler = (journal, req, def, ctx) => {
+  const states: InstanceState[] = ["declared", "ready", "started", "validating"];
+  const verification = VERIFICATION_FOR_EFFECT[def.effectClass];
+  const input = req.input as unknown as CreateInput;
+
+  const missing = (["subjectId", "contentKind", "body", "minimumAccess", "source"] as const)
+    .filter((k) => input?.[k] === undefined || input[k] === null);
+  if (missing.length > 0) {
+    return {
+      instanceId: ctx.instanceId, outcome: "invalid_input", states: [...states, "failed"],
+      verification, recovery: missing.map((field) => ({ action: "focus_field" as const, data: { field } })),
+      detail: `missing: ${missing.join(", ")}`,
+    };
+  }
+
+  // Identity is not overwritable. Creating over an existing subject would make
+  // "create" a silent replace, which is the destructive edit §3.4 forbids.
+  const existing = journal.current().find((e) => e.envelope.subjectId === input.subjectId);
+  if (existing) {
+    return {
+      instanceId: ctx.instanceId, outcome: "conflict", states: [...states, "conflicted"], verification,
+      recovery: [
+        { action: "open_record", data: { subjectId: input.subjectId, revision: existing.envelope.revision! } },
+        { action: "review_conflict", data: { reason: "subject already exists; revise it instead" } },
+      ],
+      detail: `subject '${input.subjectId}' already exists`,
+    };
+  }
+
+  const body = { ...input.body, kind: "Content", contentKind: input.contentKind };
+
+  if (ctx.validateBody) {
+    const findings = ctx.validateBody(body);
+    if (findings.length > 0) {
+      return {
+        instanceId: ctx.instanceId, outcome: "invalid_input", states: [...states, "failed"], verification,
+        recovery: findings.map((f) => ({ action: "focus_field" as const, data: { field: f.at, detail: f.detail } })),
+        detail: `declared type rejected the body: ${findings.map((f) => f.code).join(", ")}`,
+      };
+    }
+  }
+
+  states.push("processing");
+  const envelope: Envelope = {
+    schemaVersion: "scms-0.1",
+    subjectId: input.subjectId,
+    compatibility: { protocol: "scms-0.1", subjectSchema: `${input.contentKind}@1` },
+    provenance: { kind: "declared", authority: "project.owner", source: input.source },
+    minimumAccess: input.minimumAccess,
+    body: body as Envelope["body"],
+    // State is fixed by the contract, never read from input. A caller must not
+    // be able to create a record that arrives already published or already
+    // qualified — publication is promotion's business and evidence is earned.
+    // This is the same rule NR-scms-006 was written about: the party being
+    // gated does not get to supply the value that decides the gate.
+    state: {
+      semanticMaturity: "draft",
+      evidenceState: "unqualified",
+      publicationState: "unpublished",
+      deliveryState: "unpropagated",
+    },
+  };
+
+  const landed = journal.append(envelope, req.actor.id);
+  const receiptBase = {
+    interaction: def.id, instanceId: ctx.instanceId, requestId: req.requestId,
+    actor: req.actor, resource: { type: def.resourceType, id: input.subjectId },
+    before: null, after: landed.envelope.revision!, occurredAt: ctx.occurredAt,
+  };
+  return {
+    instanceId: ctx.instanceId, outcome: "completed", states: [...states, "completed"], verification,
+    receipt: { ...receiptBase, integrity: receiptDigest(receiptBase as never) } as never,
+    recovery: [],
+  };
+};
+
+/**
  * content.revise@1 — land a draft revision.
  * Lifecycle: declared → ready → started → validating → processing → terminal.
  */
@@ -9586,6 +9699,7 @@ export const reviseHandler: Handler = (journal, req, def, ctx) => {
 /** A registry with the narrow path's single contract registered. */
 export function narrowPathRegistry(): ContractRegistry {
   const r = new ContractRegistry();
+  r.register(CONTENT_CREATE, createHandler);
   r.register(CONTENT_REVISE, reviseHandler);
   return r;
 }
@@ -9603,7 +9717,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { CanonJournal } from "../../canon/src/journal.ts";
 import type { Envelope, RecordState } from "../../canon/src/envelope.ts";
-import { narrowPathRegistry, receiptDigest, CONTENT_REVISE, ContractRegistry, reviseHandler } from "../src/runtime.ts";
+import { narrowPathRegistry, receiptDigest, CONTENT_REVISE, CONTENT_CREATE, ContractRegistry, reviseHandler } from "../src/runtime.ts";
 import type { ExecutionRequest } from "../src/runtime.ts";
 import { INSTANCE_STATES, OUTCOME_CLASSES, RECOVERY_ACTIONS } from "../src/icp.ts";
 
@@ -9737,10 +9851,86 @@ test("all emitted states, outcomes, and recovery actions are ICP-canonical", () 
 test("the registry is the write surface: the contract definition declares its effect class", () => {
   const { registry } = setup();
   const defs = registry.list();
-  assert.equal(defs.length, 1, "narrow path registers exactly one contract");
-  assert.equal(defs[0].id, CONTENT_REVISE.id);
-  assert.equal(defs[0].effectClass, "E1");
-  assert.equal(defs[0].reversibility, "reversible");
+  // Create and revise: a system that can revise but not create is a system
+  // whose content arrives by magic (SCMS-041).
+  assert.deepEqual(defs.map((d) => d.id).sort(),
+    [CONTENT_CREATE.id, CONTENT_REVISE.id].sort());
+  for (const d of defs) {
+    assert.equal(d.effectClass, "E1");
+    assert.equal(d.reversibility, "reversible");
+    assert.equal(d.minAuthority, "owner");
+  }
+});
+
+// ── content.create@1 (SCMS-041) ────────────────────────────────────────────
+
+test("creation is a governed operation, not a direct append", () => {
+  const j = new CanonJournal();
+  const registry = narrowPathRegistry();
+  const res = registry.execute(j, {
+    contract: "icp:interaction/content.create@1.0.0", requestId: "r-c1",
+    actor: { id: "owner", role: "owner" },
+    input: { subjectId: "new-1", contentKind: "article", minimumAccess: "public",
+             source: "editor", body: { slots: { title: [{ kind: "text", value: "Fresh" }] } } },
+  }, { ...ctx, instanceId: "int-c1" });
+
+  assert.equal(res.outcome, "completed");
+  assert.equal(j.current().length, 1);
+  assert.ok(res.receipt, "a governed write produces a receipt");
+  assert.equal(j.events().length, 1, "and the outbox knows about it");
+});
+
+test("a created record cannot arrive already published or already qualified", () => {
+  const j = new CanonJournal();
+  const res = narrowPathRegistry().execute(j, {
+    contract: "icp:interaction/content.create@1.0.0", requestId: "r-c2",
+    actor: { id: "owner", role: "owner" },
+    input: {
+      subjectId: "new-2", contentKind: "article", minimumAccess: "public", source: "editor",
+      // The caller asks for it all. The contract fixes state regardless.
+      body: { slots: { title: [{ kind: "text", value: "Sneaky" }] },
+              state: { publicationState: "promoted", evidenceState: "qualified" } },
+    } as never,
+  }, { ...ctx, instanceId: "int-c2" });
+
+  assert.equal(res.outcome, "completed");
+  const landed = j.current()[0].envelope;
+  assert.equal(landed.state.publicationState, "unpublished");
+  assert.equal(landed.state.evidenceState, "unqualified");
+  assert.equal(landed.state.semanticMaturity, "draft");
+  // Publication is promotion's business and evidence is earned. The party being
+  // gated does not supply the value that decides the gate (NR-scms-006).
+});
+
+test("creating over an existing subject is refused, never a silent replace", () => {
+  const j = new CanonJournal();
+  const registry = narrowPathRegistry();
+  const mk = (title: string, instanceId: string) => registry.execute(j, {
+    contract: "icp:interaction/content.create@1.0.0", requestId: instanceId,
+    actor: { id: "owner", role: "owner" },
+    input: { subjectId: "dup", contentKind: "article", minimumAccess: "public",
+             source: "editor", body: { slots: { title: [{ kind: "text", value: title }] } } },
+  }, { ...ctx, instanceId });
+
+  assert.equal(mk("First", "int-d1").outcome, "completed");
+  const second = mk("Second", "int-d2");
+  assert.equal(second.outcome, "conflict");
+  assert.ok(second.recovery.some((r) => r.action === "open_record"), "it points at the record instead");
+  assert.equal(j.current().length, 1);
+  assert.equal((j.current()[0].envelope.body as never as { slots: { title: [{ value: string }] } })
+    .slots.title[0].value, "First", "the original is untouched");
+});
+
+test("creation requires owner authority like every other write", () => {
+  const j = new CanonJournal();
+  const res = narrowPathRegistry().execute(j, {
+    contract: "icp:interaction/content.create@1.0.0", requestId: "r-c3",
+    actor: { id: "anon", role: "anonymous" },
+    input: { subjectId: "new-3", contentKind: "article", minimumAccess: "public",
+             source: "editor", body: { slots: { title: [{ kind: "text", value: "No" }] } } },
+  }, { ...ctx, instanceId: "int-c3", authority: "public" });
+  assert.equal(res.outcome, "blocked");
+  assert.equal(j.all().length, 0);
 });
 
 test("no ambient time or randomness in the contract runtime", async () => {
@@ -11149,6 +11339,99 @@ FILE: impl/migrate/package.json
 
 
 ========================================================================
+FILE: impl/migrate/src/governed.ts
+========================================================================
+
+/**
+ * The governed import (SCMS-041, epic E8+E12).
+ *
+ * The owner directed migration *through the editor*. Doing that surfaced the
+ * fact that it was not possible: `content.revise` needs an existing revision and
+ * there was no create contract, so every import this project had ever run used
+ * a direct `journal.append` from a test file — the one place the write-boundary
+ * gate exempts. Creation was not a governed operation at all (SCMS-041 added
+ * `content.create@1`).
+ *
+ * This module is the real path: envelopes produced by the mapping are offered to
+ * the contract registry one at a time, with a proven authority, and whatever the
+ * registry says is what happens.
+ *
+ * **The consequence worth reading before running it.** `content.create@1` fixes
+ * the state of a new record: draft, unqualified, unpublished. So an entry that
+ * was `published` on the old site does **not** arrive published here. That is
+ * not a limitation of the importer — it is the system's central claim applied to
+ * its own migration. Publishing is qualification plus promotion, and a record
+ * cannot inherit either by being copied. Re-publishing the previously-live
+ * entries is a deliberate act, and the report says how many that is.
+ */
+import type { Envelope } from "../../canon/src/envelope.ts";
+import type { CanonJournal } from "../../canon/src/journal.ts";
+import type { ContractRegistry, ExecutionContext } from "../../contracts/src/runtime.ts";
+
+export interface ImportOutcome {
+  subjectId: string;
+  outcome: string;
+  detail?: string;
+}
+
+export interface ImportReport {
+  landed: ImportOutcome[];
+  refused: ImportOutcome[];
+  /** Entries the SOURCE considered published which did not arrive published. */
+  publicationNotCarried: string[];
+  eventsEmitted: number;
+}
+
+export interface GovernedImportInput {
+  journal: CanonJournal;
+  registry: ContractRegistry;
+  envelopes: Envelope[];
+  /** Proven authority for the import run. Import is owner work. */
+  context: Omit<ExecutionContext, "instanceId">;
+  actor: { id: string; role: string };
+}
+
+export function governedImport(input: GovernedImportInput): ImportReport {
+  const landed: ImportOutcome[] = [];
+  const refused: ImportOutcome[] = [];
+  const publicationNotCarried: string[] = [];
+  const before = input.journal.events().length;
+
+  input.envelopes.forEach((env, i) => {
+    const body = env.body as unknown as { contentKind?: string; kind?: string };
+    const result = input.registry.execute(input.journal, {
+      contract: "icp:interaction/content.create@1.0.0",
+      requestId: `import-${i}`,
+      actor: input.actor,
+      input: {
+        subjectId: env.subjectId,
+        contentKind: body.contentKind ?? body.kind ?? "unknown",
+        body: env.body as unknown as Record<string, unknown>,
+        minimumAccess: env.minimumAccess,
+        source: env.provenance.source ?? "import",
+      } as unknown as Record<string, unknown>,
+    }, { ...input.context, instanceId: `import-${i}` });
+
+    const row: ImportOutcome = {
+      subjectId: env.subjectId, outcome: result.outcome,
+      ...(result.detail === undefined ? {} : { detail: result.detail }),
+    };
+    if (result.outcome === "completed") {
+      landed.push(row);
+      if (env.state.publicationState === "promoted") publicationNotCarried.push(env.subjectId);
+    } else {
+      refused.push(row);
+    }
+  });
+
+  return {
+    landed, refused, publicationNotCarried,
+    eventsEmitted: input.journal.events().length - before,
+  };
+}
+
+
+========================================================================
 FILE: impl/migrate/src/zach-core.ts
 ========================================================================
 
@@ -11380,6 +11663,8 @@ import { fileURLToPath } from "node:url";
 import { migrateAll, migrateEntry, unresolvedRelations } from "../src/zach-core.ts";
 import type { SourceEntry } from "../src/zach-core.ts";
 import { validateEnvelope } from "../../canon/src/envelope.ts";
+import { governedImport } from "../src/governed.ts";
+import { narrowPathRegistry } from "../../contracts/src/runtime.ts";
 import { CanonJournal } from "../../canon/src/journal.ts";
 import { freeze } from "../../canon/src/freeze.ts";
 import { resolveSurface } from "../../surface-resolver/src/resolver.ts";
@@ -11547,6 +11832,71 @@ test("access holds over real content: a public reader sees no private entry", ()
   assert.equal(leaked, 0, "no private entry appears in a public surface");
   // Control: at least one public article does appear, so the check can fail.
   assert.ok(surface.groups[0].members.length > 0, "public articles resolve");
+});
+
+// ── The governed import (SCMS-041) ─────────────────────────────────────────
+// Routing the corpus through a contract rather than appending it directly. This
+// is what the owner's "migrate through the editor" instruction actually
+// requires, and building it revealed that creation had never been governed.
+
+const importCtx = { occurredAt: "2026-08-29T00:00:00Z", authority: "owner" as const };
+const importActor = { id: "project.owner", role: "owner" };
+
+function runImport() {
+  const journal = new CanonJournal();
+  const report = governedImport({
+    journal, registry: narrowPathRegistry(), envelopes: result.content,
+    context: importCtx, actor: importActor,
+  });
+  return { journal, report };
+}
+
+test("the whole corpus lands through a contract, with zero direct appends", () => {
+  const { journal, report } = runImport();
+  assert.equal(report.landed.length, 215);
+  assert.deepEqual(report.refused, []);
+  assert.equal(journal.current().length, 215);
+  // Every landing announced itself; the outbox is not optional.
+  assert.equal(report.eventsEmitted, 215);
+});
+
+test("publication does not survive the migration \u2014 it has to be re-earned", () => {
+  const { journal, report } = runImport();
+  // 51 entries were 'published' at the source.
+  assert.equal(report.publicationNotCarried.length, 51);
+  // And not one of them arrived published.
+  assert.equal(journal.current().filter(
+    (e) => e.envelope.state.publicationState === "promoted").length, 0);
+  assert.ok(journal.current().every((e) => e.envelope.state.evidenceState === "unqualified"));
+  // The system's central claim applied to its own migration: publishing is
+  // qualification plus promotion, and neither is inherited by being copied.
+});
+
+test("a governed import is idempotent \u2014 re-running it lands nothing twice", () => {
+  const journal = new CanonJournal();
+  const registry = narrowPathRegistry();
+  const first = governedImport({ journal, registry, envelopes: result.content, context: importCtx, actor: importActor });
+  const second = governedImport({ journal, registry, envelopes: result.content, context: importCtx, actor: importActor });
+
+  assert.equal(first.landed.length, 215);
+  assert.equal(second.landed.length, 0, "nothing new landed");
+  assert.equal(second.refused.length, 215);
+  assert.ok(second.refused.every((r) => r.outcome === "conflict"),
+    "each is refused as an existing subject, not silently replaced");
+  assert.equal(journal.current().length, 215);
+  assert.equal(second.eventsEmitted, 0, "and nobody was told about a change that did not happen");
+});
+
+test("an import without proven authority lands nothing at all", () => {
+  const journal = new CanonJournal();
+  const report = governedImport({
+    journal, registry: narrowPathRegistry(), envelopes: result.content.slice(0, 10),
+    context: { ...importCtx, authority: "public" }, actor: { id: "anon", role: "anonymous" },
+  });
+  assert.equal(report.landed.length, 0);
+  assert.equal(report.refused.length, 10);
+  assert.equal(journal.all().length, 0);
+  assert.equal(report.eventsEmitted, 0);
 });
 
 
@@ -19489,7 +19839,7 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-038 | Independent adversarial verification of the load-bearing claims | E0 | Ready — nothing has ever been marked Verified; targets the new authority gate first | — |
 | SCMS-039 | Recommended dispositions for the 25 open proposals on PR #28 | E0 | Ready — recommendations only; ratification is owner authority and will NOT be exercised | — |
 | SCMS-040 | The editor in preview: a usable authoring surface over real content | E12 | Done — SH-8 closed; preview published; awaiting owner verification | records/evidence.jsonl · scms-evidence-040 |
-| SCMS-041 | Migrate the corpus THROUGH the editor (the first real editing workload) | E8+E12 | Ready — depends on SCMS-040; generates the evidence P7's deferral asked for | — |
+| SCMS-041 | Migrate the corpus through the governed path (content.create@1) | E8+E12 | Done — creation is governed at last; SH-15 raised; awaiting owner verification | records/evidence.jsonl · scms-evidence-041 |
 | SCMS-042 | Disposition P7 from the observed workload, not from a fixture | E1 | Ready — depends on SCMS-041; recommendation to owner, grounded in what real edits did | — |
 | SCMS-018 | R1 live co-authoring — **free lane only** (convergent merge) | E1 | **Blocked** — awaiting disposition of P7/P22 on PR #28 | records/blockers · scms-blocker-001 |
 | SCMS-010 | S4 cross-domain portability: a materially unrelated project (outside this repository, per owner doctrine 2026-08-28) consumes @semantic-systems/surface unmodified | external | Backlog — executes outside scms; scms records the conformance result | — |
@@ -21363,4 +21713,66 @@ construction, so a server that omits a charset cannot mangle it.
 
 **Done — SH-8 closes. The editor exists, its honesty is tested rather than styled, and the
 instrument P7 needs now exists.**
+
+
+========================================================================
+FILE: work/SCMS-041.md
+========================================================================
+
+# SCMS-041 — Migrate the corpus through the governed path
+
+**Intent ref:** PROJECT_INTENT.md · **Epic:** E8+E12 · **Effect class:** E1
+**Assigned by:** owner directive — *"handle P7 by migrating my content using the editor in preview."*
+**State:** Ready → Claimed → Done (closing state at bottom)
+
+## What the instruction exposed
+
+The owner's instruction could not be carried out, and finding out why is the substance of this item.
+
+`content.revise@1` requires an existing revision. `content.promote@1` and `content.unpublish@1`
+act on records that already exist. **There was no create contract.** So the only way content had
+ever entered Canon was a direct `journal.append` — which DESIGN.md §5 forbids outside the Canon,
+Contracts and Qualification packages, and which the write-boundary gate enforces.
+
+Every migration and every vector did it from a test file, and the gate exempts fixture
+construction by an explicit rule. So the exemption that was correctly written to allow fixtures
+was also, silently, the only thing holding the entire import path up. A system that can revise,
+publish, unpublish and merge but cannot lawfully *create* is a system whose content arrives by
+magic — and nothing surfaced it until someone tried to do the real thing.
+
+The write-boundary gate had in fact pointed straight at this an hour earlier, when it refused the
+editor preview's data builder. That refusal read as a nuisance about a build script. It was the
+actual finding.
+
+## Ready predicate
+
+- **Scope:** `content.create@1`, and a governed importer that offers each mapped envelope to the
+  registry with a proven authority.
+- **Exclusions:** no concurrent-editing workload yet (SCMS-042, which is what P7 needs); no
+  deploy; no live-state change.
+- **Acceptance:** the whole corpus lands through a contract with zero direct appends; every
+  landing emits; a created record cannot arrive published or qualified however the input is
+  shaped; creating over an existing subject is refused rather than silently replacing it; the
+  import is idempotent and a re-run tells nobody about changes that did not happen; and an import
+  without proven authority lands nothing.
+
+## The consequence the owner needs to see
+
+`content.create@1` fixes the state of a new record: draft, unqualified, unpublished. It is
+deliberately not readable from input — the party being gated does not supply the value that
+decides the gate (NR-scms-006).
+
+**So 51 entries that were `published` on the old site do not arrive published.** Publishing here is
+qualification plus promotion, and neither is inherited by being copied. Restoring them is a
+deliberate act that needs evidence for each.
+
+That is the system's central claim applied to its own migration, and it is either exactly right or
+an unacceptable amount of ceremony for content that has been live for years. **That judgement is
+the owner's**, so the strict behaviour is implemented and the choice is registered as **SH-15**
+rather than settled quietly in either direction.
+
+## Closing state
+
+**Done — content can now come into existence lawfully, and the corpus arrives through the front
+door. What it does not arrive with is a publication status it did not earn.**
 

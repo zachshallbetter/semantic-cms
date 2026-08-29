@@ -9,14 +9,14 @@
     "repositories": [
       {
         "path": ".",
-        "commit": "7d8707726bc5403fc8c5321268d3b65b0b55182e",
+        "commit": "167ec1b23b6e28e386238202b968f1947cbd7dfe",
         "branch": "main",
         "dirty": true,
         "remote": "https://github.com/zachshallbetter/semantic-cms.git"
       }
     ]
   },
-  "aggregateSourceDigest": "ce7890c0b552aa9afd6f585847773d7bd7b72498054538741432483ffa28a0b8",
+  "aggregateSourceDigest": "73ada23914a75968c87b07406ad67dd7ab60659cc27248cd22df465516295f26",
   "sources": [
     {
       "path": ".agents/skills/compile-context/SKILL.md",
@@ -100,8 +100,8 @@
     },
     {
       "path": "SPEC_HEALTH.md",
-      "bytes": 13368,
-      "sha256": "ea0585a4078ef98b1e2b7bff5f0f04821b12c62890aa2f29bcf8e9fa5e2fa1fb"
+      "bytes": 14603,
+      "sha256": "73d6c0c97fff6016b1f29b28a25953fceb3cd27a51e4aba49abf3d109566c747"
     },
     {
       "path": "VERSION",
@@ -265,13 +265,13 @@
     },
     {
       "path": "impl/contracts/src/runtime.ts",
-      "bytes": 12777,
-      "sha256": "819cb715b954d6a8efb839146cd9832b5af308fd82bec75f8275bacf84355903"
+      "bytes": 17694,
+      "sha256": "2f506f71efbeed0051de6bb55fec36b54560b017328edcfd0e110bd2cb1ffd76"
     },
     {
       "path": "impl/contracts/test/contracts.test.ts",
-      "bytes": 15875,
-      "sha256": "7a6a1b33d5eb8d3fec761e0034bece5dac7e08b45a57c9c7180eeaef78447e02"
+      "bytes": 19666,
+      "sha256": "11780fc6afe00c5326f87071d12202bcf856581ae185c1469640b325a648ce1c"
     },
     {
       "path": "impl/e2e/package.json",
@@ -329,14 +329,19 @@
       "sha256": "6d4efb7acde386ab4a36f84d048c3e363eb75096a48ec14ce7d6a6a634989558"
     },
     {
+      "path": "impl/migrate/src/governed.ts",
+      "bytes": 3476,
+      "sha256": "9f5d93adcb5ab2170e59f865757811e2be5efc00f5d3f84b1d60ae42b0358627"
+    },
+    {
       "path": "impl/migrate/src/zach-core.ts",
       "bytes": 8915,
       "sha256": "fd894ee21d76ec1f7ca10f8cc69986d2dded18c836d6bebb7f83c818a7e86d3e"
     },
     {
       "path": "impl/migrate/test/migration.test.ts",
-      "bytes": 9895,
-      "sha256": "45c79d3552173e9dd9a753284f1e524fa6a68508ae82599b4372534f42c5d83c"
+      "bytes": 13181,
+      "sha256": "678d1d999a660d2309493b1d1591c40941300180209daa9747f9118adc3ffcd4"
     },
     {
       "path": "impl/notify/package.json",
@@ -600,8 +605,8 @@
     },
     {
       "path": "work/GRAPH.md",
-      "bytes": 10877,
-      "sha256": "39ac5537bf935addee270c2817dbb8f139ae098937039e34563544e209e255dd"
+      "bytes": 10912,
+      "sha256": "5d163495b1682f90b18ad383a140cf482f4a86929839260f4a06d2cbac272e1c"
     },
     {
       "path": "work/SCMS-001.md",
@@ -752,6 +757,11 @@
       "path": "work/SCMS-040.md",
       "bytes": 4199,
       "sha256": "2c68202afe9fad9a3e00ac8a2e737cbff6ab39824ebd47b82eb7d3ae2d7cf66f"
+    },
+    {
+      "path": "work/SCMS-041.md",
+      "bytes": 3212,
+      "sha256": "8f0658880c192f5bc75b6a5eee7f4d73ed64df145d5b0cee17cbcb4dce5a7549"
     }
   ]
 }

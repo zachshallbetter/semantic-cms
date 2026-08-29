@@ -93,6 +93,16 @@ export interface ExecutionResult {
   detail?: string;
 }
 
+export interface CreateInput {
+  subjectId: string;
+  contentKind: string;
+  /** The authored body. State is NOT taken from here — see the handler. */
+  body: Record<string, unknown>;
+  minimumAccess: AccessLevel;
+  /** Where this record came from, for the provenance lattice. */
+  source: string;
+}
+
 export interface ReviseInput {
   subjectId: string;
   /** The revision the caller believes is current — optimistic concurrency. */
@@ -206,6 +216,107 @@ export const CONTENT_REVISE: ContractDefinition = {
 };
 
 /**
+ * content.create@1 — bring a record into existence.
+ *
+ * This contract did not exist until SCMS-041, and its absence was a hole big
+ * enough to drive the whole system through: `content.revise` requires an
+ * existing revision, so the ONLY way content had ever entered Canon was a
+ * direct `journal.append` — which DESIGN.md §5 forbids outside the Canon,
+ * Contracts and Qualification packages. Every migration and every vector did it
+ * from a test file, where the write-boundary gate exempts fixture construction,
+ * so nothing ever surfaced the fact that **creation was not a governed
+ * operation at all**. A system that can revise, publish, unpublish and merge but
+ * cannot lawfully create is a system whose content arrives by magic.
+ *
+ * Effect class E1: a created record is unpublished by construction, so it makes
+ * no external commitment and nothing needs compensating.
+ */
+export const CONTENT_CREATE: ContractDefinition = {
+  id: "icp:interaction/content.create",
+  version: "1.0.0",
+  minAuthority: "owner",
+  effectClass: "E1",
+  reversibility: "reversible",
+  resourceType: "content",
+};
+
+export const createHandler: Handler = (journal, req, def, ctx) => {
+  const states: InstanceState[] = ["declared", "ready", "started", "validating"];
+  const verification = VERIFICATION_FOR_EFFECT[def.effectClass];
+  const input = req.input as unknown as CreateInput;
+
+  const missing = (["subjectId", "contentKind", "body", "minimumAccess", "source"] as const)
+    .filter((k) => input?.[k] === undefined || input[k] === null);
+  if (missing.length > 0) {
+    return {
+      instanceId: ctx.instanceId, outcome: "invalid_input", states: [...states, "failed"],
+      verification, recovery: missing.map((field) => ({ action: "focus_field" as const, data: { field } })),
+      detail: `missing: ${missing.join(", ")}`,
+    };
+  }
+
+  // Identity is not overwritable. Creating over an existing subject would make
+  // "create" a silent replace, which is the destructive edit §3.4 forbids.
+  const existing = journal.current().find((e) => e.envelope.subjectId === input.subjectId);
+  if (existing) {
+    return {
+      instanceId: ctx.instanceId, outcome: "conflict", states: [...states, "conflicted"], verification,
+      recovery: [
+        { action: "open_record", data: { subjectId: input.subjectId, revision: existing.envelope.revision! } },
+        { action: "review_conflict", data: { reason: "subject already exists; revise it instead" } },
+      ],
+      detail: `subject '${input.subjectId}' already exists`,
+    };
+  }
+
+  const body = { ...input.body, kind: "Content", contentKind: input.contentKind };
+
+  if (ctx.validateBody) {
+    const findings = ctx.validateBody(body);
+    if (findings.length > 0) {
+      return {
+        instanceId: ctx.instanceId, outcome: "invalid_input", states: [...states, "failed"], verification,
+        recovery: findings.map((f) => ({ action: "focus_field" as const, data: { field: f.at, detail: f.detail } })),
+        detail: `declared type rejected the body: ${findings.map((f) => f.code).join(", ")}`,
+      };
+    }
+  }
+
+  states.push("processing");
+  const envelope: Envelope = {
+    schemaVersion: "scms-0.1",
+    subjectId: input.subjectId,
+    compatibility: { protocol: "scms-0.1", subjectSchema: `${input.contentKind}@1` },
+    provenance: { kind: "declared", authority: "project.owner", source: input.source },
+    minimumAccess: input.minimumAccess,
+    body: body as Envelope["body"],
+    // State is fixed by the contract, never read from input. A caller must not
+    // be able to create a record that arrives already published or already
+    // qualified — publication is promotion's business and evidence is earned.
+    // This is the same rule NR-scms-006 was written about: the party being
+    // gated does not get to supply the value that decides the gate.
+    state: {
+      semanticMaturity: "draft",
+      evidenceState: "unqualified",
+      publicationState: "unpublished",
+      deliveryState: "unpropagated",
+    },
+  };
+
+  const landed = journal.append(envelope, req.actor.id);
+  const receiptBase = {
+    interaction: def.id, instanceId: ctx.instanceId, requestId: req.requestId,
+    actor: req.actor, resource: { type: def.resourceType, id: input.subjectId },
+    before: null, after: landed.envelope.revision!, occurredAt: ctx.occurredAt,
+  };
+  return {
+    instanceId: ctx.instanceId, outcome: "completed", states: [...states, "completed"], verification,
+    receipt: { ...receiptBase, integrity: receiptDigest(receiptBase as never) } as never,
+    recovery: [],
+  };
+};
+
+/**
  * content.revise@1 — land a draft revision.
  * Lifecycle: declared → ready → started → validating → processing → terminal.
  */
@@ -297,6 +408,7 @@ export const reviseHandler: Handler = (journal, req, def, ctx) => {
 /** A registry with the narrow path's single contract registered. */
 export function narrowPathRegistry(): ContractRegistry {
   const r = new ContractRegistry();
+  r.register(CONTENT_CREATE, createHandler);
   r.register(CONTENT_REVISE, reviseHandler);
   return r;
 }
