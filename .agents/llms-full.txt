@@ -1,6 +1,6 @@
 # PROJECT COMPILED CONTEXT
 Generator: 0.5.0
-Source digest: 5c0b7404e519f242cffbc3bfec8e7625584784570f1fc4e64368c58a6098c768
+Source digest: 7730552bf4349dd2a4717a3c7b5d5e8119b04ab3779ca1974972816a85b1643e
 
 > Generated projection. Canonical sources remain authoritative.
 
@@ -1486,7 +1486,7 @@ decision record) — never by deletion.
 | SH-19 | **CAVEAT — instrument limit** | The leak scan compares identities, not all spellings | After NR-scms-013 the S3 access-constraint check normalizes character references and percent-encoding before scanning, but an identity split across separate attributes or interleaved with markup is still invisible to it. It is a backstop against an adapter leaking by accident — the realistic failure — and not a proof against one encoding deliberately. | Either accept the limit explicitly in the S3 claim wording (current posture), or compare against a parsed DOM rather than a string. |
 | ~~SH-20~~ | **RESOLVED as a declared non-property** | Intra-group order is unprotected | *Closed by SCMS-053:* S3 does not promise intra-group order, and now says so. `checkEquivalence` reports `intraGroupOrderMatched` without enforcing it — priority is semantic and its realization is free, so an adapter may legitimately order a group by reading time, alphabet, or nothing at all. What was wrong is that the absence was true by omission: an unwritten missing guarantee is indistinguishable from one people assume they have. A caller who needs the property can now check for it. | — |
 | SH-21 | **GAP — migration** | The corpus is unpublished | `content.create@1` refuses to create already-published content (correctly — a caller must not supply the value deciding the gate), so all 215 migrated records arrive `unpublished`, including the 61 that were published in the source. Since SCMS-050 made the read path consult publication, the site correctly renders empty. | Promote those records through the real gate, which requires attestations and therefore intersects SH-13. Part of SCMS-029's reconciliation; not something the importer may do on its own. |
-| SH-22 | **GAP — coverage** | Two obligations have no evaluator | `ob/links-resolve` and `ob/media-alt-text` are declared in the article profile and have no checker, so every article qualifies as `BLOCKED` and cannot be promoted. Correct behaviour for a coverage gap (SCMS-054), and it means the owner's articles are unpublishable until the checkers exist. | Build a link resolver and a media alt-text inspector, or remove the obligations from the profile — which is a decision about what an article's publication should guarantee, not an implementation detail. |
+| SH-22 | **THIN — narrowed by SCMS-055** | External link verification blocks articles | Both checkers now exist. `ob/media-alt-text` is fully decidable. `ob/links-resolve` resolves internal references against Canon and reports external URLs as `INCONCLUSIVE`, since they cannot be verified without network access — a coverage gap, so an article containing any external link is still `BLOCKED`. Most of the owner's corpus is Medium imports, so most articles carry external links. | Three options, all the owner's: give the system network access for a link-liveness check; declare that `ob/links-resolve` means internal references only; or remove the obligation from the article profile. Narrowing it unilaterally would be redefining what publication guarantees in order to pass the gate. |
 | ~~SH-12~~ | **RESOLVED** | Wire protocol concretes | *Closed by SCMS-024:* `schemas/scms/envelope.schema.json` (closed, hash-pattern-typed, freshness rule encoded conditionally) and `schemas/scms/golden/canonicalization.json` (4 positive vectors + 1 negative proving the check can fail). Residual limitation, recorded not hidden: no JSON-Schema library is available under the zero-dependency policy, so the schema document is not meta-validated and schema/runtime agreement is asserted case-wise. |
 
 ## Claim register
@@ -11809,6 +11809,7 @@ const server = createServer((req, res) => {
       // The owner is not independent of their own work; recording otherwise
       // would be the forgery SH-13 describes.
       independentEvaluator: false,
+      subjectsInCanon: new Set(journal.current().map((e) => e.envelope.subjectId)),
     });
 
     let seq = 0;
@@ -15368,6 +15369,8 @@ import type { ArticleInstance } from "../../schema/src/schema.ts";
 
 export interface EvaluationInput {
   envelope: Envelope;
+  /** Subject ids currently in Canon, for resolving internal references. */
+  subjectsInCanon?: Set<string>;
   candidateRevision: string;
   actor: string;
   /** Whether this evaluator is independent of the author. Recorded, never assumed. */
@@ -15404,22 +15407,98 @@ const accessDeclared: Evaluator = ({ envelope }) => {
 };
 
 /**
+ * `ob/links-resolve` — real, for the references this system can actually resolve.
+ *
+ * The obligation's claim is `claim/references-sound`, and what that can mean
+ * here needs saying plainly rather than being quietly widened or narrowed:
+ *
+ * - **Internal references** — links to other subjects — are resolvable against
+ *   Canon, and an unresolved one is a genuine FAIL. This is the part the system
+ *   owns and can be held to.
+ * - **External URLs** cannot be verified without network access, which this
+ *   system does not have. They are reported as **INCONCLUSIVE**, which
+ *   `qualify()` treats as a coverage gap yielding BLOCKED — not PARTIAL, which
+ *   would be a verdict against the content, and not PASS, which would be the
+ *   fabrication NR-scms-016 was about.
+ *
+ * The consequence: an article containing external links cannot currently be
+ * promoted. That is honest, and it is a decision for the owner rather than for
+ * this evaluator — SH-22 records it. Narrowing the obligation to mean "internal
+ * references resolve" would make articles publishable and would be me redefining
+ * what publication guarantees in order to pass my own gate.
+ */
+const linksResolve = (subjectsInCanon: Set<string>): Evaluator => ({ envelope }) => {
+  const body = envelope.body as unknown as {
+    slots?: Record<string, Array<{ value?: unknown }>>;
+  };
+  const prose = Object.values(body.slots ?? {})
+    .flat()
+    .map((v) => (typeof v?.value === "string" ? v.value : ""))
+    .join("\n");
+
+  const markdownLinks = [...prose.matchAll(/\]\(([^)\s]+)\)/g)].map((m) => m[1]);
+  const bareUrls = [...prose.matchAll(/\bhttps?:\/\/[^\s)<>"']+/g)].map((m) => m[0]);
+  const all = [...new Set([...markdownLinks, ...bareUrls])];
+
+  const external = all.filter((l) => /^[a-z][a-z0-9+.-]*:/i.test(l));
+  const internal = all.filter((l) => !external.includes(l));
+
+  const unresolved = internal
+    .map((l) => l.replace(/^\//, "").replace(/^(writing|work)\//, "").split("#")[0])
+    .filter((slug) => slug.length > 0 && !subjectsInCanon.has(slug));
+
+  if (unresolved.length > 0) {
+    return { result: "FAIL", detail: `unresolved internal reference(s): ${unresolved.join(", ")}` };
+  }
+  if (external.length > 0) {
+    return {
+      result: "INCONCLUSIVE",
+      detail: `${external.length} external URL(s) cannot be verified without network access; `
+        + `${internal.length} internal reference(s) resolve`,
+    };
+  }
+  return { result: "PASS", detail: `${internal.length} internal reference(s) resolve; no external URLs` };
+};
+
+/**
+ * `ob/media-alt-text` — real, and fully decidable from the record. Every media
+ * value must carry non-empty alt text. An article with no media satisfies this
+ * vacuously, which is correct rather than a vacuous pass in P3's sense: the
+ * obligation is about the media that exists.
+ */
+const mediaAltText: Evaluator = ({ envelope }) => {
+  const body = envelope.body as unknown as {
+    slots?: Record<string, Array<{ kind?: string; value?: unknown; alt?: unknown }>>;
+  };
+  const media = Object.values(body.slots ?? {}).flat()
+    .filter((v) => v?.kind === "image" || v?.kind === "video");
+  if (media.length === 0) return { result: "PASS", detail: "no media on this record" };
+
+  const missing = media.filter((m) => typeof m.alt !== "string" || m.alt.trim() === "");
+  return missing.length === 0
+    ? { result: "PASS", detail: `${media.length} media item(s) carry alt text` }
+    : { result: "FAIL", detail: `${missing.length} of ${media.length} media item(s) lack alt text` };
+};
+
+/**
  * Obligations with no evaluator. Named individually rather than defaulted, so
  * adding an obligation to a profile without an evaluator produces a NOT_RUN
  * that blocks promotion, instead of silently passing.
  */
 const NOT_YET_BUILT: Record<string, string> = {
-  "ob/links-resolve": "no link checker exists; a link resolution pass has not been built",
-  "ob/media-alt-text": "no media inspector exists; alt-text coverage has not been checked",
   "ob/entitlement-declared": "entitlement classes are not implemented (P2, deferred)",
   "ob/recipient-contract": "no recipient contract checker exists",
   "ob/second-attestation": "independent second attestation is not implemented (SH-13)",
 };
 
-const EVALUATORS: Record<string, Evaluator> = {
-  "ob/schema-valid": schemaValid,
-  "ob/access-declared": accessDeclared,
-};
+function evaluatorsFor(subjectsInCanon: Set<string>): Record<string, Evaluator> {
+  return {
+    "ob/schema-valid": schemaValid,
+    "ob/access-declared": accessDeclared,
+    "ob/links-resolve": linksResolve(subjectsInCanon),
+    "ob/media-alt-text": mediaAltText,
+  };
+}
 
 export interface EvaluationOutcome {
   evidence: EvidenceRecord;
@@ -15433,8 +15512,9 @@ export interface EvaluationOutcome {
 export function evaluateProfile(
   profile: ConsequenceProfile, input: EvaluationInput,
 ): EvaluationOutcome[] {
+  const evaluators = evaluatorsFor(input.subjectsInCanon ?? new Set());
   return profile.obligations.map((ob, i) => {
-    const evaluator = EVALUATORS[ob.id];
+    const evaluator = evaluators[ob.id];
     const outcome = evaluator
       ? evaluator(input)
       : { result: "NOT_RUN" as EvidenceResult,
@@ -15457,7 +15537,8 @@ export function evaluateProfile(
 
 /** Obligations in this profile that currently have no evaluator. */
 export function unevaluatedObligations(profile: ConsequenceProfile): string[] {
-  return profile.obligations.filter((o) => !EVALUATORS[o.id]).map((o) => o.id);
+  const evaluators = evaluatorsFor(new Set());
+  return profile.obligations.filter((o) => !evaluators[o.id]).map((o) => o.id);
 }
 
 
@@ -16388,16 +16469,20 @@ test("an obligation with no evaluator records NOT_RUN, never PASS", async () => 
   });
   const byOb = new Map(outcomes.map((o) => [o.evidence.obligation, o.evidence.result]));
 
-  assert.equal(byOb.get("ob/schema-valid"), "PASS", "this one really runs");
-  assert.equal(byOb.get("ob/access-declared"), "PASS", "so does this one");
-  assert.equal(byOb.get("ob/links-resolve"), "NOT_RUN", "and this one does not exist");
-  assert.equal(byOb.get("ob/media-alt-text"), "NOT_RUN");
-  assert.deepEqual(unevaluatedObligations(ARTICLE_PROFILE).sort(),
-    ["ob/links-resolve", "ob/media-alt-text"]);
+  // All four article obligations now have real evaluators (SCMS-055).
+  assert.equal(byOb.get("ob/schema-valid"), "PASS");
+  assert.equal(byOb.get("ob/access-declared"), "PASS");
+  assert.equal(byOb.get("ob/links-resolve"), "PASS", "no links at all is a genuine pass");
+  assert.equal(byOb.get("ob/media-alt-text"), "PASS", "and no media likewise");
+  assert.deepEqual(unevaluatedObligations(ARTICLE_PROFILE), []);
 
-  // Each NOT_RUN says why, so the gap is legible rather than a bare absence.
-  for (const o of outcomes.filter((x) => x.evidence.result === "NOT_RUN")) {
-    assert.ok(o.detail && o.detail.length > 0, `${o.evidence.obligation} gave no reason`);
+  // The commitment profile still has obligations nobody has built.
+  assert.deepEqual(unevaluatedObligations(COMMITMENT_PROFILE).sort(),
+    ["ob/entitlement-declared", "ob/recipient-contract", "ob/second-attestation"]);
+
+  // Every outcome states its reasoning, so a result is legible rather than bare.
+  for (const o of outcomes) {
+    assert.ok(o.detail === undefined || o.detail.length > 0);
   }
 });
 
@@ -16417,12 +16502,12 @@ test("a coverage gap BLOCKS qualification — an unrun check is not a passed one
   const input = { envelope: env as never, candidateRevision: rev,
                   actor: "owner", independentEvaluator: false };
 
-  // The article profile has two obligations with no evaluator → BLOCKED.
-  const article = qualify(rev, ARTICLE_PROFILE,
-    evaluateProfile(ARTICLE_PROFILE, input).map((o) => o.evidence),
+  // The commitment profile has three obligations with no evaluator → BLOCKED.
+  const commitment = qualify(rev, COMMITMENT_PROFILE,
+    evaluateProfile(COMMITMENT_PROFILE, input).map((o) => o.evidence),
     "owner", "2026-08-29T00:00:00Z");
-  assert.equal(article.disposition, "BLOCKED",
-    "two of four checks do not exist, so this is a coverage gap and not a verdict on the content");
+  assert.equal(commitment.disposition, "BLOCKED",
+    "checks that do not exist are a coverage gap, not a verdict on the content");
 
   // The note profile's obligations both have evaluators → QUALIFIED.
   const note = qualify(rev, NOTE_PROFILE,
@@ -16450,6 +16535,66 @@ test("a real schema failure is FAIL, distinct from a missing evaluator", async (
   const schema = outcomes.find((o) => o.evidence.obligation === "ob/schema-valid")!;
   assert.equal(schema.evidence.result, "FAIL", "a missing required slot is a failure, not a gap");
   assert.match(schema.detail ?? "", /required-slot-missing/);
+});
+
+test("an unverifiable external link is INCONCLUSIVE, not PARTIAL and not PASS (SCMS-055)", async () => {
+  const { evaluateProfile } = await import("../src/evaluators.ts");
+  const withLink = (prose: string) => ({
+    schemaVersion: "scms-0.1", subjectId: "a1",
+    compatibility: { protocol: "scms-0.1", subjectSchema: "article@1" },
+    provenance: { kind: "declared", authority: "project.owner", source: "t" },
+    minimumAccess: "public",
+    body: { kind: "Content", contentKind: "article",
+            slots: { title: [{ kind: "text", value: "T" }], body: [{ kind: "prose", value: prose }] } },
+    state: { semanticMaturity: "draft", evidenceState: "unqualified",
+             publicationState: "unpublished", deliveryState: "unpropagated" },
+  });
+  const run = (prose: string, canon: string[] = []) => {
+    const o = evaluateProfile(ARTICLE_PROFILE, {
+      envelope: withLink(prose) as never, candidateRevision: "sha256:" + "d".repeat(64),
+      actor: "owner", independentEvaluator: false, subjectsInCanon: new Set(canon),
+    });
+    return o.find((x) => x.evidence.obligation === "ob/links-resolve")!;
+  };
+
+  // External URLs cannot be checked offline. INCONCLUSIVE is a coverage gap;
+  // PARTIAL would be a verdict against the content and PASS would be a lie.
+  const external = run("see [it](https://example.com/x)");
+  assert.equal(external.evidence.result, "INCONCLUSIVE");
+  assert.match(external.detail ?? "", /cannot be verified without network access/);
+
+  // An internal reference that does not resolve IS the system's business.
+  assert.equal(run("see [it](/writing/ghost)").evidence.result, "FAIL");
+  // And one that resolves passes.
+  assert.equal(run("see [it](/writing/real)", ["real"]).evidence.result, "PASS");
+  // No links at all is a genuine pass, not a vacuous one: the obligation is
+  // about the references that exist.
+  assert.equal(run("no links here").evidence.result, "PASS");
+});
+
+test("media alt text is checked on the media that exists (SCMS-055)", async () => {
+  const { evaluateProfile } = await import("../src/evaluators.ts");
+  const withMedia = (media: unknown[]) => ({
+    schemaVersion: "scms-0.1", subjectId: "a1",
+    compatibility: { protocol: "scms-0.1", subjectSchema: "article@1" },
+    provenance: { kind: "declared", authority: "project.owner", source: "t" },
+    minimumAccess: "public",
+    body: { kind: "Content", contentKind: "article",
+            slots: { title: [{ kind: "text", value: "T" }],
+                     body: [{ kind: "prose", value: "b" }], media } },
+    state: { semanticMaturity: "draft", evidenceState: "unqualified",
+             publicationState: "unpublished", deliveryState: "unpropagated" },
+  });
+  const run = (media: unknown[]) => evaluateProfile(ARTICLE_PROFILE, {
+    envelope: withMedia(media) as never, candidateRevision: "sha256:" + "e".repeat(64),
+    actor: "owner", independentEvaluator: false,
+  }).find((x) => x.evidence.obligation === "ob/media-alt-text")!;
+
+  assert.equal(run([{ kind: "image", value: "a.png", alt: "A diagram" }]).evidence.result, "PASS");
+  assert.equal(run([{ kind: "image", value: "a.png" }]).evidence.result, "FAIL");
+  assert.equal(run([{ kind: "image", value: "a.png", alt: "   " }]).evidence.result, "FAIL",
+    "whitespace is not alt text");
+  assert.equal(run([]).evidence.result, "PASS", "no media is satisfied, not vacuous");
 });
 
 
@@ -24959,6 +25104,7 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-052 | Vector the replay path (raise SCMS-051's rung) | E8 | Done — 7 vectors incl. the gates-not-state control | records/evidence.jsonl · scms-evidence-052 |
 | SCMS-053 | Intra-group order as a declared non-property (closes SH-20) | E1 | Done — reported, not enforced; no conformance outcome changed | records/evidence.jsonl · scms-evidence-053 |
 | SCMS-054 | Evidence from evaluators that actually ran (NR-scms-016) | E3 | Done — fabricated PASSes replaced by real checks and blocking NOT_RUNs; articles now correctly unpublishable | records/evidence.jsonl · scms-evidence-054 |
+| SCMS-055 | Link and media evaluators (narrows SH-22) | E3 | Done — internal refs resolved, external URLs honestly INCONCLUSIVE; owner decision named | records/evidence.jsonl · scms-evidence-055 |
 | SCMS-044 | Route the editor through the surface pipeline it currently bypasses | E12 | Done — SH-16 closed; two duplicate access checks removed; awaiting owner verification | records/evidence.jsonl · scms-evidence-044 |
 | SCMS-018 | R1 live co-authoring — **free lane only** (convergent merge) | E1 | **Blocked** — awaiting disposition of P7/P22 on PR #28 | records/blockers · scms-blocker-001 |
 | SCMS-010 | S4 cross-domain portability: a materially unrelated project (outside this repository, per owner doctrine 2026-08-28) consumes @semantic-systems/surface unmodified | external | Backlog — executes outside scms; scms records the conformance result | — |

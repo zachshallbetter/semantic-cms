@@ -485,16 +485,20 @@ test("an obligation with no evaluator records NOT_RUN, never PASS", async () => 
   });
   const byOb = new Map(outcomes.map((o) => [o.evidence.obligation, o.evidence.result]));
 
-  assert.equal(byOb.get("ob/schema-valid"), "PASS", "this one really runs");
-  assert.equal(byOb.get("ob/access-declared"), "PASS", "so does this one");
-  assert.equal(byOb.get("ob/links-resolve"), "NOT_RUN", "and this one does not exist");
-  assert.equal(byOb.get("ob/media-alt-text"), "NOT_RUN");
-  assert.deepEqual(unevaluatedObligations(ARTICLE_PROFILE).sort(),
-    ["ob/links-resolve", "ob/media-alt-text"]);
+  // All four article obligations now have real evaluators (SCMS-055).
+  assert.equal(byOb.get("ob/schema-valid"), "PASS");
+  assert.equal(byOb.get("ob/access-declared"), "PASS");
+  assert.equal(byOb.get("ob/links-resolve"), "PASS", "no links at all is a genuine pass");
+  assert.equal(byOb.get("ob/media-alt-text"), "PASS", "and no media likewise");
+  assert.deepEqual(unevaluatedObligations(ARTICLE_PROFILE), []);
 
-  // Each NOT_RUN says why, so the gap is legible rather than a bare absence.
-  for (const o of outcomes.filter((x) => x.evidence.result === "NOT_RUN")) {
-    assert.ok(o.detail && o.detail.length > 0, `${o.evidence.obligation} gave no reason`);
+  // The commitment profile still has obligations nobody has built.
+  assert.deepEqual(unevaluatedObligations(COMMITMENT_PROFILE).sort(),
+    ["ob/entitlement-declared", "ob/recipient-contract", "ob/second-attestation"]);
+
+  // Every outcome states its reasoning, so a result is legible rather than bare.
+  for (const o of outcomes) {
+    assert.ok(o.detail === undefined || o.detail.length > 0);
   }
 });
 
@@ -514,12 +518,12 @@ test("a coverage gap BLOCKS qualification — an unrun check is not a passed one
   const input = { envelope: env as never, candidateRevision: rev,
                   actor: "owner", independentEvaluator: false };
 
-  // The article profile has two obligations with no evaluator → BLOCKED.
-  const article = qualify(rev, ARTICLE_PROFILE,
-    evaluateProfile(ARTICLE_PROFILE, input).map((o) => o.evidence),
+  // The commitment profile has three obligations with no evaluator → BLOCKED.
+  const commitment = qualify(rev, COMMITMENT_PROFILE,
+    evaluateProfile(COMMITMENT_PROFILE, input).map((o) => o.evidence),
     "owner", "2026-08-29T00:00:00Z");
-  assert.equal(article.disposition, "BLOCKED",
-    "two of four checks do not exist, so this is a coverage gap and not a verdict on the content");
+  assert.equal(commitment.disposition, "BLOCKED",
+    "checks that do not exist are a coverage gap, not a verdict on the content");
 
   // The note profile's obligations both have evaluators → QUALIFIED.
   const note = qualify(rev, NOTE_PROFILE,
@@ -547,4 +551,64 @@ test("a real schema failure is FAIL, distinct from a missing evaluator", async (
   const schema = outcomes.find((o) => o.evidence.obligation === "ob/schema-valid")!;
   assert.equal(schema.evidence.result, "FAIL", "a missing required slot is a failure, not a gap");
   assert.match(schema.detail ?? "", /required-slot-missing/);
+});
+
+test("an unverifiable external link is INCONCLUSIVE, not PARTIAL and not PASS (SCMS-055)", async () => {
+  const { evaluateProfile } = await import("../src/evaluators.ts");
+  const withLink = (prose: string) => ({
+    schemaVersion: "scms-0.1", subjectId: "a1",
+    compatibility: { protocol: "scms-0.1", subjectSchema: "article@1" },
+    provenance: { kind: "declared", authority: "project.owner", source: "t" },
+    minimumAccess: "public",
+    body: { kind: "Content", contentKind: "article",
+            slots: { title: [{ kind: "text", value: "T" }], body: [{ kind: "prose", value: prose }] } },
+    state: { semanticMaturity: "draft", evidenceState: "unqualified",
+             publicationState: "unpublished", deliveryState: "unpropagated" },
+  });
+  const run = (prose: string, canon: string[] = []) => {
+    const o = evaluateProfile(ARTICLE_PROFILE, {
+      envelope: withLink(prose) as never, candidateRevision: "sha256:" + "d".repeat(64),
+      actor: "owner", independentEvaluator: false, subjectsInCanon: new Set(canon),
+    });
+    return o.find((x) => x.evidence.obligation === "ob/links-resolve")!;
+  };
+
+  // External URLs cannot be checked offline. INCONCLUSIVE is a coverage gap;
+  // PARTIAL would be a verdict against the content and PASS would be a lie.
+  const external = run("see [it](https://example.com/x)");
+  assert.equal(external.evidence.result, "INCONCLUSIVE");
+  assert.match(external.detail ?? "", /cannot be verified without network access/);
+
+  // An internal reference that does not resolve IS the system's business.
+  assert.equal(run("see [it](/writing/ghost)").evidence.result, "FAIL");
+  // And one that resolves passes.
+  assert.equal(run("see [it](/writing/real)", ["real"]).evidence.result, "PASS");
+  // No links at all is a genuine pass, not a vacuous one: the obligation is
+  // about the references that exist.
+  assert.equal(run("no links here").evidence.result, "PASS");
+});
+
+test("media alt text is checked on the media that exists (SCMS-055)", async () => {
+  const { evaluateProfile } = await import("../src/evaluators.ts");
+  const withMedia = (media: unknown[]) => ({
+    schemaVersion: "scms-0.1", subjectId: "a1",
+    compatibility: { protocol: "scms-0.1", subjectSchema: "article@1" },
+    provenance: { kind: "declared", authority: "project.owner", source: "t" },
+    minimumAccess: "public",
+    body: { kind: "Content", contentKind: "article",
+            slots: { title: [{ kind: "text", value: "T" }],
+                     body: [{ kind: "prose", value: "b" }], media } },
+    state: { semanticMaturity: "draft", evidenceState: "unqualified",
+             publicationState: "unpublished", deliveryState: "unpropagated" },
+  });
+  const run = (media: unknown[]) => evaluateProfile(ARTICLE_PROFILE, {
+    envelope: withMedia(media) as never, candidateRevision: "sha256:" + "e".repeat(64),
+    actor: "owner", independentEvaluator: false,
+  }).find((x) => x.evidence.obligation === "ob/media-alt-text")!;
+
+  assert.equal(run([{ kind: "image", value: "a.png", alt: "A diagram" }]).evidence.result, "PASS");
+  assert.equal(run([{ kind: "image", value: "a.png" }]).evidence.result, "FAIL");
+  assert.equal(run([{ kind: "image", value: "a.png", alt: "   " }]).evidence.result, "FAIL",
+    "whitespace is not alt text");
+  assert.equal(run([]).evidence.result, "PASS", "no media is satisfied, not vacuous");
 });

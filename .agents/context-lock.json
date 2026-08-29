@@ -9,14 +9,14 @@
     "repositories": [
       {
         "path": ".",
-        "commit": "415a360e0846151945f19b9a27ea23b1a2afc451",
+        "commit": "6ee6fc674568904905e27bf3f46d198d7f64ca75",
         "branch": "main",
         "dirty": true,
         "remote": "https://github.com/zachshallbetter/semantic-cms.git"
       }
     ]
   },
-  "aggregateSourceDigest": "5c0b7404e519f242cffbc3bfec8e7625584784570f1fc4e64368c58a6098c768",
+  "aggregateSourceDigest": "7730552bf4349dd2a4717a3c7b5d5e8119b04ab3779ca1974972816a85b1643e",
   "sources": [
     {
       "path": ".agents/skills/compile-context/SKILL.md",
@@ -100,8 +100,8 @@
     },
     {
       "path": "SPEC_HEALTH.md",
-      "bytes": 21627,
-      "sha256": "5e3fe25c6cad38cd09a1d03cb00598f26370722cf467d6e0aa9d3033595167c4"
+      "bytes": 21852,
+      "sha256": "8255e9c9363c8b90b4d0f55c1363597a27a19a63abac9018a06040a526cf571d"
     },
     {
       "path": "VERSION",
@@ -295,8 +295,8 @@
     },
     {
       "path": "impl/editor/server/serve.ts",
-      "bytes": 18003,
-      "sha256": "369c2ae6d0de53e8439780a75369c5489f8137a1f4be2c76c61c59611f0e8962"
+      "bytes": 18087,
+      "sha256": "9f31b9de46818f6d3bee67dfa859e2960eed115d667a9d2257ced95785076441"
     },
     {
       "path": "impl/editor/src/session.ts",
@@ -430,8 +430,8 @@
     },
     {
       "path": "impl/qualification/src/evaluators.ts",
-      "bytes": 5122,
-      "sha256": "f4833ebafd78a2a62053ec7e924bbbe5021597ac903b37a98aac20538abceab6"
+      "bytes": 8860,
+      "sha256": "5097521e29e15b35b278603a8f7518542c8d472e7586663d473f9b446558f8d5"
     },
     {
       "path": "impl/qualification/src/promote.ts",
@@ -450,8 +450,8 @@
     },
     {
       "path": "impl/qualification/test/qualification.test.ts",
-      "bytes": 28886,
-      "sha256": "035b26a32185b5c284d0f4c6d99c2a5117c817cf459a1b2694b1c40be622045a"
+      "bytes": 32406,
+      "sha256": "f71e4eefb8a526ad4778a10600ca56a4fdc5baa26ce9925087f9dbadafb4d9c4"
     },
     {
       "path": "impl/reader/package.json",
@@ -710,8 +710,8 @@
     },
     {
       "path": "work/GRAPH.md",
-      "bytes": 13809,
-      "sha256": "b7e7eddd6298e73be75115d6d79d276d464e3a09f876ca813ec9faddaed8221d"
+      "bytes": 14010,
+      "sha256": "d2f32a6108ed746577d7144e39c37fb1a4f01f29ee7d05dc94bad45555844a08"
     },
     {
       "path": "work/SCMS-001.md",

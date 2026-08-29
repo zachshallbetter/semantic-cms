@@ -288,6 +288,7 @@ const server = createServer((req, res) => {
       // The owner is not independent of their own work; recording otherwise
       // would be the forgery SH-13 describes.
       independentEvaluator: false,
+      subjectsInCanon: new Set(journal.current().map((e) => e.envelope.subjectId)),
     });
 
     let seq = 0;

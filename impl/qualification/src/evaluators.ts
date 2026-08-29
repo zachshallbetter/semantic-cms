@@ -27,6 +27,8 @@ import type { ArticleInstance } from "../../schema/src/schema.ts";
 
 export interface EvaluationInput {
   envelope: Envelope;
+  /** Subject ids currently in Canon, for resolving internal references. */
+  subjectsInCanon?: Set<string>;
   candidateRevision: string;
   actor: string;
   /** Whether this evaluator is independent of the author. Recorded, never assumed. */
@@ -63,22 +65,98 @@ const accessDeclared: Evaluator = ({ envelope }) => {
 };
 
 /**
+ * `ob/links-resolve` — real, for the references this system can actually resolve.
+ *
+ * The obligation's claim is `claim/references-sound`, and what that can mean
+ * here needs saying plainly rather than being quietly widened or narrowed:
+ *
+ * - **Internal references** — links to other subjects — are resolvable against
+ *   Canon, and an unresolved one is a genuine FAIL. This is the part the system
+ *   owns and can be held to.
+ * - **External URLs** cannot be verified without network access, which this
+ *   system does not have. They are reported as **INCONCLUSIVE**, which
+ *   `qualify()` treats as a coverage gap yielding BLOCKED — not PARTIAL, which
+ *   would be a verdict against the content, and not PASS, which would be the
+ *   fabrication NR-scms-016 was about.
+ *
+ * The consequence: an article containing external links cannot currently be
+ * promoted. That is honest, and it is a decision for the owner rather than for
+ * this evaluator — SH-22 records it. Narrowing the obligation to mean "internal
+ * references resolve" would make articles publishable and would be me redefining
+ * what publication guarantees in order to pass my own gate.
+ */
+const linksResolve = (subjectsInCanon: Set<string>): Evaluator => ({ envelope }) => {
+  const body = envelope.body as unknown as {
+    slots?: Record<string, Array<{ value?: unknown }>>;
+  };
+  const prose = Object.values(body.slots ?? {})
+    .flat()
+    .map((v) => (typeof v?.value === "string" ? v.value : ""))
+    .join("\n");
+
+  const markdownLinks = [...prose.matchAll(/\]\(([^)\s]+)\)/g)].map((m) => m[1]);
+  const bareUrls = [...prose.matchAll(/\bhttps?:\/\/[^\s)<>"']+/g)].map((m) => m[0]);
+  const all = [...new Set([...markdownLinks, ...bareUrls])];
+
+  const external = all.filter((l) => /^[a-z][a-z0-9+.-]*:/i.test(l));
+  const internal = all.filter((l) => !external.includes(l));
+
+  const unresolved = internal
+    .map((l) => l.replace(/^\//, "").replace(/^(writing|work)\//, "").split("#")[0])
+    .filter((slug) => slug.length > 0 && !subjectsInCanon.has(slug));
+
+  if (unresolved.length > 0) {
+    return { result: "FAIL", detail: `unresolved internal reference(s): ${unresolved.join(", ")}` };
+  }
+  if (external.length > 0) {
+    return {
+      result: "INCONCLUSIVE",
+      detail: `${external.length} external URL(s) cannot be verified without network access; `
+        + `${internal.length} internal reference(s) resolve`,
+    };
+  }
+  return { result: "PASS", detail: `${internal.length} internal reference(s) resolve; no external URLs` };
+};
+
+/**
+ * `ob/media-alt-text` — real, and fully decidable from the record. Every media
+ * value must carry non-empty alt text. An article with no media satisfies this
+ * vacuously, which is correct rather than a vacuous pass in P3's sense: the
+ * obligation is about the media that exists.
+ */
+const mediaAltText: Evaluator = ({ envelope }) => {
+  const body = envelope.body as unknown as {
+    slots?: Record<string, Array<{ kind?: string; value?: unknown; alt?: unknown }>>;
+  };
+  const media = Object.values(body.slots ?? {}).flat()
+    .filter((v) => v?.kind === "image" || v?.kind === "video");
+  if (media.length === 0) return { result: "PASS", detail: "no media on this record" };
+
+  const missing = media.filter((m) => typeof m.alt !== "string" || m.alt.trim() === "");
+  return missing.length === 0
+    ? { result: "PASS", detail: `${media.length} media item(s) carry alt text` }
+    : { result: "FAIL", detail: `${missing.length} of ${media.length} media item(s) lack alt text` };
+};
+
+/**
  * Obligations with no evaluator. Named individually rather than defaulted, so
  * adding an obligation to a profile without an evaluator produces a NOT_RUN
  * that blocks promotion, instead of silently passing.
  */
 const NOT_YET_BUILT: Record<string, string> = {
-  "ob/links-resolve": "no link checker exists; a link resolution pass has not been built",
-  "ob/media-alt-text": "no media inspector exists; alt-text coverage has not been checked",
   "ob/entitlement-declared": "entitlement classes are not implemented (P2, deferred)",
   "ob/recipient-contract": "no recipient contract checker exists",
   "ob/second-attestation": "independent second attestation is not implemented (SH-13)",
 };
 
-const EVALUATORS: Record<string, Evaluator> = {
-  "ob/schema-valid": schemaValid,
-  "ob/access-declared": accessDeclared,
-};
+function evaluatorsFor(subjectsInCanon: Set<string>): Record<string, Evaluator> {
+  return {
+    "ob/schema-valid": schemaValid,
+    "ob/access-declared": accessDeclared,
+    "ob/links-resolve": linksResolve(subjectsInCanon),
+    "ob/media-alt-text": mediaAltText,
+  };
+}
 
 export interface EvaluationOutcome {
   evidence: EvidenceRecord;
@@ -92,8 +170,9 @@ export interface EvaluationOutcome {
 export function evaluateProfile(
   profile: ConsequenceProfile, input: EvaluationInput,
 ): EvaluationOutcome[] {
+  const evaluators = evaluatorsFor(input.subjectsInCanon ?? new Set());
   return profile.obligations.map((ob, i) => {
-    const evaluator = EVALUATORS[ob.id];
+    const evaluator = evaluators[ob.id];
     const outcome = evaluator
       ? evaluator(input)
       : { result: "NOT_RUN" as EvidenceResult,
@@ -116,5 +195,6 @@ export function evaluateProfile(
 
 /** Obligations in this profile that currently have no evaluator. */
 export function unevaluatedObligations(profile: ConsequenceProfile): string[] {
-  return profile.obligations.filter((o) => !EVALUATORS[o.id]).map((o) => o.id);
+  const evaluators = evaluatorsFor(new Set());
+  return profile.obligations.filter((o) => !evaluators[o.id]).map((o) => o.id);
 }
