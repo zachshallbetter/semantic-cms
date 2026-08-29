@@ -65,6 +65,7 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-049 | Extend the composed proof to outbox, wire, editor and site | E7 | Done — four new seams; composite invariant asserts the Canon/delivered boundary both ways | records/evidence.jsonl · scms-evidence-049 |
 | SCMS-050 | The read path consults the publication axis (NR-scms-015) | E8 | Done — promotion now decides what readers see; site renders empty and says why | records/evidence.jsonl · scms-evidence-050 |
 | SCMS-051 | Qualify, promote, and a reader who sees it | E8 | Done — arc closes end to end; verified by interaction; nothing deployed | records/evidence.jsonl · scms-evidence-051 |
+| SCMS-052 | Vector the replay path (raise SCMS-051's rung) | E8 | Done — 7 vectors incl. the gates-not-state control | records/evidence.jsonl · scms-evidence-052 |
 | SCMS-044 | Route the editor through the surface pipeline it currently bypasses | E12 | Done — SH-16 closed; two duplicate access checks removed; awaiting owner verification | records/evidence.jsonl · scms-evidence-044 |
 | SCMS-018 | R1 live co-authoring — **free lane only** (convergent merge) | E1 | **Blocked** — awaiting disposition of P7/P22 on PR #28 | records/blockers · scms-blocker-001 |
 | SCMS-010 | S4 cross-domain portability: a materially unrelated project (outside this repository, per owner doctrine 2026-08-28) consumes @semantic-systems/surface unmodified | external | Backlog — executes outside scms; scms records the conformance result | — |

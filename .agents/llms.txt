@@ -1,6 +1,6 @@
 # Project Context Index
 > Generator: 0.5.0
-> Source digest: `4947b41ba92c6d81299cce722d1fd7dfac669b2d0225c255737b5a95b15a6130`
+> Source digest: `8fa33afd3b9ab6c2f572b352b236184a7dbfed468f3ede3e95c389c2cce71f2a`
 
 > Generated projection. Canonical sources remain authoritative.
 
@@ -20,7 +20,7 @@
 - `PROJECT_INTENT.md` | 6368 bytes | `b45adbb652c63b7327a77e70325204c2e8a50033f6d4d6f8e156e402683f4bf1`
 - `PROJECT_PROFILE.json` | 1921 bytes | `a2e82bd569b5897551b55fe21f099baf1d8f7217feaf1fc8e9d7e9d9239b1e81`
 - `README.md` | 1362 bytes | `a5bac3eb91bd706f53ca55b85963b16c2beaef8f42b9ab976f4e89567080cf1e`
-- `SPEC_HEALTH.md` | 21012 bytes | `4175188d291e877ef2dd9024d382f87acb91fd86be7b2a22e11888d594897eb9`
+- `SPEC_HEALTH.md` | 21052 bytes | `0cd7d13699be9a072ce97aa0135ead3f9690b8a29e21d06d6ae061a898f472a7`
 - `VERSION` | 6 bytes | `a0ad50640139a524f86591157145bf1d4674ea9c065bfea21558f0f7b04430c8`
 - `bindings/PROJECT_BINDINGS.yaml` | 13060 bytes | `7141154bb8cbcfd25e7a96003cb731538aae1a36c70888f401a12b29ff28d04e`
 - `contracts/README.md` | 387 bytes | `574c6218c0c957efb2eb3bfa4bf51fbf3ab0165cc81a033a249d4ba4cc2af78e`
@@ -102,6 +102,7 @@
 - `impl/site/src/express.ts` | 4479 bytes | `45ec09c07f4760f05f9791840fb12eb2f5d90ffe689b6f762f04e2a83c9bf252`
 - `impl/site/src/feeds.ts` | 2379 bytes | `6086972a391f76c1dabcb2bb79cabcb7e524471f86d0019d9fa6309105a55323`
 - `impl/site/src/page.ts` | 3292 bytes | `e81917b19a4ccb04187344303ca33282e1f7d18ff5a16fd71b8bcaee1d7e65a8`
+- `impl/site/test/replay.test.ts` | 5897 bytes | `5552b38cdcb53f040a8a5a1dd3f1c6e6fc41a5c6d643b68ea51fce09b926b0b9`
 - `impl/site/test/site.test.ts` | 8285 bytes | `55c64a2558eeba71e494991f69c49222b1c6aa23b6155b2e5c425815eb34d6af`
 - `impl/surface-expression/package.json` | 515 bytes | `a3354641ed6a5108a319e7a5ab229e3541c92cf4128e65ad58c530857e43367f`
 - `impl/surface-expression/src/equivalence.ts` | 8465 bytes | `ece8710b2277dccda273ce49cdb5b0c29ed34a0e877fef14a647b53bd18841cb`
@@ -140,7 +141,7 @@
 - `scripts/gen-context.py` | 8036 bytes | `819eb2f67a5ec3943bae509d78eebfd690febff6b157a75fafa05f1b047848fa`
 - `scripts/next-id.py` | 5685 bytes | `ab97cb462db8ae3850b778efe400df47c751180742723deeafd67d84073dcadf`
 - `scripts/validate-bootstrap.py` | 4120 bytes | `b3881974ac4d1259a0fa084c1aa80bfcdc1af4b3873f05c9057697e61bb1fb95`
-- `work/GRAPH.md` | 13213 bytes | `b587072f20c0f81fd7c62233eb7ba78eb79abe7f3e5b26e86d03acdd2b4f3ff4`
+- `work/GRAPH.md` | 13381 bytes | `29c8ec204bcf83df4aedc8d812ec16c4c5055715ec69cf02c4ac40366642cdc9`
 - `work/SCMS-001.md` | 2155 bytes | `99c5bc6ed57cfd3b84eb813d1aadee333af8e706120003d34285cc6e20beffd9`
 - `work/SCMS-002.md` | 2769 bytes | `0fdb32c56443212ade358f5e06c6b45cb9be3b6b8a8bdaa1a7eec61264406a33`
 - `work/SCMS-003.md` | 1448 bytes | `b93754ca3c9f8e039abc83cfdb59c49f86f9dadf4f64da55fc76caf82fec6943`
