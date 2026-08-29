@@ -27,7 +27,7 @@
       "kind": "protocol",
       "required": true,
       "version": "0.1.0",
-      "revisionOrDigest": "sha256:3f9c35768e5e286e5af8b8ac1ab966da22e93db675a0d1c9492771cc30e84450",
+      "revisionOrDigest": "sha256:05d3403e356ce741040ec8a0c9cc589837b866cff8152efb89d7151e54136dbd",
       "canonicalSource": "/Users/zachshallbetter/Projects/_Protocols/semantic-publication-substrate",
       "mountOrAddress": "/Users/zachshallbetter/Projects/_Protocols/semantic-publication-substrate",
       "authorityRole": "Publication layering (six-layer stack, source-of-truth ownership), evidence-resolved morphology, protected-resource discovery boundary.",
@@ -40,14 +40,14 @@
         "semantics": "bound-as-declared",
         "authority": "imported, never enlarged"
       },
-      "sourceState": "local directory, not under version control; aggregate digest computed 2026-08-28"
+      "sourceState": "local directory, not under version control; consumption boundary added 2026-08-28 (package.json + work/SPS-002 + evidence, house style; additive, no normative change; private/UNLICENSED pending owner license selection, scms UD-12); aggregate content digest recomputed at re-pin"
     },
     {
       "id": "icp",
       "kind": "protocol",
       "required": true,
       "version": "0.1.0",
-      "revisionOrDigest": "sha256:653bfdb9037cbfafbdf8cdeb824773f36b01123fe7c4f9b333d5cd8ffd6e3986",
+      "revisionOrDigest": "sha256:8d789eb987428fa2b5e43f832854237604fefd709177ed74d989c9d5a624af14",
       "canonicalSource": "/Users/zachshallbetter/Projects/_Protocols/interaction-contract-protocol",
       "mountOrAddress": "/Users/zachshallbetter/Projects/_Protocols/interaction-contract-protocol",
       "authorityRole": "Governed consequential interaction: contract tuple, canonical instance states, outcome classes, change receipts, executable recovery, verification levels.",
@@ -58,14 +58,14 @@
         "semantics": "bound-as-declared",
         "authority": "imported, never enlarged"
       },
-      "sourceState": "local directory, not under version control; aggregate digest computed 2026-08-28"
+      "sourceState": "local directory, not under version control; consumption boundary added 2026-08-28 (package.json + protocol-manifest.json per its own identity grammar; additive, no normative change; private/UNLICENSED pending owner license selection, scms UD-12); aggregate content digest recomputed at re-pin"
     },
     {
       "id": "eqp",
       "kind": "protocol",
       "required": true,
       "version": "0.1.0",
-      "revisionOrDigest": "sha256:fff9aaf7a8d41c4228d7d43f416b806b7bd44a721f0ba19baf56d79fd13ff3a9",
+      "revisionOrDigest": "sha256:1bafff08a497efeaae0102f752a89e02ffd33fecc9d4e8ab91ef460a67f2ca21",
       "canonicalSource": "/Users/zachshallbetter/Projects/_Protocols/evidence-qualification-protocol",
       "mountOrAddress": "/Users/zachshallbetter/Projects/_Protocols/evidence-qualification-protocol",
       "authorityRole": "Qualification semantics: evidence results and validity, qualification radius, required-evidence equation, attestations, promotion boundary.",
@@ -78,7 +78,7 @@
         "semantics": "bound-as-declared",
         "authority": "imported, never enlarged"
       },
-      "sourceState": "local directory, not under version control; aggregate digest computed 2026-08-28"
+      "sourceState": "local directory, not under version control; consumption boundary added 2026-08-28 (package.json with exports for the four normative schemas; additive, no normative change; private/UNLICENSED pending owner license selection, scms UD-12); aggregate content digest recomputed at re-pin"
     },
     {
       "id": "iepe",
@@ -104,7 +104,7 @@
       "kind": "research-corpus",
       "required": true,
       "version": "corpus-v2",
-      "revisionOrDigest": "sha256:a790345c9a5c6302c8eb5dc936aa0c6e9902cbf313bd2b590a480c4f3b706edb",
+      "revisionOrDigest": "sha256:632f6120810e739f2c39d7443c5f825c398b767c075aab240c71a901abc1c010",
       "canonicalSource": "/Users/zachshallbetter/Projects/_Protocols/human-computer-mutual-legibility",
       "mountOrAddress": "/Users/zachshallbetter/Projects/_Protocols/human-computer-mutual-legibility",
       "authorityRole": "Consistency states, relationship state, typed uncertainty, delegation risk posture, design principles. Research corpus: informs, does not command; empirical claims remain unvalidated by its own admission.",
@@ -115,7 +115,7 @@
         "semantics": "bound-as-declared",
         "evidence": "hypothesis-stage, imported as such"
       },
-      "sourceState": "local directory, not under version control; aggregate digest computed 2026-08-28"
+      "sourceState": "local directory, not under version control; consumption boundary added 2026-08-28 (package.json declaring the two corpus dirs; additive, no normative change; private/UNLICENSED pending owner license selection, scms UD-12); aggregate content digest recomputed at re-pin"
     },
     {
       "id": "fundamental",
