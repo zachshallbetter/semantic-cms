@@ -1,6 +1,6 @@
 # PROJECT COMPILED CONTEXT
 Generator: 0.5.0
-Source digest: 99e2a86ea6fb87b58e8db511358589ed13946f678bcfb1fe9433dae8bf3ba1f4
+Source digest: e627622032bef3c79caee8a20ac181a506d4f998cd0014d6cf5ac83a09aa23c6
 
 > Generated projection. Canonical sources remain authoritative.
 
@@ -1433,8 +1433,8 @@ decision record) — never by deletion.
 | SH-5 | THIN | Search | Named as a projection; no query model, no index spec, and the composition of access projection with full-text search (snippet/leak risk) is unaddressed. | Per-access-level index shards built from access-projected inputs only (the fingerprint rule extended to indexes); entitled text never enters an open shard — IV rule 16″ applied to search. |
 | SH-6 | GAP | Quantitative budgets | R1–R3 have no numbers: no propagation-latency budget, presence expiry values, resolver p95, commit-wave cadence, degradation tiers. | Starting envelope to be validated by E1 slice: presence expiry 10s; notify fan-out p95 < 2s intra-region; resolver p95 < 10ms per composition; commit waves ≥ 1/s under load; degradation tiers per §8.8 with measured thresholds. |
 | SH-7 | THIN | Field plane concretes | Which metrics at launch, which patterns couple what, evidence-floor values — the least concrete plane despite being "ours." | Launch set: attention, heat (recency), staleness (freshness half-life per content class), memory (relation use); one coupling pattern (evidence-resolved shelf morphology); floors per SCMS-002 P13 defaults (0.45 evidence floor, 0.55 name floor) until measured. |
-| SH-8 | GAP | Authoring surface | Governance is specified exhaustively; what a writer actually sees is not — no composition, no wireframe, no editor interaction design. | First slice: one Article editor = SES composition + slot-level editing + provenance chip + live qualification panel; visual language deferred to a design pass (Infinite-UI patterns inform). |
-| SH-9 | THIN | Import/migration | No pipeline from existing corpora (zachshallbetter.com archive, markdown trees) into Canon; the Admission plane (P1) is pending. | First import: the zach-core archive (pending rcp-001 confirmation) through the Admission record shape; markdown ingest canonicalized via the round-trip core (P24). |
+| SH-8 | **GAP — now actionable** | Authoring surface | Governance is specified exhaustively; what a writer actually sees is not — no composition, no wireframe, no editor interaction design. | First slice: one Article editor = SES composition + slot-level editing + provenance chip + live qualification panel; visual language deferred to a design pass (Infinite-UI patterns inform). |
+| SH-9 | **THIN — now actionable** | Import/migration | No pipeline from existing corpora (zachshallbetter.com archive, markdown trees) into Canon; the Admission plane (P1) is pending. | **rcp-001 confirmed 2026-08-28** — the zach-core archive is the first import (E8). Note: P1's Admission *plane* is undispositioned, but owner-authored content needs no admission gate: it lands as `declared` provenance under project.owner authority, which canonical v1 already supports. Admission becomes required when third-party content arrives. |
 | SH-10 | THIN | Backup & recovery | No RPO/RTO; no operational promises exist yet, so the promise register (P15) has nothing to check. | Declare with the E1 slice: nightly logical backup, RPO 24h → 1h post-MVP, RTO 4h; each promise entered in the register with its verifying artifact. |
 | SH-11 | CAVEAT | GPL boundary | open-knowledge consumed as a service (P25) — process-boundary isolation believed sufficient; not yet reviewed by counsel. | Keep strict service boundary (no linking, no vendoring); counsel review before any distribution of a combined work. |
 | ~~SH-12~~ | **RESOLVED** | Wire protocol concretes | *Closed by SCMS-024:* `schemas/scms/envelope.schema.json` (closed, hash-pattern-typed, freshness rule encoded conditionally) and `schemas/scms/golden/canonicalization.json` (4 positive vectors + 1 negative proving the check can fail). Residual limitation, recorded not hidden: no JSON-Schema library is available under the zero-dependency policy, so the schema document is not meta-validated and schema/runtime agreement is asserted case-wise. |
@@ -11979,6 +11979,11 @@ epic as the owner assigns the corresponding piece of work.
 | E4 | Projection — resolver, projection contracts, access projection, derivations, fingerprint invalidation | DESIGN.md §4, §7 | In progress — resolver + S3 + invalidation landed; SCMS-015 open |
 | E5 | Field — semantic metrics, workspace morphology, editorial time | DESIGN.md §9 | Backlog |
 | E6 | Observation — presence, consistency states, provenance chips, drift, degradation | DESIGN.md §8, §10 | In progress — semantic core landed (SCMS-017); transport pending P10 |
+| E8 | **Migration 1 — zachshallbetter.com** (the first real workload; rcp-001) | DESIGN.md §14 + SH-9 | Ready — owner-confirmed 2026-08-28 |
+| E9 | Migration 2 — a friends site (first multi-property test) | — | Backlog — after E8 |
+| E10 | Migration 3 — fundamental-engine (first materially different domain; earns S4) | SSS S4 | Backlog — after E9 |
+| E11 | Migration 4 — infinite-verse (publication domain; sibling-system integration) | — | Backlog — after E10 |
+| E12 | **Authoring surface** — the CMS UI (owner-named gap 2026-08-28) | DESIGN.md §4, §7 + SH-8 | Ready — stack decision pending survey |
 | E7 | Narrowest end-to-end path — the nine-step milestone, exit by evidence | DESIGN.md §14 | In progress — 8 of 9 steps closed and composed (SCMS-019); step 3 blocked on P7/P22 disposition |
 
 Epic order is not a promise of sequence: E7 slices vertically and may pull minimal

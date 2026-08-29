@@ -56,6 +56,11 @@ epic as the owner assigns the corresponding piece of work.
 | E4 | Projection — resolver, projection contracts, access projection, derivations, fingerprint invalidation | DESIGN.md §4, §7 | In progress — resolver + S3 + invalidation landed; SCMS-015 open |
 | E5 | Field — semantic metrics, workspace morphology, editorial time | DESIGN.md §9 | Backlog |
 | E6 | Observation — presence, consistency states, provenance chips, drift, degradation | DESIGN.md §8, §10 | In progress — semantic core landed (SCMS-017); transport pending P10 |
+| E8 | **Migration 1 — zachshallbetter.com** (the first real workload; rcp-001) | DESIGN.md §14 + SH-9 | Ready — owner-confirmed 2026-08-28 |
+| E9 | Migration 2 — a friends site (first multi-property test) | — | Backlog — after E8 |
+| E10 | Migration 3 — fundamental-engine (first materially different domain; earns S4) | SSS S4 | Backlog — after E9 |
+| E11 | Migration 4 — infinite-verse (publication domain; sibling-system integration) | — | Backlog — after E10 |
+| E12 | **Authoring surface** — the CMS UI (owner-named gap 2026-08-28) | DESIGN.md §4, §7 + SH-8 | Ready — stack decision pending survey |
 | E7 | Narrowest end-to-end path — the nine-step milestone, exit by evidence | DESIGN.md §14 | In progress — 8 of 9 steps closed and composed (SCMS-019); step 3 blocked on P7/P22 disposition |
 
 Epic order is not a promise of sequence: E7 slices vertically and may pull minimal
