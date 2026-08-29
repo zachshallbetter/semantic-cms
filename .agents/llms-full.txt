@@ -1,6 +1,6 @@
 # PROJECT COMPILED CONTEXT
 Generator: 0.5.0
-Source digest: 9cc79e245ca94f158e30fb45be9fe859275b6ccf289bd14b150c19fbb388feaf
+Source digest: 30420ec5ca9d27fa333c9e2e06c5ffd48ac1ec7a2f83848187f27c225cf31b99
 
 > Generated projection. Canonical sources remain authoritative.
 
@@ -192,6 +192,10 @@ jobs:
       - name: Surface resolver vectors (SCMS-008 · SSS S0/S1 slice + S2 access property)
         run: node --test test/resolver.test.ts
         working-directory: impl/surface-resolver
+
+      - name: Cross-expression S3 vectors (SCMS-009)
+        run: node --test test/s3.test.ts
+        working-directory: impl/surface-expression
 
       - name: Projection sync — self-test (gate can fail)
         run: python3 scripts/check-projection-sync.py --self-test
@@ -3120,6 +3124,500 @@ Blocked state does not erase the item.
 The coordinator selects from all currently Ready, unclaimed, dependency-satisfied items within authority and budget.
 
 A blocked item removes only itself and its dependents from the frontier unless the blocker is global.
+
+
+========================================================================
+FILE: impl/surface-expression/package.json
+========================================================================
+
+{
+  "name": "@scms/surface-expression",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "S3 cross-expression conformance instruments (SCMS-009): two materially different host adapters over one ResolvedSurface plus an equivalence checker. Conformance instruments, not production expression systems; SES owns expression semantics, which are imported as declared bindings. Zero runtime dependencies; requires Node >= 22.6.",
+  "scripts": {
+    "test": "node --test test/s3.test.ts"
+  }
+}
+
+
+========================================================================
+FILE: impl/surface-expression/src/equivalence.ts
+========================================================================
+
+/**
+ * S3 cross-expression equivalence checker (SCMS-009).
+ *
+ * Asserts the six properties SSS docs/CONFORMANCE.md requires to survive across
+ * materially different expressions — member identity, semantic grouping,
+ * required priority, required operation exposure, access constraints,
+ * explanation identity — and separately asserts that morphology DIFFERS, so a
+ * pass cannot be obtained by making two expressions the same shape.
+ *
+ * "Pixel or morphology equality is not required" (SSS S3). This checker is a
+ * conformance instrument: it never mutates a surface or an artifact.
+ */
+import type { ResolvedSurface } from "../../surface-resolver/src/types.ts";
+import type { ExpressionArtifact } from "./expressions.ts";
+
+export interface EquivalenceFinding {
+  property:
+    | "member-identity" | "semantic-grouping" | "required-priority"
+    | "operation-exposure" | "access-constraint" | "explanation-identity"
+    | "surface-fidelity" | "materially-different";
+  detail: string;
+}
+
+export interface EquivalenceResult {
+  equivalent: boolean;
+  materiallyDifferent: boolean;
+  findings: EquivalenceFinding[];
+  /** What each expression chose, for the record. */
+  morphologies: Record<string, Record<string, string>>;
+}
+
+/**
+ * @param surface the single resolved surface both expressions consumed
+ * @param a first expression artifact
+ * @param b second expression artifact
+ * @param forbiddenTokens identities that must not appear in either output
+ *        (access-constraint check: state above the surface's access level)
+ */
+export function checkEquivalence(
+  surface: ResolvedSurface,
+  a: ExpressionArtifact,
+  b: ExpressionArtifact,
+  forbiddenTokens: string[] = [],
+): EquivalenceResult {
+  const findings: EquivalenceFinding[] = [];
+  const surfaceMembers = surface.groups.flatMap((g) => g.members.map((m) => m.subject));
+
+  // 1. Member identity — same set, both directions, and faithful to the surface.
+  const setA = [...a.presentedOrder].sort();
+  const setB = [...b.presentedOrder].sort();
+  const setS = [...surfaceMembers].sort();
+  if (JSON.stringify(setA) !== JSON.stringify(setB)) {
+    findings.push({ property: "member-identity", detail: `A=${setA.join(",")} B=${setB.join(",")}` });
+  }
+  if (JSON.stringify(setA) !== JSON.stringify(setS)) {
+    findings.push({
+      property: "surface-fidelity",
+      detail: `expression introduced or dropped members vs the surface: A=${setA.join(",")} surface=${setS.join(",")}`,
+    });
+  }
+
+  // 2. Semantic grouping — same group → same member set (order within group is
+  //    an ordering property, checked next).
+  const groupsA = Object.keys(a.presentedGroups).sort();
+  const groupsB = Object.keys(b.presentedGroups).sort();
+  if (JSON.stringify(groupsA) !== JSON.stringify(groupsB)) {
+    findings.push({ property: "semantic-grouping", detail: `groups A=${groupsA.join(",")} B=${groupsB.join(",")}` });
+  } else {
+    for (const g of groupsA) {
+      const ma = [...a.presentedGroups[g]].sort();
+      const mb = [...b.presentedGroups[g]].sort();
+      if (JSON.stringify(ma) !== JSON.stringify(mb)) {
+        findings.push({ property: "semantic-grouping", detail: `group ${g}: A=${ma.join(",")} B=${mb.join(",")}` });
+      }
+    }
+  }
+
+  // 3. Required priority — relative order of members must match the surface's
+  //    priority ordering in both expressions (priority is semantic; its visual
+  //    realization is free).
+  const priorityOf = new Map<string, number>();
+  for (const g of surface.groups) for (const m of g.members) priorityOf.set(m.subject, m.priority);
+  for (const [label, art] of [["A", a], ["B", b]] as const) {
+    const seq = art.presentedOrder.map((s) => priorityOf.get(s) ?? Number.MAX_SAFE_INTEGER);
+    for (let i = 1; i < seq.length; i++) {
+      if (seq[i] < seq[i - 1]) {
+        findings.push({
+          property: "required-priority",
+          detail: `${label} presents priority ${seq[i]} after ${seq[i - 1]} (${art.presentedOrder[i]})`,
+        });
+        break;
+      }
+    }
+  }
+
+  // 4. Operation exposure — identity AND exposure state preserved in both; an
+  //    expression may restyle signaling but may not silently remove exposure.
+  const opsOf = (art: ExpressionArtifact) =>
+    [...art.exposedOperations].sort((x, y) => x.id.localeCompare(y.id)).map((o) => `${o.id}:${o.exposure}`);
+  const opsS = [...surface.operations].sort((x, y) => x.id.localeCompare(y.id)).map((o) => `${o.id}:${o.exposure}`);
+  if (JSON.stringify(opsOf(a)) !== JSON.stringify(opsOf(b))) {
+    findings.push({ property: "operation-exposure", detail: `A=${opsOf(a).join(",")} B=${opsOf(b).join(",")}` });
+  }
+  if (JSON.stringify(opsOf(a)) !== JSON.stringify(opsS)) {
+    findings.push({ property: "operation-exposure", detail: `expression diverges from surface: ${opsOf(a).join(",")} vs ${opsS.join(",")}` });
+  }
+
+  // 5. Access constraints — nothing above the surface's access level may appear
+  //    in any emitted representation.
+  for (const token of forbiddenTokens) {
+    for (const [label, art] of [["A", a], ["B", b]] as const) {
+      if (art.output.includes(token) || art.presentedOrder.includes(token)) {
+        findings.push({ property: "access-constraint", detail: `${label} leaked '${token}'` });
+      }
+    }
+  }
+
+  // 6. Explanation identity — both must reference the same resolution.
+  if (a.explanationRef !== b.explanationRef || a.explanationRef !== surface.resolutionId) {
+    findings.push({
+      property: "explanation-identity",
+      detail: `A=${a.explanationRef} B=${b.explanationRef} surface=${surface.resolutionId}`,
+    });
+  }
+
+  // Materially different: the two expressions must not be the same shape.
+  // Different modality AND at least one group realized with a different form.
+  const formsDiffer = Object.keys(a.morphology).some((g) => a.morphology[g] !== b.morphology[g]);
+  const materiallyDifferent = a.modality !== b.modality && formsDiffer && a.output !== b.output;
+  if (!materiallyDifferent) {
+    findings.push({
+      property: "materially-different",
+      detail: "expressions are not materially different; S3 is unproven by identical shapes",
+    });
+  }
+
+  return {
+    equivalent: findings.filter((f) => f.property !== "materially-different").length === 0,
+    materiallyDifferent,
+    findings,
+    morphologies: { [a.expression]: a.morphology, [b.expression]: b.morphology },
+  };
+}
+
+
+========================================================================
+FILE: impl/surface-expression/src/expressions.ts
+========================================================================
+
+/**
+ * Two materially different expression adapters over one ResolvedSurface
+ * (SCMS-009, S3 conformance instruments — not production expression systems).
+ *
+ * Both are scms-local HOST ADAPTERS, which SSS IMPLEMENTATION_BOUNDARY §7 keeps
+ * separate from the protocol package. Expression *semantics* are imported from
+ * the SES pin as declared bindings (typed invariance; the six operation
+ * distinctions; accessibility obligations persist even where a host cannot
+ * realize them — OUTPUT-005). Neither adapter implements an SES resolver,
+ * cascade, theme, recipe, or token system, and neither reads canonical state:
+ * a ResolvedSurface is their only input.
+ *
+ * Invariance profile both adapters declare (SES 5.2):
+ *   semantic       required
+ *   behavioral     required
+ *   actionIdentity required
+ *   structural     bounded
+ *   morphological  free
+ *   visual         free
+ */
+import type { ResolvedSurface } from "../../surface-resolver/src/types.ts";
+
+export interface ExpressionInvariance {
+  semantic: "required"; behavioral: "required"; actionIdentity: "required";
+  structural: "bounded"; morphological: "free"; visual: "free";
+}
+
+export const DECLARED_INVARIANCE: ExpressionInvariance = {
+  semantic: "required", behavioral: "required", actionIdentity: "required",
+  structural: "bounded", morphological: "free", visual: "free",
+};
+
+/** What an expression realizes, in a form the checker can compare. */
+export interface ExpressionArtifact {
+  /** Adapter identity — materially different implementations. */
+  expression: string;
+  modality: "visual-2d" | "linear-audio";
+  /** Container form chosen by THIS adapter for each group (morphology is free). */
+  morphology: Record<string, string>;
+  /** Emitted representation. */
+  output: string;
+  /** Operation identities the representation actually exposes, with exposure state. */
+  exposedOperations: Array<{ id: string; exposure: string }>;
+  /** Member identities in the order the representation presents them. */
+  presentedOrder: string[];
+  /** Group → member identities, as the representation organizes them. */
+  presentedGroups: Record<string, string[]>;
+  /** Explanation identity carried through (SSS §20 trace is not re-derived here). */
+  explanationRef: string;
+}
+
+const escapeHtml = (s: string) =>
+  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+/**
+ * Expression A — structural / web. 2D document structure: nested landmark
+ * regions, a heading per group, a list per group. Native semantics carry
+ * meaning; SES data attributes are inspection hooks only, never the semantics.
+ * Morphology choice: primary → "hero", supporting → "rail", context → "matrix".
+ */
+export function expressStructural(surface: ResolvedSurface): ExpressionArtifact {
+  const morphology: Record<string, string> = {};
+  const presentedGroups: Record<string, string[]> = {};
+  const presentedOrder: string[] = [];
+  const FORM: Record<string, string> = { primary: "hero", supporting: "rail", context: "matrix", collection: "grid" };
+
+  const parts: string[] = [];
+  parts.push(`<section data-surface="${escapeHtml(surface.resolutionId)}" data-purpose="${escapeHtml(surface.purpose)}">`);
+  for (const group of surface.groups) {
+    const form = FORM[group.id] ?? "stack";
+    morphology[group.id] = form;
+    presentedGroups[group.id] = group.members.map((m) => m.subject);
+    parts.push(`  <section data-group="${escapeHtml(group.id)}" data-role="${escapeHtml(group.role)}" data-form="${form}">`);
+    parts.push(`    <h2>${escapeHtml(group.role)}</h2>`);
+    parts.push(`    <ul>`);
+    for (const m of group.members) {
+      presentedOrder.push(m.subject);
+      parts.push(`      <li data-subject="${escapeHtml(m.subject)}" data-priority="${m.priority}">${escapeHtml(m.subject)}</li>`);
+    }
+    parts.push(`    </ul>`);
+    parts.push(`  </section>`);
+  }
+  // Operation exposure: a withheld operation is rendered as a disabled control,
+  // NOT dropped — SES forbids silently removing required exposure.
+  const exposedOperations = surface.operations.map((op) => ({ id: op.id, exposure: op.exposure }));
+  parts.push(`  <nav data-operations>`);
+  for (const op of surface.operations) {
+    const disabled = op.exposure === "withheld" || op.exposure === "unavailable";
+    parts.push(
+      `    <button data-operation="${escapeHtml(op.id)}" data-exposure="${escapeHtml(op.exposure)}"` +
+      `${disabled ? " disabled aria-disabled=\"true\"" : ""}>${escapeHtml(op.id)}</button>`,
+    );
+  }
+  parts.push(`  </nav>`);
+  parts.push(`</section>`);
+
+  return {
+    expression: "structural-web",
+    modality: "visual-2d",
+    morphology,
+    output: parts.join("\n"),
+    exposedOperations,
+    presentedOrder,
+    presentedGroups,
+    explanationRef: surface.resolutionId,
+  };
+}
+
+/**
+ * Expression B — linear / voice. One temporal dimension: no nesting, no
+ * simultaneity, no container forms in the visual sense. Grouping survives as
+ * spoken sectioning; priority survives as utterance order; operations are
+ * announced with their exposure state (a withheld operation is stated as
+ * unavailable rather than omitted — same SES rule, different modality).
+ * Morphology choice: every group → "utterance-run" (there is no other shape).
+ */
+export function expressLinear(surface: ResolvedSurface): ExpressionArtifact {
+  const morphology: Record<string, string> = {};
+  const presentedGroups: Record<string, string[]> = {};
+  const presentedOrder: string[] = [];
+  const lines: string[] = [];
+
+  lines.push(`Surface ${surface.resolutionId}, purpose ${surface.purpose}.`);
+  for (const group of surface.groups) {
+    morphology[group.id] = "utterance-run";
+    presentedGroups[group.id] = group.members.map((m) => m.subject);
+    lines.push(`${group.role}:`);
+    for (const m of group.members) {
+      presentedOrder.push(m.subject);
+      lines.push(`  ${m.subject}, priority ${m.priority}.`);
+    }
+  }
+  const exposedOperations = surface.operations.map((op) => ({ id: op.id, exposure: op.exposure }));
+  for (const op of surface.operations) {
+    lines.push(
+      op.exposure === "available" || op.exposure === "required"
+        ? `You can say: ${op.id}.`
+        : `${op.id} is ${op.exposure} here.`,
+    );
+  }
+
+  return {
+    expression: "linear-voice",
+    modality: "linear-audio",
+    morphology,
+    output: lines.join("\n"),
+    exposedOperations,
+    presentedOrder,
+    presentedGroups,
+    explanationRef: surface.resolutionId,
+  };
+}
+
+
+========================================================================
+FILE: impl/surface-expression/test/s3.test.ts
+========================================================================
+
+/**
+ * S3 cross-expression conformance vectors (SCMS-009).
+ *
+ * One ResolvedSurface, two materially different expressions, six preserved
+ * properties — plus failing-mutation vectors proving the checker can fail
+ * (a conformance instrument that cannot fail is not an instrument).
+ */
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { resolveSurface } from "../../surface-resolver/src/resolver.ts";
+import { isFailure } from "../../surface-resolver/src/types.ts";
+import type { FrozenSnapshot, ResolvedSurface, SurfaceRequest } from "../../surface-resolver/src/types.ts";
+import { expressStructural, expressLinear, DECLARED_INVARIANCE } from "../src/expressions.ts";
+import type { ExpressionArtifact } from "../src/expressions.ts";
+import { checkEquivalence } from "../src/equivalence.ts";
+
+function snapshot(): FrozenSnapshot {
+  return {
+    snapshotId: "snap-s3",
+    subjects: [
+      { id: "art-1", kind: "article", access: "public", attrs: { year: 2026 } },
+      { id: "art-2", kind: "article", access: "public", attrs: { year: 2024 } },
+      { id: "note-1", kind: "note", access: "member", attrs: {} },
+      { id: "art-3", kind: "article", access: "public", attrs: { year: 2025 } },
+      { id: "sec-1", kind: "article", access: "admin", attrs: {} },
+    ],
+    relations: [
+      { from: "art-1", to: "art-2", type: "references", access: "public" },
+      { from: "art-1", to: "note-1", type: "annotated-by", access: "member" },
+      { from: "art-2", to: "art-3", type: "references", access: "public" },
+      { from: "art-1", to: "sec-1", type: "references", access: "admin" },
+    ],
+  };
+}
+
+const request: SurfaceRequest = {
+  profile: "focus", purpose: "understand", subject: "art-1", access: "member",
+  lens: { traversal: { radius: 2 } },
+  operations: [
+    { id: "open-article", exposure: "available" },
+    { id: "edit", exposure: "available", minAccess: "owner" },
+  ],
+};
+
+function surface(): ResolvedSurface {
+  const r = resolveSurface(snapshot(), request);
+  assert.ok(!isFailure(r));
+  return r as ResolvedSurface;
+}
+
+test("S3: one surface, two materially different expressions, semantics preserved", () => {
+  const s = surface();
+  const a = expressStructural(s);
+  const b = expressLinear(s);
+  const result = checkEquivalence(s, a, b, ["sec-1"]);
+
+  assert.deepEqual(result.findings, [], "no equivalence findings expected");
+  assert.equal(result.equivalent, true);
+  assert.equal(result.materiallyDifferent, true);
+  // The two adapters genuinely chose different shapes for the same semantics.
+  assert.equal(result.morphologies["structural-web"].primary, "hero");
+  assert.equal(result.morphologies["linear-voice"].primary, "utterance-run");
+});
+
+test("negative 6: role=primary does not force hero morphology", () => {
+  const s = surface();
+  const a = expressStructural(s);
+  const b = expressLinear(s);
+  // Same role, two lawful and different realizations — the invariant holds
+  // because both conform while disagreeing about form.
+  assert.equal(s.groups[0].role, "primary");
+  assert.notEqual(a.morphology["primary"], b.morphology["primary"]);
+  assert.equal(checkEquivalence(s, a, b, ["sec-1"]).equivalent, true);
+});
+
+test("access constraint: neither expression contains higher-access state", () => {
+  const s = surface();
+  const a = expressStructural(s);
+  const b = expressLinear(s);
+  assert.ok(!a.output.includes("sec-1"));
+  assert.ok(!b.output.includes("sec-1"));
+  assert.equal(checkEquivalence(s, a, b, ["sec-1"]).equivalent, true);
+});
+
+test("checker fails when an expression introduces a member not on the surface", () => {
+  const s = surface();
+  const a = expressStructural(s);
+  const b = expressLinear(s);
+  const tampered: ExpressionArtifact = {
+    ...b,
+    presentedOrder: [...b.presentedOrder, "ghost-1"],
+    presentedGroups: { ...b.presentedGroups, primary: [...b.presentedGroups.primary, "ghost-1"] },
+  };
+  const result = checkEquivalence(s, a, tampered, ["sec-1"]);
+  assert.equal(result.equivalent, false);
+  assert.ok(result.findings.some((f) => f.property === "member-identity"));
+});
+
+test("checker fails when an expression silently drops a withheld operation", () => {
+  const s = surface();
+  const a = expressStructural(s);
+  const b = expressLinear(s);
+  const tampered: ExpressionArtifact = {
+    ...b,
+    exposedOperations: b.exposedOperations.filter((o) => o.exposure !== "withheld"),
+  };
+  const result = checkEquivalence(s, a, tampered, ["sec-1"]);
+  assert.equal(result.equivalent, false);
+  assert.ok(result.findings.some((f) => f.property === "operation-exposure"));
+});
+
+test("checker fails when an expression leaks inaccessible state", () => {
+  const s = surface();
+  const a = expressStructural(s);
+  const leaky: ExpressionArtifact = { ...expressLinear(s), output: expressLinear(s).output + "\nsec-1 exists." };
+  const result = checkEquivalence(s, a, leaky, ["sec-1"]);
+  assert.equal(result.equivalent, false);
+  assert.ok(result.findings.some((f) => f.property === "access-constraint"));
+});
+
+test("checker fails when an expression inverts required priority", () => {
+  const s = surface();
+  const a = expressStructural(s);
+  const b = expressLinear(s);
+  const inverted: ExpressionArtifact = { ...b, presentedOrder: [...b.presentedOrder].reverse() };
+  const result = checkEquivalence(s, a, inverted, ["sec-1"]);
+  assert.equal(result.equivalent, false);
+  assert.ok(result.findings.some((f) => f.property === "required-priority"));
+});
+
+test("materially-different guard: two identical-shape expressions do not prove S3", () => {
+  const s = surface();
+  const a = expressStructural(s);
+  const clone: ExpressionArtifact = { ...a, expression: "structural-web-copy" };
+  const result = checkEquivalence(s, a, clone, ["sec-1"]);
+  // Semantics match trivially, but S3 is unproven — the guard fires.
+  assert.equal(result.materiallyDifferent, false);
+  assert.ok(result.findings.some((f) => f.property === "materially-different"));
+});
+
+test("expressions consume only the surface; declared invariance is the SES profile", () => {
+  const s = surface();
+  // Adapters take a ResolvedSurface and nothing else — no canon, no snapshot.
+  assert.equal(expressStructural.length, 1);
+  assert.equal(expressLinear.length, 1);
+  assert.deepEqual(DECLARED_INVARIANCE, {
+    semantic: "required", behavioral: "required", actionIdentity: "required",
+    structural: "bounded", morphological: "free", visual: "free",
+  });
+  // Explanation identity travels with both expressions.
+  assert.equal(expressStructural(s).explanationRef, s.resolutionId);
+  assert.equal(expressLinear(s).explanationRef, s.resolutionId);
+});
+
+test("withheld operation is exposed-as-withheld in both modalities, never dropped", () => {
+  const s = surface();
+  const a = expressStructural(s);
+  const b = expressLinear(s);
+  assert.ok(a.output.includes('data-operation="edit"') && a.output.includes("disabled"));
+  assert.ok(b.output.includes("edit is withheld here"));
+  assert.deepEqual(
+    a.exposedOperations.find((o) => o.id === "edit"),
+    { id: "edit", exposure: "withheld" },
+  );
+});
 
 
 ========================================================================
@@ -7256,7 +7754,7 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-006 | First upstream-first cycle: FPB v0.5.1 + SES packaging; re-pin | E1+E2 | Done — awaiting owner verification | records/evidence.jsonl · scms-evidence-006 |
 | SCMS-007 | Consumption boundaries for all pinned protocol resources | E1+E2 | Done — awaiting owner verification | records/evidence.jsonl · scms-evidence-007 |
 | SCMS-008 | Adopt SSS; implement the narrowest surface-resolution path | E1 | Done — awaiting owner verification | records/evidence.jsonl · scms-evidence-008 |
-| SCMS-009 | S3 cross-expression equivalence: two materially different SES expressions consume one ResolvedSurface; prove protected participation semantics identical | E1 | Backlog | — |
+| SCMS-009 | S3 cross-expression qualification | E1 | Done — S3 established for the narrow path; awaiting owner verification | records/evidence.jsonl · scms-evidence-009 |
 | SCMS-010 | S4 cross-domain portability: a materially unrelated project (outside this repository, per owner doctrine 2026-08-28) consumes @semantic-systems/surface unmodified | external | Backlog — executes outside scms; scms records the conformance result | — |
 
 ## Epic register
@@ -7666,4 +8164,80 @@ found; UD-13 raised (empty schemas/ + conformance/ upstream; naming inconsistenc
 
 **State (closing):** Done — implemented and tested; awaiting owner verification.
 Evidence: records/evidence.jsonl · scms-evidence-008.
+
+
+========================================================================
+FILE: work/SCMS-009.md
+========================================================================
+
+# SCMS-009 — S3 cross-expression qualification
+
+**Intent ref:** PROJECT_INTENT.md · **Parent:** SCMS-008 (SSS adoption) · **Board:** #34 lineage
+**Assigned by:** project.owner, 2026-08-28 review ("That is the obvious S3 experiment") and the
+coordinator goal ("including S3 cross-expression qualification when Ready").
+**Effect class:** E1 — pure host adapters and a checker over an existing ResolvedSurface; no
+canonical mutation, no protected action.
+**State:** Ready → Claimed → (closing state at bottom)
+
+## Objective
+
+Establish **S3 cross-expression conformance** for the adopted surface layer: one
+`ResolvedSurface` consumed by two *materially different* expression implementations while
+protected participation semantics are provably identical, and morphology provably differs.
+
+## Ready predicate
+
+- **Scope:**
+  1. `impl/surface-expression/` — two host adapters over the SCMS-008 resolver output:
+     (a) **structural/web** — a semantic HTML fragment (native elements + ARIA; SES data
+     attributes as inspection hooks only), (b) **linear/voice** — a spoken-order script with
+     no 2D structure. Materially different modalities per SSS IMPLEMENTATION_BOUNDARY §3.
+  2. An **equivalence checker** asserting the six S3 properties from SSS CONFORMANCE.md
+     (member identity · semantic grouping · required priority · required operation exposure ·
+     access constraints · explanation identity), plus a *difference* assertion proving the two
+     expressions are not trivially similar (morphology genuinely varies).
+  3. Vectors run by `node --test`, wired into CI.
+- **Exclusions:** no SES resolver, cascade, theme, recipe, token, or Visual Language is
+  implemented — expression *semantics* are imported from the SES pin as declared bindings and
+  the adapters remain scms-local host adapters (SSS IMPLEMENTATION_BOUNDARY §7 keeps host
+  adapters in separate packages). No visual design, no CSS, no DOM runtime. No change to the
+  resolver's protected semantics. No S4 work (external, SCMS-010). No DESIGN.md change on main.
+- **Dependencies (satisfied):** SCMS-008 resolver (Implemented+Tested, 11 vectors); sss pin
+  (S3 definition + mandatory negative 6: `role=primary` must not force hero morphology); ses pin
+  (typed invariance dimensions, preserve/transform/mayOmit/mayIntroduce, the six operation
+  distinctions, renderer-neutral output rule OUTPUT-005 that accessibility obligations persist
+  even when a host cannot realize them); node ≥ 22.6.
+- **Acceptance:**
+  1. Both adapters consume the *same* `ResolvedSurface` without reading canon.
+  2. Checker asserts all six S3 properties equal across expressions.
+  3. Checker asserts morphology differs (materially different, not two skins of one shape).
+  4. Negative 6 holds: a `primary` group does not force any particular container form — proven
+     by the two adapters realizing it differently while both conforming.
+  5. An expression may not introduce a member, group, or operation absent from the surface, and
+     may not silently drop a required operation exposure (SES: a Theme "may not silently remove
+     required exposure") — proven by two failing-mutation vectors.
+  6. Access constraint preserved: an expression built from a member-access surface contains no
+     trace of higher-access state.
+- **Evidence requirements:** `node --test` output recorded in scms-evidence-009 with the
+  claim stated at the weakest justified rung. This establishes **S3 conformance for the narrow
+  path only** — it does not establish S4, empirical usefulness, or that the adapters are
+  production expression systems (they are conformance instruments).
+- **Permissions / effect class:** E1; agent-under-owner-direction holds project mutation for
+  E0–E1 in this repository (bindings/authority_bindings).
+- **Target:** `impl/surface-expression/` (new), `.github/workflows/gates.yml` (one test step),
+  `records/*`, `work/GRAPH.md`. No other path.
+- **Budget:** one work cycle; no spend; no external services; no credentials.
+- **Stop conditions:** (a) conformance would require the resolver to emit morphology → stop,
+  record blocker (would weaken SSS-INV-008/009); (b) equivalence would require weakening an
+  existing binding or duplicating SES semantics locally → stop, record blocker; (c) a needed
+  SES capability is missing upstream → stop, record upstream debt (do not implement locally).
+
+## Claim
+
+Claimed by agent-under-owner-direction 2026-08-28; released at closing state below.
+
+## Closing state
+
+**Done — Implemented + Tested; S3 conformance established for the narrow path.**
+Evidence: records/evidence.jsonl · scms-evidence-009. Claim released.
 

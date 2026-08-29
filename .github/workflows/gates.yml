@@ -44,6 +44,10 @@ jobs:
         run: node --test test/resolver.test.ts
         working-directory: impl/surface-resolver
 
+      - name: Cross-expression S3 vectors (SCMS-009)
+        run: node --test test/s3.test.ts
+        working-directory: impl/surface-expression
+
       - name: Projection sync — self-test (gate can fail)
         run: python3 scripts/check-projection-sync.py --self-test
 

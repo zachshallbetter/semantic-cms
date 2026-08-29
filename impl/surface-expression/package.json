@@ -1,0 +1,10 @@
+{
+  "name": "@scms/surface-expression",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "S3 cross-expression conformance instruments (SCMS-009): two materially different host adapters over one ResolvedSurface plus an equivalence checker. Conformance instruments, not production expression systems; SES owns expression semantics, which are imported as declared bindings. Zero runtime dependencies; requires Node >= 22.6.",
+  "scripts": {
+    "test": "node --test test/s3.test.ts"
+  }
+}
