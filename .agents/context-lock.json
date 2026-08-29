@@ -9,14 +9,14 @@
     "repositories": [
       {
         "path": ".",
-        "commit": "8933ea8caaa6ff16317e73a7ffde68aa6290005a",
+        "commit": "60402b9d0b62c5530ab0553b2e311f4316531e0c",
         "branch": "main",
         "dirty": true,
         "remote": "https://github.com/zachshallbetter/semantic-cms.git"
       }
     ]
   },
-  "aggregateSourceDigest": "fb921631b93d1ea7fa66a3408349a5275adae7098af1de45ae6f31f4a9e2108f",
+  "aggregateSourceDigest": "34ec9475a30e9a76a6a0811efacc271083d9bd90bd7f7ea0bbf6ca1aca1bce39",
   "sources": [
     {
       "path": ".agents/skills/compile-context/SKILL.md",
@@ -55,8 +55,8 @@
     },
     {
       "path": ".github/workflows/gates.yml",
-      "bytes": 5764,
-      "sha256": "5d86885f8da4e4a2f33e7804bddad29802432032d29800c215892a1a04d37679"
+      "bytes": 5926,
+      "sha256": "cc5ad36f75c38f947d39f6a0524c08303073edac2bf98ed79d7064a3565daee2"
     },
     {
       "path": "AGENTS.md",
@@ -317,6 +317,21 @@
       "path": "impl/editor/test/editor.test.ts",
       "bytes": 19888,
       "sha256": "066d599e0423981583f3c08f53e0fc884845db6612fd4ae73b40f8ea9b9104a9"
+    },
+    {
+      "path": "impl/materialize/package.json",
+      "bytes": 402,
+      "sha256": "0d104d688501a6a153055728f2239be10285c26674f482e4938cbf1fb434b689"
+    },
+    {
+      "path": "impl/materialize/src/materialize.ts",
+      "bytes": 4488,
+      "sha256": "110068fb4fd0ca088a9b9c97f9c0276be2c33b0984a6fe5c46a0b5f4943b2304"
+    },
+    {
+      "path": "impl/materialize/test/materialize.test.ts",
+      "bytes": 6332,
+      "sha256": "f63c6fa9278ed23dd0e677e24fdbc5bb99c2d26796956a66d16855cdf5046f98"
     },
     {
       "path": "impl/merge/package.json",
@@ -740,8 +755,8 @@
     },
     {
       "path": "work/GRAPH.md",
-      "bytes": 17039,
-      "sha256": "bf4a85b62e5c02f21ef70cee9b38ea1b05d6ccb5db1ccc0d76f01a808b185aea"
+      "bytes": 17058,
+      "sha256": "ecff06a83cc7d2a1f8c06d04a100d76912cc5ea05ea8319e5ef1e0ee05de3a52"
     },
     {
       "path": "work/SCMS-001.md",

@@ -1,6 +1,6 @@
 # PROJECT COMPILED CONTEXT
 Generator: 0.5.0
-Source digest: fb921631b93d1ea7fa66a3408349a5275adae7098af1de45ae6f31f4a9e2108f
+Source digest: 34ec9475a30e9a76a6a0811efacc271083d9bd90bd7f7ea0bbf6ca1aca1bce39
 
 > Generated projection. Canonical sources remain authoritative.
 
@@ -275,6 +275,10 @@ jobs:
           PGPORT: "5432"
           PGUSER: postgres
           PGPASSWORD: postgres
+
+      - name: Materialized artifacts (SCMS-062 · static pages, access-safe)
+        run: node --test test/*.test.ts
+        working-directory: impl/materialize
 
       - name: End-to-end spine (SCMS-019/027/049 · the composed path)
         run: node --test test/spine.test.ts
@@ -13104,6 +13108,277 @@ test("the Surface tab decides participation and the Expression tab decides form 
 
 
 ========================================================================
+FILE: impl/materialize/package.json
+========================================================================
+
+{
+  "name": "@scms/materialize",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Materialize an expression as a static artifact (SCMS-062, epic E14): a page is bytes named by their content, invalidated by its surface fingerprint, and access-safe because the fingerprint covers only the accessible dependency set.",
+  "scripts": { "test": "node --test test/*.test.ts" }
+}
+
+
+========================================================================
+FILE: impl/materialize/src/materialize.ts
+========================================================================
+
+/**
+ * Materialize an expression as a static artifact (SCMS-062, epic E14).
+ *
+ * §8.3 resolves the apparent tension between static and realtime: readers hold
+ * a **committed snapshot baseline** — SSR truth, no-JS truth, deterministic
+ * builds — and the notify phase pushes *invalidation keys* over it. Static is
+ * the baseline; realtime is what tells you the baseline moved.
+ *
+ * A static page is therefore a materialized expression, and the only sound name
+ * for it is the surface's own **fingerprint**. That is not a convenience:
+ *
+ * - The fingerprint is computed over the **accessible** dependency set (SSS
+ *   §26), so it is access-safe by construction. Two readers at different access
+ *   levels resolve different surfaces and get different names, and a change one
+ *   of them cannot observe cannot change the other's name.
+ * - The name changes exactly when the content does, which is what makes
+ *   `Cache-Control: immutable` honest rather than optimistic.
+ * - It is the same rule `canon_blob` already follows: bytes named by their own
+ *   hash (SCMS-060). A page is bytes; it belongs in the same store.
+ *
+ * This module is pure. It computes what to store and never writes — the store
+ * adapter is SCMS-065, and materialization must not become a second write path
+ * into Canon (§5).
+ */
+import { createHash } from "node:crypto";
+import type { ResolvedSurface } from "../../surface-resolver/src/types.ts";
+import type { ExpressionArtifact } from "../../surface-expression/src/expressions.ts";
+
+/** Domain-separated, like every other digest in this system. */
+const ARTIFACT_DOMAIN = "scms:artifact:v1 ";
+
+export interface MaterializedArtifact {
+  /** Content digest of the bytes — the `canon_blob` key. */
+  digest: string;
+  /** The route this artifact answers. */
+  path: string;
+  /**
+   * The surface fingerprint this was rendered from — the *invalidation* key.
+   *
+   * Distinct from `digest` on purpose. Two surfaces with different dependency
+   * sets can render byte-identical output (an empty index and a filtered one,
+   * say), and they must still invalidate independently. Keying only by content
+   * would silently merge them and one would go stale.
+   */
+  fingerprint: string;
+  /** Which adapter produced it; a route may be materialized more than one way. */
+  expression: string;
+  mediaType: string;
+  bytes: string;
+  byteLength: number;
+  /** Subjects whose change must invalidate this artifact (SSS §21). */
+  dependencies: string[];
+  /** The access level this artifact was resolved at. Never merge across these. */
+  access: string;
+}
+
+export function digestOf(bytes: string): string {
+  return "sha256:" + createHash("sha256").update(ARTIFACT_DOMAIN + bytes, "utf8").digest("hex");
+}
+
+export function materialize(
+  surface: ResolvedSurface, artifact: ExpressionArtifact, path: string, mediaType = "text/html",
+): MaterializedArtifact {
+  const bytes = artifact.output;
+  return {
+    digest: digestOf(bytes),
+    path,
+    fingerprint: surface.fingerprint,
+    expression: artifact.expression,
+    mediaType,
+    bytes,
+    byteLength: Buffer.byteLength(bytes, "utf8"),
+    dependencies: surface.dependencies.map((d) => d.subject),
+    access: surface.accessProjection,
+  };
+}
+
+/**
+ * The cache key a served artifact is addressed by.
+ *
+ * Access is part of the key, and not because the fingerprint might collide —
+ * it will not. It is here so that a cache which is *given* artifacts cannot
+ * serve one across access levels by accident. Defence in depth on the one
+ * property this system will not trade.
+ */
+export function artifactKey(a: Pick<MaterializedArtifact, "path" | "access" | "expression" | "fingerprint">): string {
+  return `${a.access}:${a.expression}:${a.path}:${a.fingerprint}`;
+}
+
+/**
+ * Artifacts invalidated by a wave of changed subjects.
+ *
+ * The same rule `ProjectionCache` holds (SCMS-014): an artifact is invalidated
+ * exactly when a changed subject appears in **its own** accessible dependency
+ * set. Because that set was computed after access projection, a change a reader
+ * could not observe cannot appear in it, so it cannot invalidate their artifact
+ * — which is what keeps invalidation from becoming a side channel.
+ */
+export function invalidatedBy(
+  artifacts: readonly MaterializedArtifact[], changedSubjects: readonly string[],
+): MaterializedArtifact[] {
+  const changed = new Set(changedSubjects);
+  return artifacts.filter((a) => a.dependencies.some((d) => changed.has(d)));
+}
+
+
+========================================================================
+FILE: impl/materialize/test/materialize.test.ts
+========================================================================
+
+/**
+ * SCMS-062 vectors: static pages over the owner's real archive.
+ */
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { CanonJournal } from "../../canon/src/journal.ts";
+import { freeze } from "../../canon/src/freeze.ts";
+import { migrateAll } from "../../migrate/src/zach-core.ts";
+import type { SourceEntry } from "../../migrate/src/zach-core.ts";
+import { READER_ROUTES, renderRoute, isRouteFailure } from "../../reader/src/routes.ts";
+import type { RenderedRoute } from "../../reader/src/routes.ts";
+import { expressReaderWeb } from "../../site/src/express.ts";
+import { expressLinear } from "../../surface-expression/src/expressions.ts";
+import { materialize, digestOf, artifactKey, invalidatedBy } from "../src/materialize.ts";
+
+const manifest = JSON.parse(readFileSync(
+  fileURLToPath(new URL("../../../fixtures/zach-core-manifest.json", import.meta.url)), "utf8"),
+) as { entries: SourceEntry[] };
+const migrated = migrateAll(manifest.entries);
+
+/** A journal with one entry promoted, so a reader route is non-empty. */
+function world() {
+  const j = new CanonJournal();
+  for (const e of migrated.content) {
+    const promoted = e.subjectId === "cipm-the-cognitive-information-processing-model";
+    j.append(promoted
+      ? { ...e, state: { ...e.state, publicationState: "promoted" } } as never
+      : e, "t");
+  }
+  for (const r of migrated.relations) j.append(r, "t");
+  return j;
+}
+
+const hydrate = (j: CanonJournal) => {
+  const byId = new Map(j.current().map((e) => [e.envelope.subjectId, e]));
+  return (subject: string) => {
+    const e = byId.get(subject);
+    if (!e) return undefined;
+    const b = e.envelope.body as unknown as {
+      contentKind: string; slots?: Record<string, Array<{ value?: unknown }>>;
+    };
+    const str = (k: string) => {
+      const v = b.slots?.[k]?.[0]?.value;
+      return typeof v === "string" ? v : undefined;
+    };
+    return { title: str("title"), summary: str("summary"), body: str("body") ?? null, kind: b.contentKind };
+  };
+};
+
+function page(j: CanonJournal, access: "public" | "owner" = "public") {
+  const snap = freeze(j, "w");
+  const r = renderRoute(snap as never, READER_ROUTES.find((x) => x.path === "/writing")!, access);
+  assert.ok(!isRouteFailure(r));
+  const rendered = r as RenderedRoute;
+  return materialize(rendered.surface, expressReaderWeb(rendered.surface, hydrate(j)), "/writing");
+}
+
+test("a page materializes as bytes named by their content", () => {
+  const a = page(world());
+  assert.match(a.digest, /^sha256:[0-9a-f]{64}$/);
+  assert.equal(a.digest, digestOf(a.bytes));
+  assert.equal(a.byteLength, Buffer.byteLength(a.bytes, "utf8"));
+  assert.ok(a.bytes.includes("CIPM"), "the promoted article reached the page");
+});
+
+test("materializing is deterministic — same Canon, same bytes, same digest", () => {
+  // The property that makes `Cache-Control: immutable` honest rather than
+  // optimistic. If this ever fails, something ambient leaked into rendering.
+  assert.equal(page(world()).digest, page(world()).digest);
+});
+
+test("the invalidation key is the surface fingerprint, not the content digest", () => {
+  const a = page(world());
+  const snap = freeze(world(), "w");
+  const r = renderRoute(snap as never, READER_ROUTES.find((x) => x.path === "/writing")!, "public");
+  assert.equal(a.fingerprint, (r as RenderedRoute).surface.fingerprint);
+
+  // They are different keys for different jobs: two surfaces with different
+  // dependency sets can render identical bytes and must still invalidate
+  // independently. Keying only by content would merge them and one would stale.
+  assert.notEqual(a.fingerprint, a.digest);
+});
+
+test("access is part of the artifact key, so a cache cannot cross levels", () => {
+  const j = world();
+  const pub = page(j, "public");
+  const owner = page(j, "owner");
+  assert.notEqual(artifactKey(pub), artifactKey(owner));
+  assert.ok(artifactKey(pub).startsWith("public:"));
+  assert.ok(artifactKey(owner).startsWith("owner:"));
+});
+
+test("a public artifact carries no private subject, in bytes or dependencies", () => {
+  const privateSubjects = new Set(
+    migrated.content.filter((e) => e.minimumAccess === "owner").map((e) => e.subjectId));
+  const a = page(world());
+
+  for (const d of a.dependencies) {
+    assert.ok(!privateSubjects.has(d), `dependency set leaked ${d}`);
+  }
+  for (const s of privateSubjects) {
+    assert.ok(!new RegExp(`(^|[^a-z0-9-])${s}([^a-z0-9-]|$)`).test(a.bytes),
+      `artifact bytes leaked ${s}`);
+  }
+  assert.ok(a.dependencies.length > 0, "and the dependency set is not trivially empty");
+});
+
+test("an artifact is invalidated only by a subject it actually depends on", () => {
+  const a = page(world());
+  const dep = a.dependencies[0];
+
+  assert.deepEqual(invalidatedBy([a], [dep]), [a]);
+  assert.deepEqual(invalidatedBy([a], ["some-unrelated-subject"]), []);
+
+  // The property that matters: a change to a subject this reader cannot see
+  // cannot invalidate their artifact, because it cannot be in a dependency set
+  // computed after access projection. Invalidation is not a side channel.
+  const privateSubject = migrated.content.find((e) => e.minimumAccess === "owner")!.subjectId;
+  assert.deepEqual(invalidatedBy([a], [privateSubject]), [],
+    "a private change must not invalidate a public artifact");
+});
+
+test("two adapters of one surface are separate artifacts, not one", () => {
+  const j = world();
+  const snap = freeze(j, "w");
+  const r = renderRoute(snap as never, READER_ROUTES.find((x) => x.path === "/writing")!, "public");
+  const surface = (r as RenderedRoute).surface;
+
+  const web = materialize(surface, expressReaderWeb(surface, hydrate(j)), "/writing");
+  const voice = materialize(surface, expressLinear(surface), "/writing", "text/plain");
+
+  assert.equal(web.fingerprint, voice.fingerprint, "same surface, so same invalidation key");
+  assert.notEqual(web.digest, voice.digest, "different bytes, so different content names");
+  assert.notEqual(artifactKey(web), artifactKey(voice), "and they are addressed separately");
+
+  // Both invalidate together, which is right: the surface moved, so every
+  // expression of it is stale.
+  assert.equal(invalidatedBy([web, voice], [web.dependencies[0]]).length, 2);
+});
+
+
+========================================================================
 FILE: impl/merge/package.json
 ========================================================================
 
@@ -25821,7 +26096,7 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-059 | Authentication (closes SH-2) | E13 | Ready — the largest gap; semantic-cms currently has none | — |
 | SCMS-060 | Content-addressed blobs for prose and media (closes SH-4) | E13 | Done — digest is the key, immutable by grant; 6 more refusal checks | records/evidence.jsonl · scms-evidence-060 |
 | SCMS-061 | Cut over: deploy and decommission zach-core | E13 | **Blocked — protected action.** Owner authorization required at the time | — |
-| SCMS-062 | Materialize expressions to the CAS under their fingerprint | E14 | Ready — the static half; `canon_blob` and the fingerprint both exist, nothing writes one to the other | — |
+| SCMS-062 | Materialize expressions to the CAS under their fingerprint | E14 | Done — pure; digest names content, fingerprint invalidates, access is in the key | records/evidence.jsonl · scms-evidence-062 |
 | SCMS-063 | The live channel to a browser (invalidation keys over SSE) | E14 | Ready — `deliver`/replay/`lagged` exist end to end server-side; nothing carries them to a client | — |
 | SCMS-064 | The page builder: composition editing through the bounded lane | E14 | Ready — page structure is already Canon (SCMS-016) and socket population is already the bounded lane (SCMS-021); the UI is what is missing | — |
 | SCMS-065 | The Postgres store adapter (and this project's first runtime dependency) | E13 | **Ready — owner input invited on the driver.** The schema is proven; nothing in `impl/` reads or writes it. Needs `pg` or `postgres.js`, a lockfile, and `npm ci` in CI | — |

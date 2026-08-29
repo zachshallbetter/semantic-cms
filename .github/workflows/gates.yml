@@ -127,6 +127,10 @@ jobs:
           PGUSER: postgres
           PGPASSWORD: postgres
 
+      - name: Materialized artifacts (SCMS-062 · static pages, access-safe)
+        run: node --test test/*.test.ts
+        working-directory: impl/materialize
+
       - name: End-to-end spine (SCMS-019/027/049 · the composed path)
         run: node --test test/spine.test.ts
         working-directory: impl/e2e

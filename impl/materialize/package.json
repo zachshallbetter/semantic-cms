@@ -1,0 +1,8 @@
+{
+  "name": "@scms/materialize",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Materialize an expression as a static artifact (SCMS-062, epic E14): a page is bytes named by their content, invalidated by its surface fingerprint, and access-safe because the fingerprint covers only the accessible dependency set.",
+  "scripts": { "test": "node --test test/*.test.ts" }
+}
