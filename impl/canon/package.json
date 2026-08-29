@@ -1,0 +1,8 @@
+{
+  "name": "@scms/canon",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Canon narrow slice (SCMS-011): envelope + four-class provenance, canonical revision identity, append-only journal with hash-linked receipts, and freeze() projecting a FrozenSnapshot for the surface resolver. In-memory; persistence engine deliberately undecided (SPEC_HEALTH SH-1). Zero runtime dependencies; requires Node >= 22.6.",
+  "scripts": { "test": "node --test test/canon.test.ts" }
+}

@@ -44,6 +44,10 @@ jobs:
         run: node --test test/resolver.test.ts
         working-directory: impl/surface-resolver
 
+      - name: Canon vectors (SCMS-011 · envelope, identity, append-only, spine)
+        run: node --test test/canon.test.ts
+        working-directory: impl/canon
+
       - name: Cross-expression S3 vectors (SCMS-009)
         run: node --test test/s3.test.ts
         working-directory: impl/surface-expression

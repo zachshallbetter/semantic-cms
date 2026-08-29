@@ -1,0 +1,180 @@
+/**
+ * SCMS-011 vectors: envelope validation, revision identity, append-only
+ * behaviour, hash-linked receipts, and the Canon→surface spine.
+ */
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { validateEnvelope, revisionHash, canonicalJson } from "../src/envelope.ts";
+import type { Envelope, RecordState } from "../src/envelope.ts";
+import { CanonJournal, AppendOnlyViolation, ValidationError } from "../src/journal.ts";
+import { freeze, excludedFromSnapshot } from "../src/freeze.ts";
+import { resolveSurface } from "../../surface-resolver/src/resolver.ts";
+import { isFailure } from "../../surface-resolver/src/types.ts";
+import type { ResolvedSurface } from "../../surface-resolver/src/types.ts";
+
+const STATE: RecordState = {
+  semanticMaturity: "complete", evidenceState: "unqualified",
+  publicationState: "unpublished", deliveryState: "unpropagated",
+};
+
+function article(id: string, over: Partial<Envelope> = {}, body: Record<string, unknown> = {}): Envelope {
+  return {
+    schemaVersion: "scms-0.1",
+    subjectId: id,
+    compatibility: { protocol: "scms-0.1", subjectSchema: "article@1" },
+    provenance: { kind: "declared", authority: "project.owner", source: "test" },
+    minimumAccess: "public",
+    body: { kind: "Content", contentKind: "article", ...body },
+    state: STATE,
+    ...over,
+  };
+}
+
+test("validation: observed requires time bounds; declared/derived must not carry them", () => {
+  const obsBad = article("o-1", { provenance: { kind: "observed", authority: "a", source: "s" } });
+  assert.ok(validateEnvelope(obsBad).some((f) => f.code === "observed-missing-time-bounds"));
+
+  const obsGood = article("o-2", {
+    provenance: { kind: "observed", authority: "a", source: "s",
+      observedAt: "2026-08-28T00:00:00Z", expiresAt: "2026-08-28T00:00:10Z" },
+    body: { kind: "Observation" },
+  });
+  assert.deepEqual(validateEnvelope(obsGood), []);
+
+  const declBad = article("d-1", {
+    provenance: { kind: "declared", authority: "a", source: "s", observedAt: "2026-08-28T00:00:00Z" },
+  });
+  assert.ok(declBad && validateEnvelope(declBad).some((f) => f.code === "non-observed-carries-time-bounds"));
+
+  const expiryBad = article("o-3", {
+    provenance: { kind: "observed", authority: "a", source: "s",
+      observedAt: "2026-08-28T00:00:10Z", expiresAt: "2026-08-28T00:00:10Z" },
+    body: { kind: "Observation" },
+  });
+  assert.ok(validateEnvelope(expiryBad).some((f) => f.code === "expiry-not-after-observation"));
+});
+
+test("validation: unknown kinds and the prohibited single status field are rejected", () => {
+  const badProv = article("x-1", { provenance: { kind: "guessed" as never, authority: "a", source: "s" } });
+  assert.ok(validateEnvelope(badProv).some((f) => f.code === "unknown-provenance-kind"));
+  const badBody = article("x-2", { body: { kind: "Nonsense" as never } });
+  assert.ok(validateEnvelope(badBody).some((f) => f.code === "unknown-body-kind"));
+  const withStatus = { ...article("x-3"), status: "published" } as unknown as Envelope;
+  assert.ok(validateEnvelope(withStatus).some((f) => f.code === "single-status-field-prohibited"));
+});
+
+test("identity: stable under key reordering, excludes itself, distinguishes bodies", () => {
+  const a = article("art-1", {}, { attrs: { lang: "en", year: 2026 } });
+  const reordered: Envelope = {
+    state: STATE, body: { kind: "Content", contentKind: "article", attrs: { year: 2026, lang: "en" } },
+    minimumAccess: "public", provenance: { source: "test", authority: "project.owner", kind: "declared" },
+    compatibility: { subjectSchema: "article@1", protocol: "scms-0.1" },
+    subjectId: "art-1", schemaVersion: "scms-0.1",
+  };
+  assert.equal(revisionHash(a), revisionHash(reordered));
+  assert.equal(revisionHash(a), revisionHash({ ...a, revision: "sha256:whatever" }));
+  assert.notEqual(revisionHash(a), revisionHash(article("art-1", {}, { attrs: { lang: "de" } })));
+  assert.equal(canonicalJson({ b: 1, a: undefined }), '{"b":1}');
+  assert.match(revisionHash(a), /^sha256:[0-9a-f]{64}$/);
+});
+
+test("journal: append is idempotent for identical content; landed envelopes are frozen", () => {
+  const j = new CanonJournal();
+  const e1 = j.append(article("art-1"), "tester");
+  const e2 = j.append(article("art-1"), "tester");
+  assert.equal(e1.envelope.revision, e2.envelope.revision);
+  assert.equal(j.all().length, 1);
+  assert.throws(() => { (e1.envelope as { subjectId: string }).subjectId = "hacked"; });
+  assert.throws(() => j.append({ ...article("bad"), provenance: { kind: "nope" as never, authority: "a", source: "s" } }, "t"), ValidationError);
+});
+
+test("journal: supersede appends and retains the predecessor as history", () => {
+  const j = new CanonJournal();
+  const v1 = j.append(article("art-1", {}, { attrs: { title: "first" } }), "tester");
+  const v2 = j.supersede(v1.envelope.revision!, article("art-1", {}, { attrs: { title: "second" } }), "tester");
+
+  assert.equal(j.all().length, 2, "supersede appends, never replaces");
+  assert.equal(j.get(v1.envelope.revision!)!.supersededBy, v2.envelope.revision);
+  assert.equal(v2.envelope.supersedes, v1.envelope.revision);
+  // Predecessor content is unchanged and still readable.
+  assert.deepEqual((j.get(v1.envelope.revision!)!.envelope.body as { attrs: unknown }).attrs, { title: "first" });
+  assert.deepEqual(j.current().map((e) => e.envelope.revision), [v2.envelope.revision]);
+  assert.throws(() => j.supersede("sha256:missing", article("art-1"), "t"), AppendOnlyViolation);
+});
+
+test("journal: revoke prevents current use but retains provenance", () => {
+  const j = new CanonJournal();
+  const e = j.append(article("art-9"), "tester");
+  j.revoke(e.envelope.revision!, "project.owner");
+  assert.equal(j.current().length, 0);
+  const retained = j.get(e.envelope.revision!)!;
+  assert.equal(retained.revoked, true);
+  assert.equal(retained.envelope.provenance.authority, "project.owner");
+  assert.equal(j.all().length, 1, "revocation removes nothing");
+});
+
+test("receipts: hash-linked chain verifies and is tamper-evident", () => {
+  const j = new CanonJournal();
+  const a = j.append(article("art-1"), "tester");
+  j.supersede(a.envelope.revision!, article("art-1", {}, { attrs: { v: 2 } }), "tester");
+  j.append(article("art-2"), "tester");
+  assert.deepEqual(j.verifyChain(), { valid: true, brokenAt: null });
+
+  const receipts = j.receipts() as Array<{ actor: string }>;
+  const original = receipts[1].actor;
+  receipts[1].actor = "someone-else";           // tamper with history
+  const broken = j.verifyChain();
+  assert.equal(broken.valid, false);
+  assert.equal(broken.brokenAt, 1);
+  receipts[1].actor = original;
+  assert.equal(j.verifyChain().valid, true);
+});
+
+test("spine: Canon → freeze → resolver, unmodified, with entitlement withheld not absent", () => {
+  const j = new CanonJournal();
+  j.append(article("art-1", {}, { attrs: { year: 2026 } }), "tester");
+  j.append(article("art-2", {}, { attrs: { year: 2024 } }), "tester");
+  j.append(article("ent-1", {}, { entitled: true }), "tester");
+  j.append(article("sec-1", { minimumAccess: "admin" }), "tester");
+  const stale = j.append(article("art-old", {}, { attrs: { v: 1 } }), "tester");
+  j.revoke(stale.envelope.revision!, "project.owner");
+  j.append({
+    ...article("rel-1"), body: { kind: "Relation", from: "art-1", to: "art-2", relationType: "references" },
+  }, "tester");
+  j.append({
+    ...article("rel-2"), body: { kind: "Relation", from: "art-1", to: "ent-1", relationType: "references" },
+  }, "tester");
+  j.append({
+    ...article("rel-3"), minimumAccess: "admin",
+    body: { kind: "Relation", from: "art-1", to: "sec-1", relationType: "references" },
+  }, "tester");
+
+  const snapshot = freeze(j, "snap-canon-1");
+  assert.ok(!snapshot.subjects.some((s) => s.id === "art-old"), "revoked record absent from current snapshot");
+  assert.equal(excludedFromSnapshot(j).length, 1);
+
+  const result = resolveSurface(snapshot as never, {
+    profile: "focus", purpose: "understand", subject: "art-1", access: "member",
+    lens: { traversal: { radius: 1 } },
+    operations: [{ id: "open-article", exposure: "available" }],
+  });
+  assert.ok(!isFailure(result));
+  const surface = result as ResolvedSurface;
+
+  const members = surface.groups.flatMap((g) => g.members.map((m) => m.subject));
+  assert.deepEqual(members.sort(), ["art-1", "art-2"]);
+  // Entitlement declared in Canon surfaces as withheld — not absent.
+  const withheld = surface.explanation.excluded.find((e) => e.subject === "ent-1");
+  assert.equal(withheld?.eligibility, "withheld");
+  // Admin-only record and its relation never reach a member-access surface.
+  assert.ok(!JSON.stringify(surface).includes("sec-1"));
+});
+
+test("freeze is explicit: no ambient time or randomness in canon sources", async () => {
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  for (const rel of ["../src/envelope.ts", "../src/journal.ts", "../src/freeze.ts"]) {
+    const src = readFileSync(fileURLToPath(new URL(rel, import.meta.url)), "utf8");
+    assert.ok(!/Date\.now|Math\.random|new Date\(\)/.test(src), `${rel} references ambient time/randomness`);
+  }
+});

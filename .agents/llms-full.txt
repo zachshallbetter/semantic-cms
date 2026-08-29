@@ -1,6 +1,6 @@
 # PROJECT COMPILED CONTEXT
 Generator: 0.5.0
-Source digest: 30420ec5ca9d27fa333c9e2e06c5ffd48ac1ec7a2f83848187f27c225cf31b99
+Source digest: 39013077e880cb171f4e46994421d4339db9c42b8eaae929ff896b792f0a9a64
 
 > Generated projection. Canonical sources remain authoritative.
 
@@ -192,6 +192,10 @@ jobs:
       - name: Surface resolver vectors (SCMS-008 · SSS S0/S1 slice + S2 access property)
         run: node --test test/resolver.test.ts
         working-directory: impl/surface-resolver
+
+      - name: Canon vectors (SCMS-011 · envelope, identity, append-only, spine)
+        run: node --test test/canon.test.ts
+        working-directory: impl/canon
 
       - name: Cross-expression S3 vectors (SCMS-009)
         run: node --test test/s3.test.ts
@@ -3124,6 +3128,576 @@ Blocked state does not erase the item.
 The coordinator selects from all currently Ready, unclaimed, dependency-satisfied items within authority and budget.
 
 A blocked item removes only itself and its dependents from the frontier unless the blocker is global.
+
+
+========================================================================
+FILE: impl/canon/package.json
+========================================================================
+
+{
+  "name": "@scms/canon",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Canon narrow slice (SCMS-011): envelope + four-class provenance, canonical revision identity, append-only journal with hash-linked receipts, and freeze() projecting a FrozenSnapshot for the surface resolver. In-memory; persistence engine deliberately undecided (SPEC_HEALTH SH-1). Zero runtime dependencies; requires Node >= 22.6.",
+  "scripts": { "test": "node --test test/canon.test.ts" }
+}
+
+
+========================================================================
+FILE: impl/canon/src/envelope.ts
+========================================================================
+
+/**
+ * Canon envelope and revision identity (SCMS-011, E1 narrow slice).
+ *
+ * Implements DESIGN.md §3.1–§3.3 **as canonically stated on main (v1)**. The
+ * two-tier hashing refinement (P20) is a pending proposal on PR #28 and is
+ * deliberately NOT implemented here: canonical v1 specifies one build-local
+ * revision hash by canonical JSON → SHA-256. Provenance semantics are imported
+ * from the rr-rsp pin (four classes, the no-promotion rule, and the freshness
+ * rule that only `observed` carries time bounds).
+ */
+import { createHash } from "node:crypto";
+
+export type ProvenanceKind = "declared" | "derived" | "observed" | "system-certified";
+export const PROVENANCE_KINDS: readonly ProvenanceKind[] = [
+  "declared", "derived", "observed", "system-certified",
+];
+
+export type BodyKind = "Schema" | "Content" | "Relation" | "Observation" | "Topology";
+export const BODY_KINDS: readonly BodyKind[] = [
+  "Schema", "Content", "Relation", "Observation", "Topology",
+];
+
+export type AccessLevel = "public" | "member" | "owner" | "admin";
+
+/** DESIGN.md §3.5 — orthogonal axes; the single-enum `status` field is prohibited. */
+export interface RecordState {
+  semanticMaturity: "draft" | "complete" | "superseded";
+  evidenceState: "unqualified" | "qualified" | "stale" | "invalidated";
+  publicationState: "unpublished" | "promoted" | "embargoed" | "superseded" | "revoked";
+  deliveryState: "unpropagated" | "propagating" | "synchronized" | "drifted";
+}
+
+export interface Provenance {
+  kind: ProvenanceKind;
+  authority: string;
+  source: string;
+  sourceHash?: string;
+  /** Only `observed` may carry these, and must (rr-rsp freshness rule). */
+  observedAt?: string;
+  expiresAt?: string;
+}
+
+export interface Envelope {
+  schemaVersion: "scms-0.1";
+  subjectId: string;
+  compatibility: { protocol: string; subjectSchema: string };
+  provenance: Provenance;
+  minimumAccess: AccessLevel;
+  body: { kind: BodyKind; [k: string]: unknown };
+  state: RecordState;
+  /** Set by the journal on landing; excluded from its own hash input. */
+  revision?: string;
+  /** Supersession lineage (§3.4): names the revision this one replaces. */
+  supersedes?: string;
+}
+
+export type ValidationCode =
+  | "unknown-provenance-kind" | "unknown-body-kind" | "observed-missing-time-bounds"
+  | "non-observed-carries-time-bounds" | "expiry-not-after-observation"
+  | "missing-subject-id" | "unknown-access-level" | "single-status-field-prohibited";
+
+export interface ValidationFinding { code: ValidationCode; detail: string }
+
+const ACCESS: readonly AccessLevel[] = ["public", "member", "owner", "admin"];
+
+export function validateEnvelope(e: Envelope): ValidationFinding[] {
+  const f: ValidationFinding[] = [];
+  if (!e.subjectId) f.push({ code: "missing-subject-id", detail: "subjectId is required" });
+  if (!PROVENANCE_KINDS.includes(e.provenance?.kind)) {
+    f.push({ code: "unknown-provenance-kind", detail: String(e.provenance?.kind) });
+  }
+  if (!BODY_KINDS.includes(e.body?.kind)) {
+    f.push({ code: "unknown-body-kind", detail: String(e.body?.kind) });
+  }
+  if (!ACCESS.includes(e.minimumAccess)) {
+    f.push({ code: "unknown-access-level", detail: String(e.minimumAccess) });
+  }
+  // rr-rsp freshness rule, both directions.
+  const hasBounds = e.provenance?.observedAt !== undefined || e.provenance?.expiresAt !== undefined;
+  if (e.provenance?.kind === "observed") {
+    if (!e.provenance.observedAt || !e.provenance.expiresAt) {
+      f.push({ code: "observed-missing-time-bounds", detail: "observed requires observedAt and expiresAt" });
+    } else if (!(new Date(e.provenance.expiresAt) > new Date(e.provenance.observedAt))) {
+      f.push({ code: "expiry-not-after-observation", detail: `${e.provenance.expiresAt} <= ${e.provenance.observedAt}` });
+    }
+  } else if (hasBounds) {
+    f.push({
+      code: "non-observed-carries-time-bounds",
+      detail: `${e.provenance?.kind} must not carry observedAt/expiresAt`,
+    });
+  }
+  if (Object.prototype.hasOwnProperty.call(e as object, "status")) {
+    f.push({ code: "single-status-field-prohibited", detail: "use the four orthogonal state axes (§3.5)" });
+  }
+  return f;
+}
+
+/** Recursively key-sorted, compact JSON — deterministic under key reordering. */
+export function canonicalJson(value: unknown): string {
+  if (value === null || typeof value !== "object") return JSON.stringify(value);
+  if (Array.isArray(value)) return "[" + value.map(canonicalJson).join(",") + "]";
+  const rec = value as Record<string, unknown>;
+  const keys = Object.keys(rec).filter((k) => rec[k] !== undefined).sort();
+  return "{" + keys.map((k) => JSON.stringify(k) + ":" + canonicalJson(rec[k])).join(",") + "}";
+}
+
+const REVISION_DOMAIN = "scms:revision:v1 ";
+
+/**
+ * Build-local identity (§3.3): canonical JSON → SHA-256, domain-separated.
+ * The `revision` field is excluded from its own input; `supersedes` is not —
+ * lineage is part of what this revision is.
+ */
+export function revisionHash(e: Envelope): string {
+  const { revision: _omit, ...rest } = e;
+  return "sha256:" + createHash("sha256").update(REVISION_DOMAIN + canonicalJson(rest), "utf8").digest("hex");
+}
+
+
+========================================================================
+FILE: impl/canon/src/freeze.ts
+========================================================================
+
+/**
+ * freeze(): Canon → FrozenSnapshot (SCMS-011).
+ *
+ * The commit-cycle freeze phase, projecting current journal state into the
+ * shape the SCMS-008 resolver already consumes — unmodified. This is the seam
+ * where Canon hands off to the derive phase: nothing here decides
+ * participation (that is SSS) and nothing here renders (that is SES).
+ *
+ * Superseded and revoked records are excluded from the current snapshot; they
+ * remain in the journal as history. Entitlement is carried as a declaration,
+ * not enforced here — the resolver applies it as a participation gate.
+ */
+import type { CanonJournal, JournalEntry } from "./journal.ts";
+import type { AccessLevel } from "./envelope.ts";
+
+export interface FrozenSnapshot {
+  snapshotId: string;
+  subjects: Array<{
+    id: string; kind: string; access: AccessLevel; entitled?: boolean;
+    attrs?: Record<string, string | number | boolean | null>;
+  }>;
+  relations: Array<{ from: string; to: string; type: string; access: AccessLevel }>;
+}
+
+interface ContentBody {
+  kind: "Content"; contentKind: string; entitled?: boolean;
+  attrs?: Record<string, string | number | boolean | null>;
+}
+interface RelationBody { kind: "Relation"; from: string; to: string; relationType: string }
+
+/**
+ * @param journal the Canon journal
+ * @param snapshotId caller-supplied identity — the freeze phase is explicit,
+ *        never an ambient "now" (resolver purity depends on this)
+ */
+export function freeze(journal: CanonJournal, snapshotId: string): FrozenSnapshot {
+  const current = journal.current();
+  const subjects: FrozenSnapshot["subjects"] = [];
+  const relations: FrozenSnapshot["relations"] = [];
+
+  for (const entry of current) {
+    const body = entry.envelope.body as unknown;
+    if ((body as ContentBody).kind === "Content") {
+      const b = body as ContentBody;
+      subjects.push({
+        id: entry.envelope.subjectId,
+        kind: b.contentKind,
+        access: entry.envelope.minimumAccess,
+        ...(b.entitled === undefined ? {} : { entitled: b.entitled }),
+        ...(b.attrs === undefined ? {} : { attrs: b.attrs }),
+      });
+    } else if ((body as RelationBody).kind === "Relation") {
+      const b = body as RelationBody;
+      relations.push({
+        from: b.from, to: b.to, type: b.relationType, access: entry.envelope.minimumAccess,
+      });
+    }
+    // Schema, Observation, and Topology bodies are canonical but do not
+    // participate in this snapshot shape; they are consumed by other planes.
+  }
+
+  subjects.sort((a, b) => a.id.localeCompare(b.id));
+  relations.sort((a, b) =>
+    a.from.localeCompare(b.from) || a.type.localeCompare(b.type) || a.to.localeCompare(b.to));
+  return { snapshotId, subjects, relations };
+}
+
+/** Entries excluded from the current snapshot, with why — history stays legible. */
+export function excludedFromSnapshot(journal: CanonJournal): Array<{ entry: JournalEntry; reason: string }> {
+  return journal.all()
+    .filter((e) => e.supersededBy !== null || e.revoked)
+    .map((e) => ({ entry: e, reason: e.revoked ? "revoked" : `superseded by ${e.supersededBy}` }));
+}
+
+
+========================================================================
+FILE: impl/canon/src/journal.ts
+========================================================================
+
+/**
+ * Append-only Canon journal with a hash-linked receipt chain (SCMS-011).
+ *
+ * DESIGN.md §3.4: no destructive edit and no destructive delete — only
+ * supersession, revocation, and entitlement hiding. In production the
+ * append-only property is enforced by database grants (the PDP
+ * custody-in-the-database pattern); this narrow slice proves the *record
+ * semantics* in memory and leaves the persistence engine an open decision
+ * (SPEC_HEALTH SH-1). Durability, concurrency, and transactional grants are
+ * explicitly NOT established here.
+ */
+import { createHash } from "node:crypto";
+import type { Envelope } from "./envelope.ts";
+import { canonicalJson, revisionHash, validateEnvelope } from "./envelope.ts";
+
+export type ReceiptAction = "append" | "supersede" | "revoke";
+
+export interface Receipt {
+  seq: number;
+  action: ReceiptAction;
+  subjectId: string;
+  revision: string;
+  /** Predecessor revision for supersede/revoke; null for a first append. */
+  priorRevision: string | null;
+  actor: string;
+  /** Hash-links this receipt to the one before it. */
+  prevReceiptHash: string;
+  receiptHash: string;
+}
+
+export interface JournalEntry {
+  envelope: Readonly<Envelope>;
+  receiptSeq: number;
+  /** Set when a later revision supersedes this one; the entry itself is retained. */
+  supersededBy: string | null;
+  revoked: boolean;
+}
+
+export class AppendOnlyViolation extends Error {}
+export class ValidationError extends Error {
+  // Plain field assignment: Node's strip-only type stripping rejects
+  // TypeScript parameter properties (no transform step in this toolchain).
+  findings: ReturnType<typeof validateEnvelope>;
+  constructor(findings: ReturnType<typeof validateEnvelope>) {
+    super("envelope validation failed: " + findings.map((f) => f.code).join(", "));
+    this.findings = findings;
+  }
+}
+
+const GENESIS = "sha256:" + "0".repeat(64);
+const RECEIPT_DOMAIN = "scms:receipt:v1 ";
+
+export class CanonJournal {
+  #entries: JournalEntry[] = [];
+  #receipts: Receipt[] = [];
+  #byRevision = new Map<string, number>();
+
+  /** Land a new record. Returns the frozen entry; the envelope is never mutated afterward. */
+  append(envelope: Envelope, actor: string): JournalEntry {
+    return this.#land(envelope, actor, "append", null);
+  }
+
+  /**
+   * Append a new revision that supersedes an existing one. The predecessor is
+   * retained and remains readable as historical (§3.4) — it is not edited.
+   */
+  supersede(priorRevision: string, next: Envelope, actor: string): JournalEntry {
+    const priorIdx = this.#requireRevision(priorRevision);
+    const entry = this.#land({ ...next, supersedes: priorRevision }, actor, "supersede", priorRevision);
+    // Marking the predecessor superseded is journal metadata, not a content edit:
+    // the envelope itself is untouched and its revision hash is unchanged.
+    this.#entries[priorIdx] = { ...this.#entries[priorIdx], supersededBy: entry.envelope.revision! };
+    return entry;
+  }
+
+  /**
+   * Revoke: prevents new use while retaining all provenance needed to explain
+   * past use (§3.4). Recorded as a receipt; the record is not removed.
+   */
+  revoke(revision: string, actor: string): Receipt {
+    const idx = this.#requireRevision(revision);
+    this.#entries[idx] = { ...this.#entries[idx], revoked: true };
+    return this.#appendReceipt("revoke", this.#entries[idx].envelope.subjectId, revision, revision, actor);
+  }
+
+  /** Current (non-superseded, non-revoked) entries. */
+  current(): JournalEntry[] {
+    return this.#entries.filter((e) => e.supersededBy === null && !e.revoked);
+  }
+
+  /** Every entry ever landed, in landing order — history is state. */
+  all(): readonly JournalEntry[] {
+    return this.#entries;
+  }
+
+  get(revision: string): JournalEntry | undefined {
+    const idx = this.#byRevision.get(revision);
+    return idx === undefined ? undefined : this.#entries[idx];
+  }
+
+  receipts(): readonly Receipt[] {
+    return this.#receipts;
+  }
+
+  /** Recompute the chain; any altered receipt breaks verification (tamper-evident). */
+  verifyChain(): { valid: boolean; brokenAt: number | null } {
+    let prev = GENESIS;
+    for (const r of this.#receipts) {
+      const expected = this.#hashReceipt(r, prev);
+      if (r.prevReceiptHash !== prev || r.receiptHash !== expected) {
+        return { valid: false, brokenAt: r.seq };
+      }
+      prev = r.receiptHash;
+    }
+    return { valid: true, brokenAt: null };
+  }
+
+  #land(envelope: Envelope, actor: string, action: ReceiptAction, prior: string | null): JournalEntry {
+    const findings = validateEnvelope(envelope);
+    if (findings.length > 0) throw new ValidationError(findings);
+    const revision = revisionHash(envelope);
+    if (this.#byRevision.has(revision)) {
+      // Identical content re-landed: idempotent, returns the original entry.
+      return this.#entries[this.#byRevision.get(revision)!];
+    }
+    const landed: Envelope = Object.freeze({ ...envelope, revision });
+    const receipt = this.#appendReceipt(action, landed.subjectId, revision, prior, actor);
+    const entry: JournalEntry = Object.freeze({
+      envelope: landed, receiptSeq: receipt.seq, supersededBy: null, revoked: false,
+    });
+    this.#byRevision.set(revision, this.#entries.length);
+    this.#entries.push(entry);
+    return entry;
+  }
+
+  #requireRevision(revision: string): number {
+    const idx = this.#byRevision.get(revision);
+    if (idx === undefined) throw new AppendOnlyViolation(`unknown revision ${revision}`);
+    return idx;
+  }
+
+  #appendReceipt(
+    action: ReceiptAction, subjectId: string, revision: string, priorRevision: string | null, actor: string,
+  ): Receipt {
+    const prevReceiptHash = this.#receipts.length === 0
+      ? GENESIS
+      : this.#receipts[this.#receipts.length - 1].receiptHash;
+    const base = {
+      seq: this.#receipts.length, action, subjectId, revision, priorRevision, actor, prevReceiptHash,
+    };
+    const receipt: Receipt = { ...base, receiptHash: this.#hashReceipt(base as Receipt, prevReceiptHash) };
+    this.#receipts.push(receipt);
+    return receipt;
+  }
+
+  #hashReceipt(r: Omit<Receipt, "receiptHash"> & { receiptHash?: string }, prev: string): string {
+    const { receiptHash: _omit, ...rest } = r;
+    return "sha256:" + createHash("sha256")
+      .update(RECEIPT_DOMAIN + canonicalJson({ ...rest, prevReceiptHash: prev }), "utf8")
+      .digest("hex");
+  }
+}
+
+
+========================================================================
+FILE: impl/canon/test/canon.test.ts
+========================================================================
+
+/**
+ * SCMS-011 vectors: envelope validation, revision identity, append-only
+ * behaviour, hash-linked receipts, and the Canon→surface spine.
+ */
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { validateEnvelope, revisionHash, canonicalJson } from "../src/envelope.ts";
+import type { Envelope, RecordState } from "../src/envelope.ts";
+import { CanonJournal, AppendOnlyViolation, ValidationError } from "../src/journal.ts";
+import { freeze, excludedFromSnapshot } from "../src/freeze.ts";
+import { resolveSurface } from "../../surface-resolver/src/resolver.ts";
+import { isFailure } from "../../surface-resolver/src/types.ts";
+import type { ResolvedSurface } from "../../surface-resolver/src/types.ts";
+
+const STATE: RecordState = {
+  semanticMaturity: "complete", evidenceState: "unqualified",
+  publicationState: "unpublished", deliveryState: "unpropagated",
+};
+
+function article(id: string, over: Partial<Envelope> = {}, body: Record<string, unknown> = {}): Envelope {
+  return {
+    schemaVersion: "scms-0.1",
+    subjectId: id,
+    compatibility: { protocol: "scms-0.1", subjectSchema: "article@1" },
+    provenance: { kind: "declared", authority: "project.owner", source: "test" },
+    minimumAccess: "public",
+    body: { kind: "Content", contentKind: "article", ...body },
+    state: STATE,
+    ...over,
+  };
+}
+
+test("validation: observed requires time bounds; declared/derived must not carry them", () => {
+  const obsBad = article("o-1", { provenance: { kind: "observed", authority: "a", source: "s" } });
+  assert.ok(validateEnvelope(obsBad).some((f) => f.code === "observed-missing-time-bounds"));
+
+  const obsGood = article("o-2", {
+    provenance: { kind: "observed", authority: "a", source: "s",
+      observedAt: "2026-08-28T00:00:00Z", expiresAt: "2026-08-28T00:00:10Z" },
+    body: { kind: "Observation" },
+  });
+  assert.deepEqual(validateEnvelope(obsGood), []);
+
+  const declBad = article("d-1", {
+    provenance: { kind: "declared", authority: "a", source: "s", observedAt: "2026-08-28T00:00:00Z" },
+  });
+  assert.ok(declBad && validateEnvelope(declBad).some((f) => f.code === "non-observed-carries-time-bounds"));
+
+  const expiryBad = article("o-3", {
+    provenance: { kind: "observed", authority: "a", source: "s",
+      observedAt: "2026-08-28T00:00:10Z", expiresAt: "2026-08-28T00:00:10Z" },
+    body: { kind: "Observation" },
+  });
+  assert.ok(validateEnvelope(expiryBad).some((f) => f.code === "expiry-not-after-observation"));
+});
+
+test("validation: unknown kinds and the prohibited single status field are rejected", () => {
+  const badProv = article("x-1", { provenance: { kind: "guessed" as never, authority: "a", source: "s" } });
+  assert.ok(validateEnvelope(badProv).some((f) => f.code === "unknown-provenance-kind"));
+  const badBody = article("x-2", { body: { kind: "Nonsense" as never } });
+  assert.ok(validateEnvelope(badBody).some((f) => f.code === "unknown-body-kind"));
+  const withStatus = { ...article("x-3"), status: "published" } as unknown as Envelope;
+  assert.ok(validateEnvelope(withStatus).some((f) => f.code === "single-status-field-prohibited"));
+});
+
+test("identity: stable under key reordering, excludes itself, distinguishes bodies", () => {
+  const a = article("art-1", {}, { attrs: { lang: "en", year: 2026 } });
+  const reordered: Envelope = {
+    state: STATE, body: { kind: "Content", contentKind: "article", attrs: { year: 2026, lang: "en" } },
+    minimumAccess: "public", provenance: { source: "test", authority: "project.owner", kind: "declared" },
+    compatibility: { subjectSchema: "article@1", protocol: "scms-0.1" },
+    subjectId: "art-1", schemaVersion: "scms-0.1",
+  };
+  assert.equal(revisionHash(a), revisionHash(reordered));
+  assert.equal(revisionHash(a), revisionHash({ ...a, revision: "sha256:whatever" }));
+  assert.notEqual(revisionHash(a), revisionHash(article("art-1", {}, { attrs: { lang: "de" } })));
+  assert.equal(canonicalJson({ b: 1, a: undefined }), '{"b":1}');
+  assert.match(revisionHash(a), /^sha256:[0-9a-f]{64}$/);
+});
+
+test("journal: append is idempotent for identical content; landed envelopes are frozen", () => {
+  const j = new CanonJournal();
+  const e1 = j.append(article("art-1"), "tester");
+  const e2 = j.append(article("art-1"), "tester");
+  assert.equal(e1.envelope.revision, e2.envelope.revision);
+  assert.equal(j.all().length, 1);
+  assert.throws(() => { (e1.envelope as { subjectId: string }).subjectId = "hacked"; });
+  assert.throws(() => j.append({ ...article("bad"), provenance: { kind: "nope" as never, authority: "a", source: "s" } }, "t"), ValidationError);
+});
+
+test("journal: supersede appends and retains the predecessor as history", () => {
+  const j = new CanonJournal();
+  const v1 = j.append(article("art-1", {}, { attrs: { title: "first" } }), "tester");
+  const v2 = j.supersede(v1.envelope.revision!, article("art-1", {}, { attrs: { title: "second" } }), "tester");
+
+  assert.equal(j.all().length, 2, "supersede appends, never replaces");
+  assert.equal(j.get(v1.envelope.revision!)!.supersededBy, v2.envelope.revision);
+  assert.equal(v2.envelope.supersedes, v1.envelope.revision);
+  // Predecessor content is unchanged and still readable.
+  assert.deepEqual((j.get(v1.envelope.revision!)!.envelope.body as { attrs: unknown }).attrs, { title: "first" });
+  assert.deepEqual(j.current().map((e) => e.envelope.revision), [v2.envelope.revision]);
+  assert.throws(() => j.supersede("sha256:missing", article("art-1"), "t"), AppendOnlyViolation);
+});
+
+test("journal: revoke prevents current use but retains provenance", () => {
+  const j = new CanonJournal();
+  const e = j.append(article("art-9"), "tester");
+  j.revoke(e.envelope.revision!, "project.owner");
+  assert.equal(j.current().length, 0);
+  const retained = j.get(e.envelope.revision!)!;
+  assert.equal(retained.revoked, true);
+  assert.equal(retained.envelope.provenance.authority, "project.owner");
+  assert.equal(j.all().length, 1, "revocation removes nothing");
+});
+
+test("receipts: hash-linked chain verifies and is tamper-evident", () => {
+  const j = new CanonJournal();
+  const a = j.append(article("art-1"), "tester");
+  j.supersede(a.envelope.revision!, article("art-1", {}, { attrs: { v: 2 } }), "tester");
+  j.append(article("art-2"), "tester");
+  assert.deepEqual(j.verifyChain(), { valid: true, brokenAt: null });
+
+  const receipts = j.receipts() as Array<{ actor: string }>;
+  const original = receipts[1].actor;
+  receipts[1].actor = "someone-else";           // tamper with history
+  const broken = j.verifyChain();
+  assert.equal(broken.valid, false);
+  assert.equal(broken.brokenAt, 1);
+  receipts[1].actor = original;
+  assert.equal(j.verifyChain().valid, true);
+});
+
+test("spine: Canon → freeze → resolver, unmodified, with entitlement withheld not absent", () => {
+  const j = new CanonJournal();
+  j.append(article("art-1", {}, { attrs: { year: 2026 } }), "tester");
+  j.append(article("art-2", {}, { attrs: { year: 2024 } }), "tester");
+  j.append(article("ent-1", {}, { entitled: true }), "tester");
+  j.append(article("sec-1", { minimumAccess: "admin" }), "tester");
+  const stale = j.append(article("art-old", {}, { attrs: { v: 1 } }), "tester");
+  j.revoke(stale.envelope.revision!, "project.owner");
+  j.append({
+    ...article("rel-1"), body: { kind: "Relation", from: "art-1", to: "art-2", relationType: "references" },
+  }, "tester");
+  j.append({
+    ...article("rel-2"), body: { kind: "Relation", from: "art-1", to: "ent-1", relationType: "references" },
+  }, "tester");
+  j.append({
+    ...article("rel-3"), minimumAccess: "admin",
+    body: { kind: "Relation", from: "art-1", to: "sec-1", relationType: "references" },
+  }, "tester");
+
+  const snapshot = freeze(j, "snap-canon-1");
+  assert.ok(!snapshot.subjects.some((s) => s.id === "art-old"), "revoked record absent from current snapshot");
+  assert.equal(excludedFromSnapshot(j).length, 1);
+
+  const result = resolveSurface(snapshot as never, {
+    profile: "focus", purpose: "understand", subject: "art-1", access: "member",
+    lens: { traversal: { radius: 1 } },
+    operations: [{ id: "open-article", exposure: "available" }],
+  });
+  assert.ok(!isFailure(result));
+  const surface = result as ResolvedSurface;
+
+  const members = surface.groups.flatMap((g) => g.members.map((m) => m.subject));
+  assert.deepEqual(members.sort(), ["art-1", "art-2"]);
+  // Entitlement declared in Canon surfaces as withheld — not absent.
+  const withheld = surface.explanation.excluded.find((e) => e.subject === "ent-1");
+  assert.equal(withheld?.eligibility, "withheld");
+  // Admin-only record and its relation never reach a member-access surface.
+  assert.ok(!JSON.stringify(surface).includes("sec-1"));
+});
+
+test("freeze is explicit: no ambient time or randomness in canon sources", async () => {
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  for (const rel of ["../src/envelope.ts", "../src/journal.ts", "../src/freeze.ts"]) {
+    const src = readFileSync(fileURLToPath(new URL(rel, import.meta.url)), "utf8");
+    assert.ok(!/Date\.now|Math\.random|new Date\(\)/.test(src), `${rel} references ambient time/randomness`);
+  }
+});
 
 
 ========================================================================
@@ -7755,6 +8329,7 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-007 | Consumption boundaries for all pinned protocol resources | E1+E2 | Done — awaiting owner verification | records/evidence.jsonl · scms-evidence-007 |
 | SCMS-008 | Adopt SSS; implement the narrowest surface-resolution path | E1 | Done — awaiting owner verification | records/evidence.jsonl · scms-evidence-008 |
 | SCMS-009 | S3 cross-expression qualification | E1 | Done — S3 established for the narrow path; awaiting owner verification | records/evidence.jsonl · scms-evidence-009 |
+| SCMS-011 | Canon: envelope, canonical identity, append-only journal (E1 narrow slice) | E1 | Done — Canon→surface spine closed; awaiting owner verification | records/evidence.jsonl · scms-evidence-011 |
 | SCMS-010 | S4 cross-domain portability: a materially unrelated project (outside this repository, per owner doctrine 2026-08-28) consumes @semantic-systems/surface unmodified | external | Backlog — executes outside scms; scms records the conformance result | — |
 
 ## Epic register
@@ -7762,7 +8337,7 @@ epic as the owner assigns the corresponding piece of work.
 | Epic | Plane / concern | Governing design section | State |
 |---|---|---|---|
 | E0 | Operating substrate (bootstrap, pins, compiled context) | DESIGN.md §13 | Done via SCMS-001, pending verification |
-| E1 | Canon — envelope schema, identity classes, append-only store, receipts ledger | DESIGN.md §3 | Backlog |
+| E1 | Canon — envelope schema, identity classes, append-only store, receipts ledger | DESIGN.md §3 | In progress — narrow slice landed (SCMS-011); durable store open (SH-1) |
 | E2 | Contracts — write plane: contract registry, instance lifecycle, receipts, recovery | DESIGN.md §5 | Backlog |
 | E3 | Qualification — evidence records, consequence profiles, incremental re-qualification, promotion | DESIGN.md §6 | Backlog |
 | E4 | Projection — resolver, projection contracts, access projection, derivations, fingerprint invalidation | DESIGN.md §4, §7 | Backlog |
@@ -8240,4 +8815,81 @@ Claimed by agent-under-owner-direction 2026-08-28; released at closing state bel
 
 **Done — Implemented + Tested; S3 conformance established for the narrow path.**
 Evidence: records/evidence.jsonl · scms-evidence-009. Claim released.
+
+
+========================================================================
+FILE: work/SCMS-011.md
+========================================================================
+
+# SCMS-011 — Canon: envelope, canonical identity, append-only journal (E1 narrow slice)
+
+**Intent ref:** PROJECT_INTENT.md · **Epic:** E1 (board #6) · **Advances:** DESIGN.md §14 step 1
+**Assigned by:** coordinator goal ("prioritize work that advances the narrowest end-to-end
+proof and increases qualified maturity"); §16 of the v2 candidate names the E1 slice as the
+condition for resuming design iteration.
+**Effect class:** E1 — a pure library plus records; no persistence engine, no protected action.
+**State:** Ready → Claimed → (closing state at bottom)
+
+## Objective
+
+Land the Canon spine the surface layer already assumes: a versioned envelope with the
+four-class provenance lattice, content-addressed revision identity, and an append-only
+journal supporting supersession and revocation — then connect it to the resolver by
+projecting a `FrozenSnapshot`, closing the first end-to-end segment `Canon → freeze →
+access projection → surface`.
+
+## Ready predicate
+
+- **Scope:** `impl/canon/` — (1) `Envelope` per DESIGN.md §3.1 with body kinds
+  `Schema|Content|Relation|Observation|Topology`; (2) the provenance lattice §3.2 with its
+  enforced rule (observed MUST carry `observed_at`+`expires_at`; declared/derived MUST NOT);
+  (3) build-local revision identity by canonical JSON → SHA-256 **as canonical DESIGN.md v1
+  §3.3 states it** (single hash; the two-tier P20 refinement is a *pending proposal* on PR #28
+  and must not be implemented as though accepted); (4) an append-only journal with
+  `append` / `supersede` / `revoke` and a hash-linked receipt chain — no update, no delete;
+  (5) `freeze()` projecting a `FrozenSnapshot` the SCMS-008 resolver consumes unchanged.
+- **Exclusions:** no database, no persistence engine, no transport, no ORM — SH-1's storage
+  half stays an open decision and this slice must not decide it (in-memory journal only, with
+  the durability question left explicitly open). No contract/write plane (that is E2). No
+  qualification (E3). No entitlement authority. No schema authoring for SSS (UD-13, upstream).
+  No DESIGN.md change on main.
+- **Dependencies (satisfied):** rr-rsp pin (envelope shape, provenance classes, no-promotion,
+  JCS+SHA-256 identity); ses pin (Slot/Block/Socket/Composition vocabulary for the Article and
+  Home schema records); SCMS-008 resolver (the consumer proving the spine); node ≥ 22.6.
+- **Acceptance:**
+  1. Envelope validation rejects: an `observed` envelope without `expires_at`; a `declared` or
+     `derived` envelope carrying `observed_at`/`expires_at`; an unknown body kind; an unknown
+     provenance class.
+  2. Revision identity is stable under key reordering and excludes the identity field itself;
+     two different bodies hash differently.
+  3. The journal is append-only in behaviour: a landed record cannot be mutated or removed;
+     `supersede` appends a new revision naming its predecessor and leaves the predecessor
+     readable as historical; `revoke` prevents new use while retaining provenance.
+  4. The receipt chain is hash-linked and tamper-evident: altering any earlier entry breaks
+     verification.
+  5. Multi-axis state (§3.5) is representable and the single-enum `status` field is absent.
+  6. `freeze()` output resolves through the unmodified SCMS-008 resolver, and an
+     entitlement-declared record surfaces as `withheld`, not absent — proving Canon→surface
+     end to end without either layer redefining the other.
+- **Evidence requirements:** `node --test` output recorded in scms-evidence-011, claimed at the
+  weakest justified rung: **Implemented + Tested** for the narrow path. Explicitly NOT
+  established: durability, concurrency, transactional grants (the production append-only
+  mechanism), performance, or empirical usefulness.
+- **Permissions / effect class:** E1; project-mutation authority held per bindings.
+- **Target:** `impl/canon/` (new), `.github/workflows/gates.yml` (one test step),
+  `records/*`, `work/GRAPH.md`. No other path.
+- **Budget:** one work cycle; no spend; no external services; no credentials.
+- **Stop conditions:** (a) the slice would require choosing a persistence engine → stop, that
+  is SH-1 and an owner decision; (b) a pending PR-#28 proposal would have to be implemented to
+  make a vector pass → stop, record blocker (canonical v1 governs); (c) enforcing append-only
+  would require weakening the resolver's read-only contract → stop.
+
+## Claim
+
+Claimed by agent-under-owner-direction 2026-08-28; released at closing state below.
+
+## Closing state
+
+**Done — Implemented + Tested for the narrow path; Canon→surface spine closed.**
+Evidence: records/evidence.jsonl · scms-evidence-011. Claim released.
 
