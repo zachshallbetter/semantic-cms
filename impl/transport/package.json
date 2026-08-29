@@ -1,0 +1,8 @@
+{
+  "name": "@scms/transport",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "The wire (SCMS-033/034, epic E5): backfill-then-live delivery of invalidation keys, replay by last_event_id with no loss, and a lagged disclosure measured in what the subscriber may see rather than in what happened.",
+  "scripts": { "test": "node --test test/wire.test.ts" }
+}

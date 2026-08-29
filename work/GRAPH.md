@@ -47,8 +47,8 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-030 | The site as a reader expression of Canon (round-trip out) | E8 | Done — real reader routes resolve; NR-scms-004 recorded; awaiting owner verification | records/evidence.jsonl · scms-evidence-030 |
 | SCMS-031 | The authoring surface, and the authority gate it exposed | E12 | Done — SH-8 first slice; NR-scms-005 fixed; scms-blocker-003 raised; awaiting owner verification | records/evidence.jsonl · scms-evidence-031 |
 | SCMS-032 | The transactional outbox: nothing happens without an emission (R2) | E5 | Done — emission proven; delivery is SCMS-033; awaiting owner verification | records/evidence.jsonl · scms-evidence-032 |
-| SCMS-033 | Subscription lenses and fan-out over the wire (R2) | E5 | Ready — depends on SCMS-032 | — |
-| SCMS-034 | Replay by last_event_id, no event loss, lagged disclosure (R2) | E5 | Ready — depends on SCMS-033 | — |
+| SCMS-033 | Subscription lenses and fan-out over the wire (R2) | E5 | Done — lens narrows only; lag is subscriber-relative | records/evidence.jsonl · scms-evidence-033 |
+| SCMS-034 | Replay by last_event_id, no event loss, lagged disclosure (R2) | E5 | Done — landed with SCMS-033 | records/evidence.jsonl · scms-evidence-033 |
 | SCMS-035 | The provenance chip driven by a real transport (R2 meets R3) | E6 | Ready — depends on SCMS-034 | — |
 | SCMS-036 | Evidence and attestations as Canon records | E3 | Done — forgery closed; SH-13 (self-attestation) remains owner policy | records/evidence.jsonl · scms-evidence-036 |
 | SCMS-037 | The site renders from Canon (consolidation, no deploy) | E8 | Ready — completes E8 up to the deploy decision, which stays the owner's | — |

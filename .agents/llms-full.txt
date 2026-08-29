@@ -1,6 +1,6 @@
 # PROJECT COMPILED CONTEXT
 Generator: 0.5.0
-Source digest: c1ec9fd25444c8b282210ebfefa64fcc92c821cc4c2f6e25c267a40551d39771
+Source digest: 8039b9edbd51a62009d3adaed840b16b65f4f3f48d8f4d47385b9ea4e111f6c1
 
 > Generated projection. Canonical sources remain authoritative.
 
@@ -248,6 +248,10 @@ jobs:
       - name: Editor view-model (SCMS-040 · what an author sees)
         run: node --test test/editor.test.ts
         working-directory: impl/editor
+
+      - name: Wire delivery and replay (SCMS-033/034 · backfill, lagged, catch-up)
+        run: node --test test/wire.test.ts
+        working-directory: impl/transport
 
       - name: End-to-end spine (SCMS-019 · the composed narrow path)
         run: node --test test/spine.test.ts
@@ -1480,7 +1484,7 @@ above its rung.
 | No persistent mutation outside a registered contract | **Implemented + Tested (source-level), and authorized as of SCMS-031** | SCMS-012 write path; SCMS-023 boundary gate with a self-test proving it can fail; SCMS-031 adds the authority gate the write path had been missing entirely (NR-scms-005), and NR-scms-006 corrects that gate after an adversarial pass found it failing OPEN on prototype-chain keys | Runtime capability enforcement, not just source-level |
 | Declared content types are enforced | **Implemented + Tested (where declared)** | SCMS-022: the governed write consults the declared type; opt-in, because types that do not exist are not pretended to exist | A declared type for every content kind in use |
 | R1 live co-authoring | **Partially established** | `required` lane proven (SCMS-012), `bounded` lane proven (SCMS-021); **free lane NOT built** — blocked on P7/P22 | Owner disposition of P7/P22, then the free lane |
-| R2 live propagation | **Partially established — emission yes, delivery no** | SCMS-032: the transactional outbox emits inside the journal's landing path, so nothing can change without saying so; replay from every cursor position loses nothing, which is P10's stated criterion. **Nothing is delivered**: no wire, no subscriber, no reconnect | The wire and fan-out (SCMS-033), then replay and `lagged` under real latency (SCMS-034) |
+| R2 live propagation | **Implemented + Tested — semantic core, in memory** | SCMS-032 emission inside the journal's landing path; SCMS-033/034 delivery: backfill-then-live, replay from every cursor with no loss, `lagged` disclosure measured in the subscriber's own stream rather than global write volume, and executable catch-up-then-live | A network, durability, real latency, reconnection over a dropped socket, and the budgets SH-6 still lacks |
 | R3 live honesty | **Implemented + Tested (semantic core)** | SCMS-017: six states, the drafting/consequential asymmetry, chips that never claim live without a check, presence expiring by construction | Transport-side freshness under real latency |
 | Real content maps into Canon without collapsing what the source keeps | **Implemented + Tested against a real corpus** | SCMS-028: 12 vectors over the actual 215-entry archive — unlisted preserved as itself, private content at owner access, model-generated field kept as a separate `derived` envelope, and the source's own status collapse surfaced as 22 findings rather than inherited | The same against the live Postgres state (SCMS-029) — the reader round-trip is now closed by SCMS-030 |
 | The site can be a reader expression of Canon rather than a content client | **Implemented + Tested over a real corpus** | SCMS-030: the real /writing and /work routes resolve as surfaces over the migrated archive; feed and sitemap derive from the page's own ResolvedSurface, so a feed cannot disagree with its page; unlisted content is reachable by link and in no index | Wiring the declarations into the site's renderer, and a deployment |
@@ -16637,6 +16641,326 @@ test("resolver version is part of fingerprint identity", () => {
 
 
 ========================================================================
+FILE: impl/transport/package.json
+========================================================================
+
+{
+  "name": "@scms/transport",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "The wire (SCMS-033/034, epic E5): backfill-then-live delivery of invalidation keys, replay by last_event_id with no loss, and a lagged disclosure measured in what the subscriber may see rather than in what happened.",
+  "scripts": { "test": "node --test test/wire.test.ts" }
+}
+
+
+========================================================================
+FILE: impl/transport/src/wire.ts
+========================================================================
+
+/**
+ * The wire (SCMS-033/034, epic E5 · DESIGN.md §8.1–8.3, P10).
+ *
+ * SCMS-032 made the system unable to change without saying so. This carries what
+ * it said to subscribers: backfill burst then live, reconnect by
+ * `last_event_id` with no event loss, and an explicit `lagged` disclosure for a
+ * subscriber that falls behind.
+ *
+ * It transports **invalidation keys, not state** (§8.3). A client re-fetches
+ * through access projection; the wire never carries content, so a delivery
+ * cannot leak what a resolution would have withheld.
+ *
+ * Two properties are load-bearing, and both are easy to lose:
+ *
+ * 1. **A lens narrows; it can never widen power** (§8.2). A subscription's lens
+ *    is an allow-list applied *after* the subscriber's accessible dependency
+ *    set, so adding a lens can only ever remove keys. There is no lens that
+ *    grants reach.
+ *
+ * 2. **Lag is measured in what this subscriber may see, not in what happened.**
+ *    This is the subtle one. Reporting "you are 400 events behind" when 399 of
+ *    them were invisible to this subscriber turns the lag disclosure into a side
+ *    channel for global write volume — precisely the inference SCMS-026 closed
+ *    by sending silence instead of empty notifications. So relevance is computed
+ *    first and the burst limit applies to the relevant stream.
+ *
+ * Silence still carries no information: a subscriber with nothing to hear gets
+ * no message, and its cursor simply does not advance. Re-requesting from an old
+ * cursor is cheap and correct — the alternative, advancing the cursor with an
+ * empty message, would announce that a wave occurred.
+ */
+import type { CanonJournal, OutboxEvent } from "../../canon/src/journal.ts";
+import { fanOut } from "../../notify/src/fanout.ts";
+import type { Subscription } from "../../notify/src/fanout.ts";
+
+/** §8.2 — an allow-list scope, applied after access. Absent means "no further narrowing". */
+export interface SubscriptionLens {
+  /** Only these subjects, if given. */
+  subjects?: string[];
+  /** Only these change actions, if given. */
+  actions?: Array<OutboxEvent["action"]>;
+}
+
+export interface Connection {
+  subscription: Subscription;
+  lens?: SubscriptionLens;
+  /** The last event this client acknowledged. `null` means it has seen nothing. */
+  lastEventId: number | null;
+}
+
+export type DeliveryPhase = "backfill" | "live" | "lagged";
+
+export interface Delivery {
+  subscriptionId: string;
+  phase: DeliveryPhase;
+  /** Invalidation keys — subject ids to re-fetch. Never content. */
+  keys: string[];
+  /** The event id the client should hold after applying this delivery. */
+  cursor: number;
+  /** Only on `lagged`: how many further relevant events remain, and the way out. */
+  lag?: { behind: number; recovery: "catch-up-then-live" };
+}
+
+export interface DeliverOptions {
+  /** Maximum relevant events in one delivery. Beyond this the client is told it is lagged. */
+  maxBurst?: number;
+}
+
+/**
+ * Compute one delivery for one connection, or `null` when there is nothing this
+ * subscriber may hear.
+ */
+export function deliver(
+  journal: CanonJournal, connection: Connection, options: DeliverOptions = {},
+): Delivery | null {
+  const maxBurst = options.maxBurst ?? Number.POSITIVE_INFINITY;
+  const pending = journal.eventsSince(connection.lastEventId);
+
+  // Relevance BEFORE burst limiting, so lag is measured in this subscriber's
+  // own stream rather than in global activity.
+  const relevant = pending.filter((e) => relevantTo(e, connection));
+  if (relevant.length === 0) return null;
+
+  const lagged = relevant.length > maxBurst;
+  const window = lagged ? relevant.slice(0, maxBurst) : relevant;
+
+  // Who-is-told is still SCMS-026's question, asked of the subjects in the
+  // window. Reusing it keeps one implementation of the non-leak rule.
+  const changed = window.map((e) => e.subjectId);
+  const invalidations = fanOut([connection.subscription], changed);
+  const keys = invalidations[0]?.keys ?? [];
+
+  const cursor = window[window.length - 1].eventId;
+  const phase: DeliveryPhase = lagged
+    ? "lagged"
+    : connection.lastEventId === null ? "backfill" : "live";
+
+  return {
+    subscriptionId: connection.subscription.id,
+    phase, keys, cursor,
+    ...(lagged
+      ? { lag: { behind: relevant.length - window.length, recovery: "catch-up-then-live" as const } }
+      : {}),
+  };
+}
+
+function relevantTo(event: OutboxEvent, connection: Connection): boolean {
+  // The subscriber's accessible dependency set already encodes access (SSS §21),
+  // so membership in it is the access check.
+  if (!connection.subscription.dependencies.includes(event.subjectId)) return false;
+  const lens = connection.lens;
+  if (!lens) return true;
+  if (lens.subjects && !lens.subjects.includes(event.subjectId)) return false;
+  if (lens.actions && !lens.actions.includes(event.action)) return false;
+  return true;
+}
+
+/**
+ * Drive a connection to caught-up, returning every delivery in order.
+ *
+ * This is the `catch-up-then-live` recovery a `lagged` delivery names, made
+ * executable rather than described. The loop terminates because each delivery
+ * advances the cursor past at least one relevant event.
+ */
+export function catchUp(
+  journal: CanonJournal, connection: Connection, options: DeliverOptions = {},
+): { deliveries: Delivery[]; connection: Connection } {
+  const deliveries: Delivery[] = [];
+  let cursorState = connection;
+  for (;;) {
+    const d = deliver(journal, cursorState, options);
+    if (!d) break;
+    deliveries.push(d);
+    cursorState = { ...cursorState, lastEventId: d.cursor };
+    if (d.phase !== "lagged") break;
+  }
+  return { deliveries, connection: cursorState };
+}
+
+
+========================================================================
+FILE: impl/transport/test/wire.test.ts
+========================================================================
+
+/**
+ * SCMS-033/034 vectors: delivery, replay, and honest lag.
+ */
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { CanonJournal } from "../../canon/src/journal.ts";
+import type { Envelope } from "../../canon/src/envelope.ts";
+import { deliver, catchUp } from "../src/wire.ts";
+import type { Connection } from "../src/wire.ts";
+
+const doc = (id: string, title: string, access: "public" | "owner" = "public"): Envelope => ({
+  schemaVersion: "scms-0.1", subjectId: id,
+  compatibility: { protocol: "scms-0.1", subjectSchema: "article@1" },
+  provenance: { kind: "declared", authority: "project.owner", source: "t" },
+  minimumAccess: access,
+  body: { kind: "Content", contentKind: "article", slots: { title: [{ kind: "text", value: title }] } },
+  state: { semanticMaturity: "draft", evidenceState: "unqualified",
+           publicationState: "unpublished", deliveryState: "unpropagated" },
+} as Envelope);
+
+/** A world with two visible subjects and one the subscriber cannot see. */
+function world() {
+  const j = new CanonJournal();
+  j.append(doc("a", "A"), "t");
+  j.append(doc("b", "B"), "t");
+  j.append(doc("secret", "S", "owner"), "t");
+  return j;
+}
+const conn = (lastEventId: number | null, over: Partial<Connection> = {}): Connection => ({
+  subscription: { id: "sub-1", access: "public", dependencies: ["a", "b"] },
+  lastEventId, ...over,
+});
+
+test("a new subscriber gets a backfill burst of everything it may see", () => {
+  const j = world();
+  const d = deliver(j, conn(null))!;
+  assert.equal(d.phase, "backfill");
+  assert.deepEqual(d.keys, ["a", "b"]);
+  assert.equal(d.cursor, 1, "the cursor stops at the last RELEVANT event, not the last event");
+});
+
+test("a caught-up subscriber hears nothing, and silence carries no information", () => {
+  const j = world();
+  const first = deliver(j, conn(null))!;
+  assert.equal(deliver(j, conn(first.cursor)), null);
+
+  // A change it cannot see produces no message at all — not an empty one.
+  const secret = j.current().find((e) => e.envelope.subjectId === "secret")!;
+  j.supersede(secret.envelope.revision!, doc("secret", "S2", "owner"), "t");
+  assert.equal(deliver(j, conn(first.cursor)), null,
+    "an empty notification would itself announce that a wave occurred");
+});
+
+test("live delivery follows backfill", () => {
+  const j = world();
+  const first = deliver(j, conn(null))!;
+  const a = j.current().find((e) => e.envelope.subjectId === "a")!;
+  j.supersede(a.envelope.revision!, doc("a", "A2"), "t");
+
+  const d = deliver(j, conn(first.cursor))!;
+  assert.equal(d.phase, "live");
+  assert.deepEqual(d.keys, ["a"]);
+});
+
+test("replay from any cursor loses nothing a subscriber may see", () => {
+  const j = world();
+  for (let i = 0; i < 6; i++) {
+    const a = j.current().find((e) => e.envelope.subjectId === "a")!;
+    j.supersede(a.envelope.revision!, doc("a", `A${i}`), "t");
+  }
+  const everyVisible = j.events().filter((e) => ["a", "b"].includes(e.subjectId)).map((e) => e.eventId);
+
+  for (const start of [null, ...j.events().map((e) => e.eventId)]) {
+    const { deliveries } = catchUp(j, conn(start));
+    const covered = new Set<number>();
+    for (const d of deliveries) {
+      for (const id of everyVisible) if (id > (start ?? -1) && id <= d.cursor) covered.add(id);
+    }
+    const missed = everyVisible.filter((id) => id > (start ?? -1) && !covered.has(id));
+    assert.deepEqual(missed, [], `replay from ${start} missed ${missed.join(",")}`);
+  }
+});
+
+test("a lagged subscriber is told so, and told how to recover", () => {
+  const j = world();
+  for (let i = 0; i < 10; i++) {
+    const a = j.current().find((e) => e.envelope.subjectId === "a")!;
+    j.supersede(a.envelope.revision!, doc("a", `A${i}`), "t");
+  }
+  const d = deliver(j, conn(null), { maxBurst: 3 })!;
+  assert.equal(d.phase, "lagged");
+  assert.equal(d.lag!.recovery, "catch-up-then-live");
+  assert.ok(d.lag!.behind > 0);
+  // Staleness as a protocol message, not as a silent gap.
+});
+
+test("catch-up-then-live is executable, and ends in a non-lagged phase", () => {
+  const j = world();
+  for (let i = 0; i < 10; i++) {
+    const a = j.current().find((e) => e.envelope.subjectId === "a")!;
+    j.supersede(a.envelope.revision!, doc("a", `A${i}`), "t");
+  }
+  const { deliveries, connection } = catchUp(j, conn(null), { maxBurst: 3 });
+  assert.ok(deliveries.length > 1);
+  assert.equal(deliveries[deliveries.length - 1].phase !== "lagged", true, "it terminates caught up");
+  assert.equal(deliver(j, connection, { maxBurst: 3 }), null, "and then there is nothing left to say");
+});
+
+test("lag is measured in what the subscriber may see, not in what happened", () => {
+  const j = world();
+  // A hundred changes to a subject this subscriber cannot see.
+  for (let i = 0; i < 100; i++) {
+    const s = j.current().find((e) => e.envelope.subjectId === "secret")!;
+    j.supersede(s.envelope.revision!, doc("secret", `S${i}`, "owner"), "t");
+  }
+  const d = deliver(j, conn(null), { maxBurst: 5 })!;
+  assert.equal(d.phase, "backfill", "not lagged — only two events were ever this subscriber's business");
+  assert.equal(d.lag, undefined);
+  assert.deepEqual(d.keys, ["a", "b"]);
+  // Reporting "you are 100 behind" here would turn the lag disclosure into a
+  // side channel for global write volume — the same inference SCMS-026 closed
+  // by sending silence rather than empty notifications.
+});
+
+test("a lens narrows and can never widen", () => {
+  const j = world();
+  const unlensed = deliver(j, conn(null))!;
+  const lensed = deliver(j, conn(null, { lens: { subjects: ["a"] } }))!;
+  assert.deepEqual(unlensed.keys, ["a", "b"]);
+  assert.deepEqual(lensed.keys, ["a"]);
+  assert.ok(lensed.keys.every((k) => unlensed.keys.includes(k)));
+
+  // A lens naming a subject outside the dependency set grants nothing.
+  const overreaching = deliver(j, conn(null, { lens: { subjects: ["a", "secret"] } }))!;
+  assert.deepEqual(overreaching.keys, ["a"], "the lens cannot reach past access");
+});
+
+test("an action lens filters by change kind without widening reach", () => {
+  const j = world();
+  const a = j.current().find((e) => e.envelope.subjectId === "a")!;
+  j.supersede(a.envelope.revision!, doc("a", "A2"), "t");
+
+  const appendsOnly = deliver(j, conn(null, { lens: { actions: ["append"] } }))!;
+  assert.deepEqual(appendsOnly.keys, ["a", "b"]);
+  const supersedesOnly = deliver(j, conn(null, { lens: { actions: ["supersede"] } }))!;
+  assert.deepEqual(supersedesOnly.keys, ["a"]);
+});
+
+test("the wire carries keys, never content", () => {
+  const j = new CanonJournal();
+  j.append(doc("a", "A Very Distinctive Title"), "t");
+  const d = deliver(j, conn(null))!;
+  assert.ok(!JSON.stringify(d).includes("A Very Distinctive Title"),
+    "a client re-fetches through access projection; the wire must not shortcut it");
+  assert.deepEqual(d.keys, ["a"]);
+});
+
+
+========================================================================
 FILE: projections/design-spec.html
 ========================================================================
 
@@ -20699,8 +21023,8 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-030 | The site as a reader expression of Canon (round-trip out) | E8 | Done — real reader routes resolve; NR-scms-004 recorded; awaiting owner verification | records/evidence.jsonl · scms-evidence-030 |
 | SCMS-031 | The authoring surface, and the authority gate it exposed | E12 | Done — SH-8 first slice; NR-scms-005 fixed; scms-blocker-003 raised; awaiting owner verification | records/evidence.jsonl · scms-evidence-031 |
 | SCMS-032 | The transactional outbox: nothing happens without an emission (R2) | E5 | Done — emission proven; delivery is SCMS-033; awaiting owner verification | records/evidence.jsonl · scms-evidence-032 |
-| SCMS-033 | Subscription lenses and fan-out over the wire (R2) | E5 | Ready — depends on SCMS-032 | — |
-| SCMS-034 | Replay by last_event_id, no event loss, lagged disclosure (R2) | E5 | Ready — depends on SCMS-033 | — |
+| SCMS-033 | Subscription lenses and fan-out over the wire (R2) | E5 | Done — lens narrows only; lag is subscriber-relative | records/evidence.jsonl · scms-evidence-033 |
+| SCMS-034 | Replay by last_event_id, no event loss, lagged disclosure (R2) | E5 | Done — landed with SCMS-033 | records/evidence.jsonl · scms-evidence-033 |
 | SCMS-035 | The provenance chip driven by a real transport (R2 meets R3) | E6 | Ready — depends on SCMS-034 | — |
 | SCMS-036 | Evidence and attestations as Canon records | E3 | Done — forgery closed; SH-13 (self-attestation) remains owner policy | records/evidence.jsonl · scms-evidence-036 |
 | SCMS-037 | The site renders from Canon (consolidation, no deploy) | E8 | Ready — completes E8 up to the deploy decision, which stays the owner's | — |
@@ -22500,6 +22824,57 @@ under SH-1. R2 moves from *not established* to *partially established*, and the 
 ## Closing state
 
 **Done — the system can no longer change without saying so.**
+
+
+========================================================================
+FILE: work/SCMS-033.md
+========================================================================
+
+# SCMS-033/034 — The wire: backfill, replay, and honest lag
+
+**Intent ref:** PROJECT_INTENT.md · **Epic:** E5 · **Effect class:** E1
+**Assigned by:** coordinator goal under owner sign-off; unblocked by P10.
+**State:** Ready → Claimed → Done (closing state at bottom)
+
+## The gap
+
+SCMS-032 made the system unable to change without saying so. Nobody was listening. R2 had emission
+and no delivery, which §8.1 specifies in full: backfill burst then live, reconnect by
+`last_event_id` with *no event loss* as a stated criterion, an explicit `lagged` disclosure, and
+`catch-up-then-live` recovery.
+
+## The property that was easy to lose
+
+**Lag must be measured in what the subscriber may see, not in what happened.**
+
+The obvious implementation limits the burst on the pending event stream and reports how far behind
+the client is. That number is global write volume. Telling a public subscriber "you are 400 events
+behind" when 399 of those were changes to private drafts turns the lag disclosure into a side
+channel for exactly the inference SCMS-026 closed by sending silence instead of empty
+notifications — and it does it while looking like a helpful protocol message.
+
+So relevance is computed *first*, and the burst limit applies to the subscriber's own stream. A
+vector makes a hundred changes to a subject the subscriber cannot see and asserts the delivery is
+not lagged: only two events were ever its business.
+
+The same discipline governs the rest. A lens is an allow-list applied after the accessible
+dependency set, so it can only remove keys — a lens naming a subject outside that set grants
+nothing. Silence remains silence: a subscriber with nothing to hear gets no message and its cursor
+does not advance, because advancing it with an empty delivery would announce that a wave occurred.
+And the wire carries invalidation keys, never content, so a delivery cannot shortcut the access
+projection a client re-fetches through.
+
+## What this does NOT establish
+
+Transport *semantics*, in memory, in one process. There is no network, no durability, no real
+latency, no reconnection over a dropped socket, and no measurement against §8.6's budgets — which
+do not exist yet (SH-6). R2 moves to implemented-and-tested for its semantic core, and the register
+says exactly that rather than "R2 done".
+
+## Closing state
+
+**Done — the system says what changed, to exactly whoever may hear it, and tells the truth about
+being behind.**
 
 
 ========================================================================
