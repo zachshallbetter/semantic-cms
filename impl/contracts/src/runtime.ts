@@ -63,10 +63,22 @@ type Handler = (
   journal: CanonJournal, req: ExecutionRequest, def: ContractDefinition, ctx: ExecutionContext,
 ) => ExecutionResult;
 
+export interface BodyFinding { code: string; at: string; detail: string }
+
 export interface ExecutionContext {
   /** Explicit clock — no ambient time (resolver-purity discipline extends here). */
   occurredAt: string;
   instanceId: string;
+  /**
+   * Optional conformance hook (SCMS-022). When supplied, a governed write
+   * validates the resulting body against its declared content type and refuses
+   * non-conformant content. Passed as a FUNCTION so this package never depends
+   * on the schema package — the caller wires the two together.
+   *
+   * Opt-in by design: not every content kind has a declared type yet, and
+   * enforcing one that does not exist would be a false claim.
+   */
+  validateBody?: (body: Record<string, unknown>) => BodyFinding[];
 }
 
 export class ContractRegistry {
@@ -156,6 +168,19 @@ export const reviseHandler: Handler = (journal, req, def, ctx) => {
   states.push("processing");
   const before = prior.envelope.body as Record<string, unknown>;
   const nextBody = { ...before, ...input.changes };
+
+  // Declared types are load-bearing: where a content type is declared, a
+  // governed write may not land content that violates it (SCMS-022).
+  if (ctx.validateBody) {
+    const findings = ctx.validateBody(nextBody);
+    if (findings.length > 0) {
+      return {
+        instanceId: ctx.instanceId, outcome: "invalid_input", states: [...states, "failed"], verification,
+        recovery: findings.map((f) => ({ action: "focus_field" as const, data: { field: f.at, code: f.code } })),
+        detail: findings.map((f) => f.detail).join("; "),
+      };
+    }
+  }
   const next: Envelope = { ...prior.envelope, body: nextBody as Envelope["body"], revision: undefined };
   const landed = journal.supersede(input.expectedRevision, next, req.actor.id);
 

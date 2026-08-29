@@ -36,6 +36,7 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-019 | The narrowest end-to-end path, proven as one run (E7) | E1 | Done — spine composes; awaiting owner verification | records/evidence.jsonl · scms-evidence-019 |
 | SCMS-020 | content.unpublish@1: make the declared compensation real | E1 | Done — awaiting owner verification | records/evidence.jsonl · scms-evidence-020 |
 | SCMS-021 | The bounded merge lane: merge, then validate (§14 step 3, partial) | E1 | Done — awaiting owner verification | records/evidence.jsonl · scms-evidence-021 |
+| SCMS-022 | Declared schemas become load-bearing in the write path | E1 | Done — awaiting owner verification | records/evidence.jsonl · scms-evidence-022 |
 | SCMS-018 | R1 live co-authoring — **free lane only** (convergent merge) | E1 | **Blocked** — awaiting disposition of P7/P22 on PR #28 | records/blockers · scms-blocker-001 |
 | SCMS-010 | S4 cross-domain portability: a materially unrelated project (outside this repository, per owner doctrine 2026-08-28) consumes @semantic-systems/surface unmodified | external | Backlog — executes outside scms; scms records the conformance result | — |
 

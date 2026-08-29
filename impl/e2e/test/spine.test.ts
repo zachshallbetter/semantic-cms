@@ -74,6 +74,14 @@ function runSpine() {
   const registry = new ContractRegistry();
   registry.register(CONTENT_REVISE, reviseHandler);
   registry.register(CONTENT_PROMOTE, promoteHandler);
+  // SCMS-022: the declared Article type is load-bearing here — the governed
+  // write consults it, so a violation cannot land in the composed path either.
+  const articleValidator = (body: Record<string, unknown>) =>
+    checkArticle(
+      { contentKind: "article", slots: (body.slots as ArticleInstance["slots"]) ?? {} },
+      ARTICLE_TYPE,
+    ).map((f) => ({ code: f.code, at: f.at, detail: f.detail }));
+
   const revise = registry.execute(journal, {
     contract: "icp:interaction/content.revise@1.0.0", requestId: "req_1", actor: ACTOR,
     input: { subjectId: "art-1", expectedRevision: seed.envelope.revision, changes: { title: "Ship it (revised)" } },
@@ -89,6 +97,26 @@ test("seam 1-3: conformance gates Canon, and the governed write emits a verifiab
   assert.equal(journal.get(seed.envelope.revision!)!.supersededBy, revised);
   assert.equal(journal.verifyChain().valid, true);
   assert.equal(journal.current().find((e) => e.envelope.subjectId === "art-1")!.envelope.revision, revised);
+});
+
+test("seam 1-3b: the declared type is enforced by the composed write path", () => {
+  const { journal, registry } = runSpine();
+  const current = journal.current().find((e) => e.envelope.subjectId === "art-1")!;
+  const validator = (body: Record<string, unknown>) =>
+    checkArticle(
+      { contentKind: "article", slots: (body.slots as ArticleInstance["slots"]) ?? {} },
+      ARTICLE_TYPE,
+    ).map((f) => ({ code: f.code, at: f.at, detail: f.detail }));
+
+  const before = journal.all().length;
+  const r = registry.execute(journal, {
+    contract: "icp:interaction/content.revise@1.0.0", requestId: "req_bad", actor: ACTOR,
+    input: { subjectId: "art-1", expectedRevision: current.envelope.revision, changes: { slots: {} } },
+  }, { ...CTX, instanceId: "int_bad", validateBody: validator });
+
+  assert.equal(r.outcome, "invalid_input", "an empty slot set violates the declared Article type");
+  assert.ok(r.recovery.some((x) => x.data.field === "title"));
+  assert.equal(journal.all().length, before, "nothing landed");
 });
 
 test("seam 4-5: qualification gates promotion, and promotion moves only the publication axis", () => {

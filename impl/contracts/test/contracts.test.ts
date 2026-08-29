@@ -154,3 +154,44 @@ test("no ambient time or randomness in the contract runtime", async () => {
     assert.ok(!/Date\.now|Math\.random|new Date\(\)/.test(src), `${rel} references ambient time/randomness`);
   }
 });
+
+// ---------------------------------------------------------------------------
+// SCMS-022: declared types are load-bearing in the write path.
+// ---------------------------------------------------------------------------
+
+/** Stand-in for a declared content type: `title` is required. */
+const requireTitle = (body: Record<string, unknown>) =>
+  body.title === undefined || body.title === null || body.title === ""
+    ? [{ code: "required-slot-missing", at: "title", detail: "slot 'title' is required" }]
+    : [];
+
+test("with a validator wired, non-conformant content is refused and nothing lands", () => {
+  const { journal, registry, seed } = setup();
+  const before = journal.all().length;
+  const r = registry.execute(journal, request({
+    subjectId: "art-1", expectedRevision: seed.envelope.revision, changes: { title: "" },
+  }), { ...ctx, validateBody: requireTitle });
+
+  assert.equal(r.outcome, "invalid_input");
+  assert.equal(r.recovery[0].action, "focus_field");
+  assert.equal(r.recovery[0].data.field, "title");
+  assert.equal(r.recovery[0].data.code, "required-slot-missing");
+  assert.equal(journal.all().length, before, "a non-conformant write lands nothing");
+});
+
+test("with a validator wired, conformant content lands normally", () => {
+  const { journal, registry, seed } = setup();
+  const r = registry.execute(journal, request({
+    subjectId: "art-1", expectedRevision: seed.envelope.revision, changes: { title: "A real title" },
+  }), { ...ctx, validateBody: requireTitle });
+  assert.equal(r.outcome, "completed");
+  assert.equal(journal.current()[0].envelope.revision, r.receipt!.afterVersion);
+});
+
+test("layering: the contracts package does not import the schema package", async () => {
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const src = readFileSync(fileURLToPath(new URL("../src/runtime.ts", import.meta.url)), "utf8");
+  assert.ok(!/from ".*schema\/src/.test(src),
+    "conformance is injected as a function; contracts must not depend on schema");
+});

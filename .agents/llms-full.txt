@@ -1,6 +1,6 @@
 # PROJECT COMPILED CONTEXT
 Generator: 0.5.0
-Source digest: 50bfc0909b6bcf3a677431ea014ad57951c46cd31bd1b2256c061434d6ab78aa
+Source digest: 16c9c9d8256903cb17475d8269204bd5a0de3d5374b46d9ded684c37c892da04
 
 > Generated projection. Canonical sources remain authoritative.
 
@@ -3889,10 +3889,22 @@ type Handler = (
   journal: CanonJournal, req: ExecutionRequest, def: ContractDefinition, ctx: ExecutionContext,
 ) => ExecutionResult;
 
+export interface BodyFinding { code: string; at: string; detail: string }
+
 export interface ExecutionContext {
   /** Explicit clock — no ambient time (resolver-purity discipline extends here). */
   occurredAt: string;
   instanceId: string;
+  /**
+   * Optional conformance hook (SCMS-022). When supplied, a governed write
+   * validates the resulting body against its declared content type and refuses
+   * non-conformant content. Passed as a FUNCTION so this package never depends
+   * on the schema package — the caller wires the two together.
+   *
+   * Opt-in by design: not every content kind has a declared type yet, and
+   * enforcing one that does not exist would be a false claim.
+   */
+  validateBody?: (body: Record<string, unknown>) => BodyFinding[];
 }
 
 export class ContractRegistry {
@@ -3982,6 +3994,19 @@ export const reviseHandler: Handler = (journal, req, def, ctx) => {
   states.push("processing");
   const before = prior.envelope.body as Record<string, unknown>;
   const nextBody = { ...before, ...input.changes };
+
+  // Declared types are load-bearing: where a content type is declared, a
+  // governed write may not land content that violates it (SCMS-022).
+  if (ctx.validateBody) {
+    const findings = ctx.validateBody(nextBody);
+    if (findings.length > 0) {
+      return {
+        instanceId: ctx.instanceId, outcome: "invalid_input", states: [...states, "failed"], verification,
+        recovery: findings.map((f) => ({ action: "focus_field" as const, data: { field: f.at, code: f.code } })),
+        detail: findings.map((f) => f.detail).join("; "),
+      };
+    }
+  }
   const next: Envelope = { ...prior.envelope, body: nextBody as Envelope["body"], revision: undefined };
   const landed = journal.supersede(input.expectedRevision, next, req.actor.id);
 
@@ -4180,6 +4205,47 @@ test("no ambient time or randomness in the contract runtime", async () => {
   }
 });
 
+// ---------------------------------------------------------------------------
+// SCMS-022: declared types are load-bearing in the write path.
+// ---------------------------------------------------------------------------
+
+/** Stand-in for a declared content type: `title` is required. */
+const requireTitle = (body: Record<string, unknown>) =>
+  body.title === undefined || body.title === null || body.title === ""
+    ? [{ code: "required-slot-missing", at: "title", detail: "slot 'title' is required" }]
+    : [];
+
+test("with a validator wired, non-conformant content is refused and nothing lands", () => {
+  const { journal, registry, seed } = setup();
+  const before = journal.all().length;
+  const r = registry.execute(journal, request({
+    subjectId: "art-1", expectedRevision: seed.envelope.revision, changes: { title: "" },
+  }), { ...ctx, validateBody: requireTitle });
+
+  assert.equal(r.outcome, "invalid_input");
+  assert.equal(r.recovery[0].action, "focus_field");
+  assert.equal(r.recovery[0].data.field, "title");
+  assert.equal(r.recovery[0].data.code, "required-slot-missing");
+  assert.equal(journal.all().length, before, "a non-conformant write lands nothing");
+});
+
+test("with a validator wired, conformant content lands normally", () => {
+  const { journal, registry, seed } = setup();
+  const r = registry.execute(journal, request({
+    subjectId: "art-1", expectedRevision: seed.envelope.revision, changes: { title: "A real title" },
+  }), { ...ctx, validateBody: requireTitle });
+  assert.equal(r.outcome, "completed");
+  assert.equal(journal.current()[0].envelope.revision, r.receipt!.afterVersion);
+});
+
+test("layering: the contracts package does not import the schema package", async () => {
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const src = readFileSync(fileURLToPath(new URL("../src/runtime.ts", import.meta.url)), "utf8");
+  assert.ok(!/from ".*schema\/src/.test(src),
+    "conformance is injected as a function; contracts must not depend on schema");
+});
+
 
 ========================================================================
 FILE: impl/e2e/package.json
@@ -4275,6 +4341,14 @@ function runSpine() {
   const registry = new ContractRegistry();
   registry.register(CONTENT_REVISE, reviseHandler);
   registry.register(CONTENT_PROMOTE, promoteHandler);
+  // SCMS-022: the declared Article type is load-bearing here — the governed
+  // write consults it, so a violation cannot land in the composed path either.
+  const articleValidator = (body: Record<string, unknown>) =>
+    checkArticle(
+      { contentKind: "article", slots: (body.slots as ArticleInstance["slots"]) ?? {} },
+      ARTICLE_TYPE,
+    ).map((f) => ({ code: f.code, at: f.at, detail: f.detail }));
+
   const revise = registry.execute(journal, {
     contract: "icp:interaction/content.revise@1.0.0", requestId: "req_1", actor: ACTOR,
     input: { subjectId: "art-1", expectedRevision: seed.envelope.revision, changes: { title: "Ship it (revised)" } },
@@ -4290,6 +4364,26 @@ test("seam 1-3: conformance gates Canon, and the governed write emits a verifiab
   assert.equal(journal.get(seed.envelope.revision!)!.supersededBy, revised);
   assert.equal(journal.verifyChain().valid, true);
   assert.equal(journal.current().find((e) => e.envelope.subjectId === "art-1")!.envelope.revision, revised);
+});
+
+test("seam 1-3b: the declared type is enforced by the composed write path", () => {
+  const { journal, registry } = runSpine();
+  const current = journal.current().find((e) => e.envelope.subjectId === "art-1")!;
+  const validator = (body: Record<string, unknown>) =>
+    checkArticle(
+      { contentKind: "article", slots: (body.slots as ArticleInstance["slots"]) ?? {} },
+      ARTICLE_TYPE,
+    ).map((f) => ({ code: f.code, at: f.at, detail: f.detail }));
+
+  const before = journal.all().length;
+  const r = registry.execute(journal, {
+    contract: "icp:interaction/content.revise@1.0.0", requestId: "req_bad", actor: ACTOR,
+    input: { subjectId: "art-1", expectedRevision: current.envelope.revision, changes: { slots: {} } },
+  }, { ...CTX, instanceId: "int_bad", validateBody: validator });
+
+  assert.equal(r.outcome, "invalid_input", "an empty slot set violates the declared Article type");
+  assert.ok(r.recovery.some((x) => x.data.field === "title"));
+  assert.equal(journal.all().length, before, "nothing landed");
 });
 
 test("seam 4-5: qualification gates promotion, and promotion moves only the publication axis", () => {
@@ -11184,6 +11278,7 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-019 | The narrowest end-to-end path, proven as one run (E7) | E1 | Done — spine composes; awaiting owner verification | records/evidence.jsonl · scms-evidence-019 |
 | SCMS-020 | content.unpublish@1: make the declared compensation real | E1 | Done — awaiting owner verification | records/evidence.jsonl · scms-evidence-020 |
 | SCMS-021 | The bounded merge lane: merge, then validate (§14 step 3, partial) | E1 | Done — awaiting owner verification | records/evidence.jsonl · scms-evidence-021 |
+| SCMS-022 | Declared schemas become load-bearing in the write path | E1 | Done — awaiting owner verification | records/evidence.jsonl · scms-evidence-022 |
 | SCMS-018 | R1 live co-authoring — **free lane only** (convergent merge) | E1 | **Blocked** — awaiting disposition of P7/P22 on PR #28 | records/blockers · scms-blocker-001 |
 | SCMS-010 | S4 cross-domain portability: a materially unrelated project (outside this repository, per owner doctrine 2026-08-28) consumes @semantic-systems/surface unmodified | external | Backlog — executes outside scms; scms records the conformance result | — |
 
@@ -12380,4 +12475,54 @@ Claimed by agent-under-owner-direction 2026-08-28; released at closing state bel
 
 **Done — Implemented + Tested for the bounded lane; §14 step 3 remains partially blocked.**
 Evidence: records/evidence.jsonl · scms-evidence-021. Claim released.
+
+
+========================================================================
+FILE: work/SCMS-022.md
+========================================================================
+
+# SCMS-022 — Declared schemas become load-bearing in the write path
+
+**Intent ref:** PROJECT_INTENT.md · **Epic:** E2 · **Fixes:** a gap left by SCMS-016
+**Assigned by:** coordinator goal, on re-deriving the frontier.
+**Effect class:** E1.
+**State:** Ready → Claimed → Done (closing state at bottom)
+
+## The gap
+
+`ARTICLE_TYPE` and `checkArticle` are consumed **only by tests**. No contract
+consults them, so a governed write can land content that violates its own
+declared content type. The schema records from §14 step 1 are decorative in the
+pipeline — the exact "declaration richer than the checker that consumes it"
+pattern this project names as a cautionary tale, committed by this project.
+
+## Ready predicate
+
+- **Scope:** `ExecutionContext` gains an optional `validateBody` hook; `content.revise@1`
+  consults it before landing and refuses non-conformant content with `invalid_input`
+  plus `focus_field` recovery naming the offending slot. The hook is a *function*, not a
+  schema import: the contracts package must not depend on the schema package (layering).
+- **Exclusions:** enforcement is opt-in by supplying the hook — not every content kind has a
+  declared type yet, and pretending otherwise would be a false claim. No new content types.
+  No changes to promote/unpublish. No DESIGN.md change.
+- **Dependencies (satisfied):** SCMS-012 contract runtime; SCMS-016 schema + checker.
+- **Acceptance:**
+  1. With a validator wired, a revise carrying a required-slot violation is refused
+     `invalid_input`, names the slot in recovery, and writes nothing.
+  2. With a validator wired, a conformant revise lands normally.
+  3. Without a validator (existing callers), behaviour is unchanged — all prior vectors pass.
+  4. The contracts package does not import the schema package (asserted at source level).
+  5. The e2e spine wires the real Article checker, so the declared type is load-bearing in the
+     composed path.
+- **Evidence requirements:** `node --test` in scms-evidence-022, **Implemented + Tested**.
+  NOT established: enforcement for content kinds with no declared type.
+- **Target:** `impl/contracts/src/runtime.ts`, its test, `impl/e2e/test/spine.test.ts`,
+  `records/*`, `work/GRAPH.md`.
+- **Stop conditions:** (a) enforcement would require contracts to depend on schema → stop and
+  invert via the hook; (b) it would break existing callers → stop, make it opt-in.
+
+## Closing state
+
+**Done — Implemented + Tested; declared types are enforced where declared.**
+Evidence: records/evidence.jsonl · scms-evidence-022. Claim released.
 

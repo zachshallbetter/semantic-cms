@@ -1,6 +1,6 @@
 # Project Context Index
 > Generator: 0.5.0
-> Source digest: `50bfc0909b6bcf3a677431ea014ad57951c46cd31bd1b2256c061434d6ab78aa`
+> Source digest: `16c9c9d8256903cb17475d8269204bd5a0de3d5374b46d9ded684c37c892da04`
 
 > Generated projection. Canonical sources remain authoritative.
 
@@ -49,10 +49,10 @@
 - `impl/canon/test/canon.test.ts` | 9201 bytes | `90cda58cba57cf78113bf0111b0695343aad69703cd8b61ef630907ad5596c18`
 - `impl/contracts/package.json` | 523 bytes | `6d406f716f087cd21aa5d5577f48568fd7d53143a16d679d1321957c64ebb7b5`
 - `impl/contracts/src/icp.ts` | 3014 bytes | `259b882a9924277ded341bd8512a1055e93089a613d0ab3926e92effddd08ed7`
-- `impl/contracts/src/runtime.ts` | 7604 bytes | `0f9b48e2f2bc995922291dab1301611637798771d40ca067869d927410cf3d29`
-- `impl/contracts/test/contracts.test.ts` | 7711 bytes | `679f468b756adf35d38a7c64a203086af7e33526549e9ab896f17f0df3346ae8`
+- `impl/contracts/src/runtime.ts` | 8766 bytes | `ebdb0fc61bc7dbbf7dfa5fb85ab3b282bd2aa668ee23b5120fae912c6290039e`
+- `impl/contracts/test/contracts.test.ts` | 9769 bytes | `6dbe13a7a61c3c3d9ac42f9c6e508ab3588d3ab60b7a84eece3a022ce79a7340`
 - `impl/e2e/package.json` | 459 bytes | `ab4bfaeb07ebf2642e4627e4c5935637798eff08151f210f277c18c76e4def26`
-- `impl/e2e/test/spine.test.ts` | 13310 bytes | `455b48fe2d7ffcf4b4c3a70f8fa428427f89a1dd6575183a767defe4bb89dd9f`
+- `impl/e2e/test/spine.test.ts` | 14758 bytes | `1c820b9cb1a712fccf212cd3504333bd58ba2df074f419df3c412fb769333310`
 - `impl/merge/package.json` | 529 bytes | `9926da608e2d8699b2aa28e23c03e2ab9dad83bda18152e5f1a94f0fae723832`
 - `impl/merge/src/bounded.ts` | 6054 bytes | `49e462ecfc190f2a32cd88c92ff5dd8b35746319fc27cba88afb1dca4bb2830d`
 - `impl/merge/test/bounded.test.ts` | 5932 bytes | `bf7e7e68098207ecaf3194cfb8bf7d3dab0250436c565329bf7e2efc19042bf1`
@@ -95,7 +95,7 @@
 - `scripts/check-records-append-only.py` | 2614 bytes | `05a1addaf9d271ca01475afef92f8b9fa9b466407bc10b2781b602674b1e541b`
 - `scripts/gen-context.py` | 7015 bytes | `4cab5cf07c5a69e7afd728844393958223495e3c01d339c0c8d6dbde8bb51322`
 - `scripts/validate-bootstrap.py` | 4120 bytes | `b3881974ac4d1259a0fa084c1aa80bfcdc1af4b3873f05c9057697e61bb1fb95`
-- `work/GRAPH.md` | 6562 bytes | `2cb8af9d3703077a7c6a9344de6595f7f643b5d4a66decdbc213caf9ede4c2ca`
+- `work/GRAPH.md` | 6722 bytes | `caef64f3c17031b35b27181879684a2abe8ea1669d626bd6c7fa55e48bc9bbbf`
 - `work/SCMS-001.md` | 2155 bytes | `99c5bc6ed57cfd3b84eb813d1aadee333af8e706120003d34285cc6e20beffd9`
 - `work/SCMS-002.md` | 2769 bytes | `0fdb32c56443212ade358f5e06c6b45cb9be3b6b8a8bdaa1a7eec61264406a33`
 - `work/SCMS-003.md` | 1448 bytes | `b93754ca3c9f8e039abc83cfdb59c49f86f9dadf4f64da55fc76caf82fec6943`
@@ -115,3 +115,4 @@
 - `work/SCMS-019.md` | 3675 bytes | `28421aee0f663404f444f411ebe25607b959fbaa61b4875636d8f7222ab39ee9`
 - `work/SCMS-020.md` | 3751 bytes | `7df3645907ae50b9b62fb3741c9410639749aff7756f15e683b1060c1f3a8b18`
 - `work/SCMS-021.md` | 3831 bytes | `1271ff7d0bb6e5313ee422a7a54048d71e7c305343de896b94f11fac42bc08a2`
+- `work/SCMS-022.md` | 2582 bytes | `b50e8d577ebdf015d703bf5049970950c73f75aaf7cce6c4fa4e125af73d3281`
