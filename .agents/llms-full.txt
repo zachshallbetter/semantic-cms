@@ -1,6 +1,6 @@
 # PROJECT COMPILED CONTEXT
 Generator: 0.5.0
-Source digest: 11e9a64533d15cbbfdf9f98489645c6892784924400c3553189d995db98707c1
+Source digest: 957e95fedf1a4bb247cf1093cadd26fbae38c5c0172dd1917f26e267c03b5b0b
 
 > Generated projection. Canonical sources remain authoritative.
 
@@ -25700,8 +25700,11 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-059 | Authentication (closes SH-2) | E13 | Ready — the largest gap; semantic-cms currently has none | — |
 | SCMS-060 | Content-addressed blobs for prose and media (closes SH-4) | E13 | Done — digest is the key, immutable by grant; 6 more refusal checks | records/evidence.jsonl · scms-evidence-060 |
 | SCMS-061 | Cut over: deploy and decommission zach-core | E13 | **Blocked — protected action.** Owner authorization required at the time | — |
+| SCMS-062 | Materialize expressions to the CAS under their fingerprint | E4 | Ready — the static half; `canon_blob` and the fingerprint both exist, nothing writes one to the other | — |
+| SCMS-063 | The live channel to a browser (invalidation keys over SSE) | E5 | Ready — `deliver`/replay/`lagged` exist end to end server-side; nothing carries them to a client | — |
+| SCMS-064 | The page builder: composition editing through the bounded lane | E12 | Ready — page structure is already Canon (SCMS-016) and socket population is already the bounded lane (SCMS-021); the UI is what is missing | — |
 | SCMS-044 | Route the editor through the surface pipeline it currently bypasses | E12 | Done — SH-16 closed; two duplicate access checks removed; awaiting owner verification | records/evidence.jsonl · scms-evidence-044 |
-| SCMS-018 | R1 live co-authoring — **free lane only** (convergent merge) | E1 | **Blocked** — awaiting disposition of P7/P22 on PR #28 | records/blockers · scms-blocker-001 |
+| SCMS-018 | R1 live co-authoring — **free lane only** (convergent merge) | E1 | **Blocked on P7 only** — P22 was accepted 2026-08-28; P7 is deferred with a revisit condition the owner has since named (settle it from the editor workload) | records/blockers · scms-blocker-001 |
 | SCMS-010 | S4 cross-domain portability: a materially unrelated project (outside this repository, per owner doctrine 2026-08-28) consumes @semantic-systems/surface unmodified | external | Backlog — executes outside scms; scms records the conformance result | — |
 
 ## Epic register
