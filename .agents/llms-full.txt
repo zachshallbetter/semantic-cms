@@ -1,6 +1,6 @@
 # PROJECT COMPILED CONTEXT
 Generator: 0.5.0
-Source digest: 79806bb1ef2483be09297070b44ab30f801f070a9e3d88161758ac31335f70e8
+Source digest: ac7ba3bbd591e8637c488596c0d3784425d50f166251043e58fce8bb69eba93e
 
 > Generated projection. Canonical sources remain authoritative.
 
@@ -212,6 +212,10 @@ jobs:
       - name: Schema vectors (SCMS-016 · Article type, Home composition)
         run: node --test test/schema.test.ts
         working-directory: impl/schema
+
+      - name: Observation vectors (SCMS-017 · consistency, chips, presence)
+        run: node --test test/observation.test.ts
+        working-directory: impl/observation
 
       - name: Cross-expression S3 vectors (SCMS-009)
         run: node --test test/s3.test.ts
@@ -4166,6 +4170,340 @@ test("no ambient time or randomness in the contract runtime", async () => {
     const src = readFileSync(fileURLToPath(new URL(rel, import.meta.url)), "utf8");
     assert.ok(!/Date\.now|Math\.random|new Date\(\)/.test(src), `${rel} references ambient time/randomness`);
   }
+});
+
+
+========================================================================
+FILE: impl/observation/package.json
+========================================================================
+
+{
+  "name": "@scms/observation",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Consistency states, disclosure chips, and expiring presence (SCMS-017): HCML's six states, the drafting-continues/consequential-freezes asymmetry, honest provenance chips against a supplied clock, and rr-rsp presence that expires by construction. Determines and discloses state; transport is out of scope. Zero runtime dependencies; requires Node >= 22.6.",
+  "scripts": { "test": "node --test test/observation.test.ts" }
+}
+
+
+========================================================================
+FILE: impl/observation/src/consistency.ts
+========================================================================
+
+/**
+ * Consistency states, disclosure, and expiring presence (SCMS-017).
+ *
+ * The state vocabulary is HCML's (pinned); the expiry rule is rr-rsp's (an
+ * expired observation may be retained for replay but may never drive a current
+ * decision). The load-bearing asymmetry — conflict freezes *consequential*
+ * action while drafting continues — is DESIGN.md §8.6: a CMS that blocks
+ * typing on conflict is unusable; one that publishes through conflict is lying.
+ *
+ * Every clock is an explicit input. There is no ambient time here, so a state
+ * is a pure function of what the caller actually knows.
+ *
+ * Deliberately absent (pending on PR #28): P11's presence×transport axes,
+ * hysteresis, two-clock skew tracking, absent_reason codes; P10's transport.
+ * This module determines and discloses state — it does not move it.
+ */
+import type { CanonJournal } from "../../canon/src/journal.ts";
+
+export const CONSISTENCY_STATES = [
+  "current", "stale-but-safe", "conflicted", "superseded", "revoked", "unknown",
+] as const;
+export type ConsistencyState = (typeof CONSISTENCY_STATES)[number];
+
+export interface ClientBaseline {
+  subjectId: string;
+  /** The revision this client last read. */
+  atRevision: string;
+  /** True when the client holds unsent local edits to this subject. */
+  hasLocalEdits: boolean;
+  /**
+   * How many Canon entries the client had observed at baseline. Staleness is a
+   * property of the client's view of the WORLD, not only of its own document:
+   * a client whose subject is untouched can still be behind.
+   */
+  observedCanonEntries: number;
+  /** False when the client cannot establish what it knows (channel lost, cold start). */
+  baselineEstablished: boolean;
+}
+
+export interface StateAssessment {
+  state: ConsistencyState;
+  reason: string;
+  /** For superseded: where to act instead. */
+  successor?: string;
+}
+
+export function consistencyState(baseline: ClientBaseline, canon: CanonJournal): StateAssessment {
+  if (!baseline.baselineEstablished) {
+    return { state: "unknown", reason: "client cannot establish what it last saw" };
+  }
+  const held = canon.get(baseline.atRevision);
+  if (!held) {
+    return { state: "unknown", reason: `held revision ${baseline.atRevision} is not in Canon` };
+  }
+  if (held.revoked) {
+    return { state: "revoked", reason: "the held revision has been revoked; stop and compensate in-flight work" };
+  }
+  if (held.supersededBy !== null) {
+    // A remote change landed on this subject. Whether that is a conflict or a
+    // safe advance depends on whether this client also changed it.
+    return baseline.hasLocalEdits
+      ? {
+          state: "conflicted",
+          reason: "the held revision was superseded remotely while local edits are unsent",
+          successor: held.supersededBy,
+        }
+      : {
+          state: "superseded",
+          reason: "the held revision is historical-only; act on the successor",
+          successor: held.supersededBy,
+        };
+  }
+  // The held revision is untouched. Canon may still have advanced elsewhere —
+  // that is safe staleness, disclosed rather than hidden.
+  const advanced = canon.all().length - baseline.observedCanonEntries;
+  if (advanced > 0) {
+    return {
+      state: "stale-but-safe",
+      reason: `canon advanced by ${advanced} entr${advanced === 1 ? "y" : "ies"} elsewhere; no overlap with the held revision`,
+    };
+  }
+  return { state: "current", reason: "held revision is the current revision and canon has not advanced" };
+}
+
+export type Action = "draft" | "consequential";
+
+/**
+ * DESIGN.md §8.6. The asymmetry is the point: drafting continues in every state
+ * where the client still holds a coherent document, while consequential action
+ * (publish, entitle) requires a state that can justify it.
+ */
+export function permits(state: ConsistencyState, action: Action): boolean {
+  if (action === "draft") {
+    // Drafting is refused only where there is nothing coherent to draft against.
+    return state !== "revoked" && state !== "superseded";
+  }
+  return state === "current" || state === "stale-but-safe";
+}
+
+export interface Freshness {
+  /** Caller-supplied clock. No ambient time. */
+  nowMs: number;
+  /** When the caller last successfully checked, or null if it never has. */
+  lastCheckedMs: number | null;
+  /** Baseline snapshot label shown when there is no live check. */
+  snapshotLabel: string;
+  /** Revisions known to have landed since the baseline, if counted. */
+  revisionsSinceBaseline?: number;
+  /** True when the client holds unsent local edits. */
+  hasLocalEdits?: boolean;
+}
+
+/**
+ * The provenance chip (§8.3). A page that can prove it is not lying is a
+ * feature, not a caveat — so the chip never claims "live" without a successful
+ * check to point at.
+ */
+export function chip(state: ConsistencyState, f: Freshness): string {
+  if (state === "conflicted") return "conflicted — review";
+  if (state === "revoked") return "revoked — no longer available";
+  if (state === "superseded") return "superseded — open the current version";
+  if (state === "unknown") return `unknown — ${f.snapshotLabel} (last known)`;
+  if (f.hasLocalEdits) return "local · unsent";
+  if (f.lastCheckedMs === null) return `snapshot · ${f.snapshotLabel}`;
+  if (state === "stale-but-safe" && f.revisionsSinceBaseline) {
+    return `+${f.revisionsSinceBaseline} revisions since snapshot`;
+  }
+  const ageS = Math.max(0, Math.floor((f.nowMs - f.lastCheckedMs) / 1000));
+  return `live · checked ${ageS}s ago`;
+}
+
+/** rr-rsp: presence is an observation, and observations expire. */
+export interface PresenceRecord {
+  actorId: string;
+  subjectId: string;
+  /** 'writing' for batch-writing agents, 'editing' for humans — actor kinds differ. */
+  mode: "editing" | "writing" | "idle";
+  observedAtMs: number;
+  expiresAtMs: number;
+  /** A soft lock claim, honoured only while the record is unexpired. */
+  claimsLock?: boolean;
+}
+
+export function activePresence(records: PresenceRecord[], nowMs: number): PresenceRecord[] {
+  // An expired observation may be retained for replay but may not drive a
+  // current decision — so it simply is not present.
+  return records
+    .filter((r) => r.expiresAtMs > nowMs)
+    .sort((a, b) => a.actorId.localeCompare(b.actorId));
+}
+
+/**
+ * Soft locks self-release: a lock exists only while its presence record is
+ * unexpired, so an abandoned session cannot hold content hostage.
+ */
+export function heldLocks(records: PresenceRecord[], nowMs: number): Array<{ subjectId: string; holder: string }> {
+  return activePresence(records, nowMs)
+    .filter((r) => r.claimsLock === true)
+    .map((r) => ({ subjectId: r.subjectId, holder: r.actorId }));
+}
+
+
+========================================================================
+FILE: impl/observation/test/observation.test.ts
+========================================================================
+
+/**
+ * SCMS-017 vectors: the six consistency states, the drafting/consequential
+ * asymmetry, honest chips, and presence that expires by construction.
+ */
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { CanonJournal } from "../../canon/src/journal.ts";
+import type { Envelope, RecordState } from "../../canon/src/envelope.ts";
+import {
+  consistencyState, permits, chip, activePresence, heldLocks, CONSISTENCY_STATES,
+} from "../src/consistency.ts";
+import type { ClientBaseline, PresenceRecord } from "../src/consistency.ts";
+
+const STATE: RecordState = {
+  semanticMaturity: "draft", evidenceState: "unqualified",
+  publicationState: "unpublished", deliveryState: "unpropagated",
+};
+
+const doc = (id: string, title: string): Envelope => ({
+  schemaVersion: "scms-0.1", subjectId: id,
+  compatibility: { protocol: "scms-0.1", subjectSchema: "article@1" },
+  provenance: { kind: "declared", authority: "project.owner", source: "test" },
+  minimumAccess: "public", body: { kind: "Content", contentKind: "article", title }, state: STATE,
+});
+
+const baseline = (rev: string, over: Partial<ClientBaseline> = {}): ClientBaseline => ({
+  subjectId: "art-1", atRevision: rev, hasLocalEdits: false, baselineEstablished: true,
+  observedCanonEntries: 1, ...over,
+});
+
+test("current: the held revision is the current revision", () => {
+  const j = new CanonJournal();
+  const v1 = j.append(doc("art-1", "first"), "t");
+  const a = consistencyState(baseline(v1.envelope.revision!), j);
+  assert.equal(a.state, "current");
+  assert.equal(permits(a.state, "draft"), true);
+  assert.equal(permits(a.state, "consequential"), true);
+});
+
+test("stale-but-safe: canon advanced elsewhere — disclosed, but publishing still allowed", () => {
+  const j = new CanonJournal();
+  const v1 = j.append(doc("art-1", "first"), "t");
+  // The client saw one entry; an unrelated record then landed.
+  j.append(doc("art-2", "other"), "t");
+
+  const a = consistencyState(baseline(v1.envelope.revision!, { observedCanonEntries: 1 }), j);
+  assert.equal(a.state, "stale-but-safe");
+  assert.match(a.reason, /advanced by 1 entry/);
+  assert.equal(permits(a.state, "draft"), true);
+  assert.equal(permits(a.state, "consequential"), true, "safe staleness does not freeze publishing");
+
+  // A client that has caught up is simply current.
+  const caught = consistencyState(baseline(v1.envelope.revision!, { observedCanonEntries: 2 }), j);
+  assert.equal(caught.state, "current");
+});
+
+test("conflicted freezes consequential action while drafting continues — the asymmetry", () => {
+  const j = new CanonJournal();
+  const v1 = j.append(doc("art-1", "first"), "editor-a");
+  j.supersede(v1.envelope.revision!, doc("art-1", "remote edit"), "editor-b");
+
+  const a = consistencyState(baseline(v1.envelope.revision!, { hasLocalEdits: true, observedCanonEntries: 2 }), j);
+  assert.equal(a.state, "conflicted");
+  assert.ok(a.successor, "the successor is named so the client can converge");
+  assert.equal(permits(a.state, "draft"), true, "a CMS that blocks typing on conflict is unusable");
+  assert.equal(permits(a.state, "consequential"), false, "one that publishes through conflict is lying");
+});
+
+test("superseded directs to the successor; revoked stops", () => {
+  const j = new CanonJournal();
+  const v1 = j.append(doc("art-1", "first"), "t");
+  const v2 = j.supersede(v1.envelope.revision!, doc("art-1", "second"), "t");
+  const sup = consistencyState(baseline(v1.envelope.revision!, { observedCanonEntries: 2 }), j);
+  assert.equal(sup.state, "superseded");
+  assert.equal(sup.successor, v2.envelope.revision);
+  assert.equal(permits(sup.state, "draft"), false);
+  assert.equal(permits(sup.state, "consequential"), false);
+
+  const j2 = new CanonJournal();
+  const r1 = j2.append(doc("art-9", "x"), "t");
+  j2.revoke(r1.envelope.revision!, "project.owner");
+  const rev = consistencyState({ ...baseline(r1.envelope.revision!), subjectId: "art-9" }, j2);
+  assert.equal(rev.state, "revoked");
+  assert.equal(permits(rev.state, "consequential"), false);
+});
+
+test("unknown never passes as current and stops at the protected boundary", () => {
+  const j = new CanonJournal();
+  const v1 = j.append(doc("art-1", "first"), "t");
+
+  const noBaseline = consistencyState(baseline(v1.envelope.revision!, { baselineEstablished: false }), j);
+  assert.equal(noBaseline.state, "unknown");
+  const unknownRev = consistencyState(baseline("sha256:nowhere"), j);
+  assert.equal(unknownRev.state, "unknown");
+
+  for (const u of [noBaseline, unknownRev]) {
+    assert.equal(permits(u.state, "consequential"), false, "unknown must stop at the protected boundary");
+    assert.equal(permits(u.state, "draft"), true, "local drafting may continue");
+  }
+});
+
+test("all six states are reachable and distinct", () => {
+  assert.equal(new Set(CONSISTENCY_STATES).size, 6);
+  assert.deepEqual([...CONSISTENCY_STATES].sort(),
+    ["conflicted", "current", "revoked", "stale-but-safe", "superseded", "unknown"]);
+});
+
+test("chips disclose truthfully and never claim live without a check", () => {
+  const base = { nowMs: 10_000, snapshotLabel: "Aug 27" };
+  assert.equal(chip("current", { ...base, lastCheckedMs: 6_000 }), "live · checked 4s ago");
+  assert.equal(chip("current", { ...base, lastCheckedMs: null }), "snapshot · Aug 27");
+  assert.equal(chip("stale-but-safe", { ...base, lastCheckedMs: 6_000, revisionsSinceBaseline: 2 }),
+    "+2 revisions since snapshot");
+  assert.equal(chip("current", { ...base, lastCheckedMs: 6_000, hasLocalEdits: true }), "local · unsent");
+  assert.equal(chip("conflicted", { ...base, lastCheckedMs: 6_000 }), "conflicted — review");
+  assert.equal(chip("revoked", { ...base, lastCheckedMs: 6_000 }), "revoked — no longer available");
+  assert.equal(chip("superseded", { ...base, lastCheckedMs: 6_000 }), "superseded — open the current version");
+  assert.match(chip("unknown", { ...base, lastCheckedMs: 6_000 }), /^unknown — /);
+});
+
+test("presence expires by construction: ghost cursors and stuck locks are impossible", () => {
+  const records: PresenceRecord[] = [
+    { actorId: "human-1", subjectId: "art-1", mode: "editing", observedAtMs: 0, expiresAtMs: 10_000, claimsLock: true },
+    { actorId: "agent-1", subjectId: "art-1", mode: "writing", observedAtMs: 0, expiresAtMs: 5_000 },
+    { actorId: "ghost-1", subjectId: "art-1", mode: "editing", observedAtMs: 0, expiresAtMs: 1_000, claimsLock: true },
+  ];
+  // At t=6s the ghost's record has expired: it is simply not present, and its
+  // lock claim cannot be honoured.
+  const active = activePresence(records, 6_000);
+  assert.deepEqual(active.map((r) => r.actorId), ["human-1"]);
+  assert.deepEqual(heldLocks(records, 6_000), [{ subjectId: "art-1", holder: "human-1" }]);
+
+  // At t=11s every record has expired — the soft lock self-released with no
+  // cleanup job and no explicit release call.
+  assert.deepEqual(activePresence(records, 11_000), []);
+  assert.deepEqual(heldLocks(records, 11_000), []);
+
+  // Actor kinds stay distinguishable: agents batch-write, humans edit.
+  assert.equal(records[1].mode, "writing");
+  assert.equal(records[0].mode, "editing");
+});
+
+test("no ambient time or randomness: every clock is an input", async () => {
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const src = readFileSync(fileURLToPath(new URL("../src/consistency.ts", import.meta.url)), "utf8");
+  assert.ok(!/Date\.now|Math\.random|new Date\(\)/.test(src));
 });
 
 
@@ -10058,6 +10396,8 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-014 | Fingerprint-scoped projection invalidation (E4 narrow slice) | E1 | Done — §14 step 8 closed; awaiting owner verification | records/evidence.jsonl · scms-evidence-014 |
 | SCMS-015 | Dependency revisions track subjects, not snapshots (SSS §21 conformance) | E1 | Done — NR-scms-003 closed; awaiting owner verification | records/evidence.jsonl · scms-evidence-015 |
 | SCMS-016 | Article type and Home composition as Schema records (§14 step 1) | E1 | Done — awaiting owner verification | records/evidence.jsonl · scms-evidence-016 |
+| SCMS-017 | Consistency states, disclosure, expiring presence (E6 narrow slice) | E1 | Done — §14 step 7 closed semantically; awaiting owner verification | records/evidence.jsonl · scms-evidence-017 |
+| SCMS-018 | R1 live co-authoring: free/bounded/required merge lanes (§14 step 3) | E1 | **Blocked** — awaiting disposition of P7/P22 on PR #28 | records/blockers · scms-blocker-001 |
 | SCMS-010 | S4 cross-domain portability: a materially unrelated project (outside this repository, per owner doctrine 2026-08-28) consumes @semantic-systems/surface unmodified | external | Backlog — executes outside scms; scms records the conformance result | — |
 
 ## Epic register
@@ -10070,7 +10410,7 @@ epic as the owner assigns the corresponding piece of work.
 | E3 | Qualification — evidence records, consequence profiles, incremental re-qualification, promotion | DESIGN.md §6 | In progress — note profile end-to-end (SCMS-013); evidence collection + evaluator independence open |
 | E4 | Projection — resolver, projection contracts, access projection, derivations, fingerprint invalidation | DESIGN.md §4, §7 | In progress — resolver + S3 + invalidation landed; SCMS-015 open |
 | E5 | Field — semantic metrics, workspace morphology, editorial time | DESIGN.md §9 | Backlog |
-| E6 | Observation — presence, consistency states, provenance chips, drift, degradation | DESIGN.md §8, §10 | Backlog |
+| E6 | Observation — presence, consistency states, provenance chips, drift, degradation | DESIGN.md §8, §10 | In progress — semantic core landed (SCMS-017); transport pending P10 |
 | E7 | Narrowest end-to-end path — the nine-step milestone, exit by evidence | DESIGN.md §14 | Backlog (depends on E1–E6 slices, not their entirety) |
 
 Epic order is not a promise of sequence: E7 slices vertically and may pull minimal
@@ -10976,4 +11316,77 @@ Claimed by agent-under-owner-direction 2026-08-28; released at closing state bel
 
 **Done — Implemented + Tested; §14 step 1 closed.**
 Evidence: records/evidence.jsonl · scms-evidence-016. Claim released.
+
+
+========================================================================
+FILE: work/SCMS-017.md
+========================================================================
+
+# SCMS-017 — Consistency states, disclosure, and expiring presence (E6 narrow slice)
+
+**Intent ref:** PROJECT_INTENT.md · **Epic:** E6 (board #11) · **Advances:** DESIGN.md §14 step 7
+**Assigned by:** coordinator goal. Step 7 is the last §14 step whose canonical-v1 core is
+unblocked; step 3's merge semantics overlap pending proposals P7/P22 (see the blocker recorded
+at closing).
+**Effect class:** E1 — a pure library; no transport, no canonical mutation.
+**State:** Ready → Claimed → (closing state at bottom)
+
+## Objective
+
+Make R3 (live honesty) real at the semantic level: determine which HCML consistency state a
+client is in, disclose it truthfully, and enforce the asymmetry that defines the design —
+**conflict freezes consequential action while drafting continues** — plus presence that
+expires by construction.
+
+## Ready predicate
+
+- **Scope:** `impl/observation/` —
+  1. `consistencyState(baseline, canon)` → the six HCML states (`current | stale-but-safe |
+     conflicted | superseded | revoked | unknown`) with a stated reason.
+  2. `permits(state, action)` for `draft` vs `consequential`, implementing the asymmetry and
+     `unknown` stopping at the protected boundary.
+  3. `chip(state, freshness)` → the §8.3 disclosure line, computed against an **explicitly
+     supplied** clock — never ambient time.
+  4. Presence records carrying rr-rsp's mandatory `observedAt`/`expiresAt`, with
+     `activePresence(records, nowMs)` and `heldLocks(...)` such that an expired record cannot
+     drive a decision (soft locks self-release; ghost cursors are impossible by construction).
+- **Exclusions:** P11's refinements are **pending** on PR #28 and are not implemented:
+  presence×transport as two axes, UNKNOWN-as-rendered-state, hysteresis buffering, two-clock
+  skew tracking, `absent_reason` codes, three absence granularities, named-absence routes.
+  P10's transport (outbox, notify fan-out, `lagged`) is also pending — this slice determines
+  and discloses state; it does not move it. No DESIGN.md change on main.
+- **Dependencies (satisfied):** hcml pin (the consistency vocabulary and the freeze rule);
+  rr-rsp pin (observation expiry: an expired observation may not drive decisions); SCMS-011
+  Canon (revisions, supersession, revocation); node ≥ 22.6.
+- **Acceptance:**
+  1. Each of the six states is produced by a distinct, realistic situation.
+  2. **Conflicted permits drafting and refuses consequential action** — the asymmetry that
+     makes the design usable rather than merely safe.
+  3. `unknown` refuses consequential action (stop at the protected boundary) while permitting
+     local drafting, and is never silently treated as `current`.
+  4. `superseded` directs action to the successor; `revoked` stops.
+  5. Chips disclose freshness truthfully from the supplied clock and never claim "live" when
+     the caller reports no successful check.
+  6. Expired presence is excluded from active presence and cannot hold a lock; a lock held by
+     an unexpired record is reported with its holder.
+  7. Source-level: no ambient time or randomness anywhere in the module.
+- **Evidence requirements:** `node --test` in scms-evidence-017 at **Implemented + Tested**
+  for the narrow path. NOT established: transport, propagation latency, real multi-client
+  behaviour, or empirical usefulness.
+- **Permissions / effect class:** E1; project-mutation authority per bindings.
+- **Target:** `impl/observation/` (new), `.github/workflows/gates.yml`, `records/*`,
+  `work/GRAPH.md`. No other path.
+- **Budget:** one work cycle; no spend; no credentials.
+- **Stop conditions:** (a) honest disclosure would require a pending P11 refinement → stop and
+  record; (b) determining a state would require ambient time → stop (the clock is an input);
+  (c) the work would drift into transport → stop, that is P10-pending.
+
+## Claim
+
+Claimed by agent-under-owner-direction 2026-08-28; released at closing state below.
+
+## Closing state
+
+**Done — Implemented + Tested; §14 step 7 closed at the semantic level.**
+Evidence: records/evidence.jsonl · scms-evidence-017. Claim released.
 

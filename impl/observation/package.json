@@ -1,0 +1,8 @@
+{
+  "name": "@scms/observation",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Consistency states, disclosure chips, and expiring presence (SCMS-017): HCML's six states, the drafting-continues/consequential-freezes asymmetry, honest provenance chips against a supplied clock, and rr-rsp presence that expires by construction. Determines and discloses state; transport is out of scope. Zero runtime dependencies; requires Node >= 22.6.",
+  "scripts": { "test": "node --test test/observation.test.ts" }
+}

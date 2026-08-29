@@ -1,6 +1,6 @@
 # Project Context Index
 > Generator: 0.5.0
-> Source digest: `79806bb1ef2483be09297070b44ab30f801f070a9e3d88161758ac31335f70e8`
+> Source digest: `ac7ba3bbd591e8637c488596c0d3784425d50f166251043e58fce8bb69eba93e`
 
 > Generated projection. Canonical sources remain authoritative.
 
@@ -11,7 +11,7 @@
 - `.agents/skills/verify-outcome/SKILL.md` | 599 bytes | `331bcc9c5179eef021d9edf48e76bedcaaef6fed17f97e91c6d20a20f1199117`
 - `.formal-bootstrap.json` | 280 bytes | `7fa912028d7ee4ad128c719342834ec735a28354ad614a13cd9a91599d0e7c0d`
 - `.github/pull_request_template.md` | 1320 bytes | `008c2ede60632b5bbf6ffaa97a95b9972b3ca10804eb712afbf3c436f5651963`
-- `.github/workflows/gates.yml` | 2581 bytes | `3d98883182b5bac7aa45bd641b9d7c70f1050bb5f1ced53ca132afa8cc27e89b`
+- `.github/workflows/gates.yml` | 2753 bytes | `887e14b2ce017caa6bf7c4ab6a694a25caa717d69313d3e35c305b3ead438601`
 - `AGENTS.md` | 6896 bytes | `cd8cbb05cc70b8d03f69bf45026ff70fdee09a264bb29d0ac4bcb4b753685caf`
 - `CONTEXT_SOURCES.json` | 914 bytes | `1a0e0db180b061204f20b4a550f8b634fb2a220569592bd63fed13eb875dda0e`
 - `DESIGN.md` | 33379 bytes | `39264296deec82b925418cf245b830c2d08ccb0346592d7d7a6c52ca2493a239`
@@ -51,6 +51,9 @@
 - `impl/contracts/src/icp.ts` | 3014 bytes | `259b882a9924277ded341bd8512a1055e93089a613d0ab3926e92effddd08ed7`
 - `impl/contracts/src/runtime.ts` | 7604 bytes | `0f9b48e2f2bc995922291dab1301611637798771d40ca067869d927410cf3d29`
 - `impl/contracts/test/contracts.test.ts` | 7711 bytes | `679f468b756adf35d38a7c64a203086af7e33526549e9ab896f17f0df3346ae8`
+- `impl/observation/package.json` | 536 bytes | `a9882e1bafeade1dc2664a2ffb47d8d87090a7a7060ab30283bcce4c21e68709`
+- `impl/observation/src/consistency.ts` | 6682 bytes | `29f54622d9a49a242924b8a929d9106cfb9de73ebaa5c5706d56c58301569f4f`
+- `impl/observation/test/observation.test.ts` | 7520 bytes | `31aec5615441dc5c9c2c238eab1f6086f536e1792e649fb36ed3cb3e118fb12b`
 - `impl/projection-cache/package.json` | 459 bytes | `4c18747146a0c3287662e18a95c998472c5973f579296c5135b307142bea88d8`
 - `impl/projection-cache/src/cache.ts` | 4190 bytes | `6bb6597bd96199d0d9eacdb19b2dc5683cf6497d842a7b6d7b8a496d757219b3`
 - `impl/projection-cache/test/cache.test.ts` | 8797 bytes | `b16321aca510e3c0a6da3812ac32524df367f80da19bce4c9fabbaea14d66328`
@@ -86,7 +89,7 @@
 - `scripts/check-records-append-only.py` | 2614 bytes | `05a1addaf9d271ca01475afef92f8b9fa9b466407bc10b2781b602674b1e541b`
 - `scripts/gen-context.py` | 7015 bytes | `4cab5cf07c5a69e7afd728844393958223495e3c01d339c0c8d6dbde8bb51322`
 - `scripts/validate-bootstrap.py` | 4120 bytes | `b3881974ac4d1259a0fa084c1aa80bfcdc1af4b3873f05c9057697e61bb1fb95`
-- `work/GRAPH.md` | 5560 bytes | `061c4737bbfb8075cd4f14aaa6980bd90eda072bbad7e27d0838aa7bafcd5e94`
+- `work/GRAPH.md` | 6017 bytes | `4e624fb7b8ecb69967b2e8f18c6e31436752555496756dfb80996efacd40fc3f`
 - `work/SCMS-001.md` | 2155 bytes | `99c5bc6ed57cfd3b84eb813d1aadee333af8e706120003d34285cc6e20beffd9`
 - `work/SCMS-002.md` | 2769 bytes | `0fdb32c56443212ade358f5e06c6b45cb9be3b6b8a8bdaa1a7eec61264406a33`
 - `work/SCMS-003.md` | 1448 bytes | `b93754ca3c9f8e039abc83cfdb59c49f86f9dadf4f64da55fc76caf82fec6943`
@@ -102,3 +105,4 @@
 - `work/SCMS-014.md` | 4147 bytes | `2fe6986dc5d254c03afd22dd092c281a8df74a1e408b8700a8a86fe3f8764051`
 - `work/SCMS-015.md` | 3456 bytes | `d702087d190d5d3ab8770937f15acfd9424fe985403cae6e2a8b8d16aabfe4a0`
 - `work/SCMS-016.md` | 3352 bytes | `b46a3ce03d7fbf750774ec68d3c88314da6935b9c74f3d3a89b619a27c682b94`
+- `work/SCMS-017.md` | 4131 bytes | `3f303b83d4e84d1706c64a5d74b6273a866cdb4443fb6865346e550796da61b3`
