@@ -1,6 +1,6 @@
 # PROJECT COMPILED CONTEXT
 Generator: 0.5.0
-Source digest: 675b52e7834b6bf3587fe8ee6b338e84fbbac4580119672bb0f8429878158840
+Source digest: 99e2a86ea6fb87b58e8db511358589ed13946f678bcfb1fe9433dae8bf3ba1f4
 
 > Generated projection. Canonical sources remain authoritative.
 
@@ -784,6 +784,17 @@ ingest → freeze → derive → commit → notify → observe
 
 No phase reads what a later phase writes; derived output never feeds its own pass.
 
+`[P10 — accepted 2026-08-28]` **The transport is specified.** The **transactional outbox is the
+sole emission source**: a domain write and its event row commit in one transaction, so the audit
+trail, projections, dead-letter queue, and subscribers are all consumers of the stream the system
+already needed for its own integrity — "nothing happens without an emission." Fan-out uses the
+store's native notification channel (no second infrastructure). Clients connect with a
+**backfill burst, then live**; reconnect replays from the outbox by `last_event_id`, with *no
+event loss* as an acceptance criterion; a subscriber that falls behind receives an explicit
+**`lagged`** disclosure — staleness as a protocol message — and recovers by catch-up-then-live.
+Who is told is decided per subscriber from that subscriber's own accessible dependency set
+(implemented, SCMS-026); this clause adds the wire, not the decision.
+
 ### 8.2 Subscriptions are lenses
 
 A subscription is a declarative, **allow-list** scope: records, metrics, relationship types, radius around a subject — composed with the subscriber's access projection. A lens narrows; it can never widen power. The wire format is the envelope itself: provenance travels with every message, and clients are bound by the no-promotion rule (an `observed` push can update a chip; it cannot overwrite a `declared` field in the local model).
@@ -806,6 +817,19 @@ Cursors, selections, "Zach is editing," view counts, soft locks: all `observed` 
 - Cadence honesty: presence at seconds, metrics at their real rate, daily aggregates once per visit — polling a daily aggregate is theater, and the surfaces say so.
 
 ### 8.5 Concurrency discipline is derived from invariance
+
+`[P22 — accepted 2026-08-28]` **Every merge is justified by a serializable decision map.**
+Where a merge occurs, its justification is a per-hunk record — `accept | reject | keep` — that is
+replayable, diffable, and attached to the merged record as the reason it merged that way. A
+merge without a decision map is a merge nobody can audit. This composes with the bounded lane
+already implemented: that lane *refuses* without choosing a winner, and the decision map is how
+a human then resolves the refusal deliberately.
+
+`[P7 — deferred 2026-08-28]` Divergence-first branching (permanent lawful branches over the
+record DAG, with authored multi-parent merges) is **deferred, not rejected**: it is a real
+architectural commitment that should be made against a real editing workload rather than a
+fixture. Until then the `free` lane is canonical convergent merge for prose, which is where
+convergence is genuinely correct. Revisit once the first migration is carrying real edits.
 
 The same typed invariance that governs what a theme may change governs what concurrent editors may merge. One declaration, two enforcement surfaces:
 
@@ -8523,8 +8547,9 @@ FILE: projections/design-spec.html
         <tr><td class="k">compatibility</td><td class="v">{ protocol: scms-0.1, subject_schema: design-doc@1 }</td></tr>
         <tr><td class="k">authority</td><td class="v">project.owner</td></tr>
         <tr><td class="k">source</td><td class="v">DESIGN.md · 2026-08-28</td></tr>
-        <tr><td class="k">source_hash</td><td class="v hash">sha256:39264296deec82b925418cf245b830c2d08ccb0346592d7d7a6c52ca2493a239</td></tr>
+        <tr><td class="k">source_hash</td><td class="v hash">sha256:62603e98c3ac16360001e13396a40e54b671ce4545a5a9cd654f5257a56760c5</td></tr>
         <tr><td class="k">status</td><td class="v">documented · first slice implemented+tested (impl/surface-resolver, SCMS-008) · not empirically validated</td></tr>
+        <tr><td class="k">dispositioned</td><td class="v">2026-08-28 — P10 accepted (transport), P22 accepted (decision-map merges), P7 deferred (branching); 25 proposals remain open on PR #28</td></tr>
         <tr><td class="k">adopted</td><td class="v">sss:protocol/semantic-surface v0.1.0 — pinned + bound 2026-08-28 (bindings; v2 text hunk on PR #28)</td></tr>
       </table>
     </div>
@@ -9104,8 +9129,8 @@ FILE: projections/manifest.json
       "file": "projections/design-spec.html",
       "artifactUrl": "https://claude.ai/code/artifact/bcfb402c-49ad-4095-9eab-17b16deb671c",
       "source": "DESIGN.md",
-      "sourceSha256": "39264296deec82b925418cf245b830c2d08ccb0346592d7d7a6c52ca2493a239",
-      "syncRule": "envelope source_hash in the HTML must equal sha256(DESIGN.md); \u00a77.1 additionally projects bindings/PROJECT_BINDINGS.yaml + FORMAL_RESOURCE_MANIFEST.json (SSS adoption) \u2014 declared in the page footer",
+      "sourceSha256": "62603e98c3ac16360001e13396a40e54b671ce4545a5a9cd654f5257a56760c5",
+      "syncRule": "envelope source_hash in the HTML must equal sha256(DESIGN.md); \u00a77.1 additionally projects bindings/PROJECT_BINDINGS.yaml + FORMAL_RESOURCE_MANIFEST.json (SSS adoption) \u2014 declared in the page footer \u2014 NOTE: republish required after the 2026-08-28 dispositions (P10/P22 accepted, P7 deferred)",
       "lastPublished": "2026-08-28"
     },
     {

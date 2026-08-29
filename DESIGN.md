@@ -197,6 +197,17 @@ ingest → freeze → derive → commit → notify → observe
 
 No phase reads what a later phase writes; derived output never feeds its own pass.
 
+`[P10 — accepted 2026-08-28]` **The transport is specified.** The **transactional outbox is the
+sole emission source**: a domain write and its event row commit in one transaction, so the audit
+trail, projections, dead-letter queue, and subscribers are all consumers of the stream the system
+already needed for its own integrity — "nothing happens without an emission." Fan-out uses the
+store's native notification channel (no second infrastructure). Clients connect with a
+**backfill burst, then live**; reconnect replays from the outbox by `last_event_id`, with *no
+event loss* as an acceptance criterion; a subscriber that falls behind receives an explicit
+**`lagged`** disclosure — staleness as a protocol message — and recovers by catch-up-then-live.
+Who is told is decided per subscriber from that subscriber's own accessible dependency set
+(implemented, SCMS-026); this clause adds the wire, not the decision.
+
 ### 8.2 Subscriptions are lenses
 
 A subscription is a declarative, **allow-list** scope: records, metrics, relationship types, radius around a subject — composed with the subscriber's access projection. A lens narrows; it can never widen power. The wire format is the envelope itself: provenance travels with every message, and clients are bound by the no-promotion rule (an `observed` push can update a chip; it cannot overwrite a `declared` field in the local model).
@@ -219,6 +230,19 @@ Cursors, selections, "Zach is editing," view counts, soft locks: all `observed` 
 - Cadence honesty: presence at seconds, metrics at their real rate, daily aggregates once per visit — polling a daily aggregate is theater, and the surfaces say so.
 
 ### 8.5 Concurrency discipline is derived from invariance
+
+`[P22 — accepted 2026-08-28]` **Every merge is justified by a serializable decision map.**
+Where a merge occurs, its justification is a per-hunk record — `accept | reject | keep` — that is
+replayable, diffable, and attached to the merged record as the reason it merged that way. A
+merge without a decision map is a merge nobody can audit. This composes with the bounded lane
+already implemented: that lane *refuses* without choosing a winner, and the decision map is how
+a human then resolves the refusal deliberately.
+
+`[P7 — deferred 2026-08-28]` Divergence-first branching (permanent lawful branches over the
+record DAG, with authored multi-parent merges) is **deferred, not rejected**: it is a real
+architectural commitment that should be made against a real editing workload rather than a
+fixture. Until then the `free` lane is canonical convergent merge for prose, which is where
+convergence is genuinely correct. Revisit once the first migration is carrying real edits.
 
 The same typed invariance that governs what a theme may change governs what concurrent editors may merge. One declaration, two enforcement surfaces:
 

@@ -1,6 +1,6 @@
 # Project Context Index
 > Generator: 0.5.0
-> Source digest: `675b52e7834b6bf3587fe8ee6b338e84fbbac4580119672bb0f8429878158840`
+> Source digest: `99e2a86ea6fb87b58e8db511358589ed13946f678bcfb1fe9433dae8bf3ba1f4`
 
 > Generated projection. Canonical sources remain authoritative.
 
@@ -14,7 +14,7 @@
 - `.github/workflows/gates.yml` | 3445 bytes | `6ffe42e18cae271c12dbc6c89427550ea20656653ec6032cba5c6ce72f7ffcaa`
 - `AGENTS.md` | 6896 bytes | `cd8cbb05cc70b8d03f69bf45026ff70fdee09a264bb29d0ac4bcb4b753685caf`
 - `CONTEXT_SOURCES.json` | 914 bytes | `1a0e0db180b061204f20b4a550f8b634fb2a220569592bd63fed13eb875dda0e`
-- `DESIGN.md` | 33379 bytes | `39264296deec82b925418cf245b830c2d08ccb0346592d7d7a6c52ca2493a239`
+- `DESIGN.md` | 35290 bytes | `62603e98c3ac16360001e13396a40e54b671ce4545a5a9cd654f5257a56760c5`
 - `FORMAL_RESOURCE_MANIFEST.json` | 12094 bytes | `fdf6f710c00e1429ff34d4a2ab8ed81fadc48dd812cf040354a327751d2d3fd2`
 - `NEW_AGENT_PROMPT.md` | 854 bytes | `eced591fb8fb893bba4426e254f44776cae1bf3f148a6e81a01402d427ad60a2`
 - `PROJECT_INTENT.md` | 6368 bytes | `b45adbb652c63b7327a77e70325204c2e8a50033f6d4d6f8e156e402683f4bf1`
@@ -83,8 +83,8 @@
 - `impl/surface-resolver/src/resolver.ts` | 12570 bytes | `7f5fdcb92996409fd3c7341a76dcbb7e1392bf7d971bb9b9842b17718f2b5c70`
 - `impl/surface-resolver/src/types.ts` | 5875 bytes | `4af426345fe367e3aea65aac416e8f480403b7922ec1b8e316599600ba3b40b2`
 - `impl/surface-resolver/test/resolver.test.ts` | 8990 bytes | `b045ec1258e3100b663f96134e032d0e7e85c491d66e896a655b877e534905f1`
-- `projections/design-spec.html` | 73697 bytes | `acbe48bf3b85159878336d5a69a7d6a4804ac6fd1fa4d61ba12fb2e102eb5421`
-- `projections/manifest.json` | 2160 bytes | `fc09313f5e0fb925ea00ccea397d41cbfe9283d27f937f58cf603a120c8dc7f5`
+- `projections/design-spec.html` | 73902 bytes | `1af8b15cc7eefbd8c8cc05d291b1ade7eb12b63692b4fb6c0bebf21a4d916057`
+- `projections/manifest.json` | 2258 bytes | `809f3f4e5f99f6304f94d9400fd72752cc6b2e29f084085390ab71005f407cc9`
 - `projections/scms-002-review.html` | 42693 bytes | `ba08f5b9845e433af80804d65f067635342b388f77056d28ffb781980530fa38`
 - `projections/scms-004-review.html` | 32632 bytes | `abeb96a485acb33ff67b04e1eb8a6062049d9b1e3af0619eeedb57988fd910ae`
 - `projections/sss-surface-adoption.html` | 37647 bytes | `5827c88d68d8e336de1664335a22fc6705f06db11d521b98db58fe5a1cc58849`

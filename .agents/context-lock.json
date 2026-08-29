@@ -9,14 +9,14 @@
     "repositories": [
       {
         "path": ".",
-        "commit": "b31fc5f61ee1a93095e5aa8552d1fe5b498c5032",
+        "commit": "5310967dc69491b1a023d86bef6f4dc6f2282510",
         "branch": "main",
         "dirty": true,
         "remote": "https://github.com/zachshallbetter/semantic-cms.git"
       }
     ]
   },
-  "aggregateSourceDigest": "675b52e7834b6bf3587fe8ee6b338e84fbbac4580119672bb0f8429878158840",
+  "aggregateSourceDigest": "99e2a86ea6fb87b58e8db511358589ed13946f678bcfb1fe9433dae8bf3ba1f4",
   "sources": [
     {
       "path": ".agents/skills/compile-context/SKILL.md",
@@ -70,8 +70,8 @@
     },
     {
       "path": "DESIGN.md",
-      "bytes": 33379,
-      "sha256": "39264296deec82b925418cf245b830c2d08ccb0346592d7d7a6c52ca2493a239"
+      "bytes": 35290,
+      "sha256": "62603e98c3ac16360001e13396a40e54b671ce4545a5a9cd654f5257a56760c5"
     },
     {
       "path": "FORMAL_RESOURCE_MANIFEST.json",
@@ -415,13 +415,13 @@
     },
     {
       "path": "projections/design-spec.html",
-      "bytes": 73697,
-      "sha256": "acbe48bf3b85159878336d5a69a7d6a4804ac6fd1fa4d61ba12fb2e102eb5421"
+      "bytes": 73902,
+      "sha256": "1af8b15cc7eefbd8c8cc05d291b1ade7eb12b63692b4fb6c0bebf21a4d916057"
     },
     {
       "path": "projections/manifest.json",
-      "bytes": 2160,
-      "sha256": "fc09313f5e0fb925ea00ccea397d41cbfe9283d27f937f58cf603a120c8dc7f5"
+      "bytes": 2258,
+      "sha256": "809f3f4e5f99f6304f94d9400fd72752cc6b2e29f084085390ab71005f407cc9"
     },
     {
       "path": "projections/scms-002-review.html",

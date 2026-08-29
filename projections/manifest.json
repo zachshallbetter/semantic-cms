@@ -5,8 +5,8 @@
       "file": "projections/design-spec.html",
       "artifactUrl": "https://claude.ai/code/artifact/bcfb402c-49ad-4095-9eab-17b16deb671c",
       "source": "DESIGN.md",
-      "sourceSha256": "39264296deec82b925418cf245b830c2d08ccb0346592d7d7a6c52ca2493a239",
-      "syncRule": "envelope source_hash in the HTML must equal sha256(DESIGN.md); \u00a77.1 additionally projects bindings/PROJECT_BINDINGS.yaml + FORMAL_RESOURCE_MANIFEST.json (SSS adoption) \u2014 declared in the page footer",
+      "sourceSha256": "62603e98c3ac16360001e13396a40e54b671ce4545a5a9cd654f5257a56760c5",
+      "syncRule": "envelope source_hash in the HTML must equal sha256(DESIGN.md); \u00a77.1 additionally projects bindings/PROJECT_BINDINGS.yaml + FORMAL_RESOURCE_MANIFEST.json (SSS adoption) \u2014 declared in the page footer \u2014 NOTE: republish required after the 2026-08-28 dispositions (P10/P22 accepted, P7 deferred)",
       "lastPublished": "2026-08-28"
     },
     {
