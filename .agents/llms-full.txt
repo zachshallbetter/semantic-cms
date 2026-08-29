@@ -1,6 +1,6 @@
 # PROJECT COMPILED CONTEXT
 Generator: 0.5.0
-Source digest: 957e95fedf1a4bb247cf1093cadd26fbae38c5c0172dd1917f26e267c03b5b0b
+Source digest: fb921631b93d1ea7fa66a3408349a5275adae7098af1de45ae6f31f4a9e2108f
 
 > Generated projection. Canonical sources remain authoritative.
 
@@ -279,6 +279,12 @@ jobs:
       - name: End-to-end spine (SCMS-019/027/049 · the composed path)
         run: node --test test/spine.test.ts
         working-directory: impl/e2e
+
+      - name: Work graph — self-test (gate can fail)
+        run: python3 scripts/check-work-graph.py --self-test
+
+      - name: Work-graph integrity
+        run: python3 scripts/check-work-graph.py
 
       - name: Record ids — self-test (gate can fail)
         run: python3 scripts/next-id.py --self-test
@@ -25106,6 +25112,119 @@ if __name__ == "__main__":
 
 
 ========================================================================
+FILE: scripts/check-work-graph.py
+========================================================================
+
+#!/usr/bin/env python3
+"""Work-graph integrity (SCMS-067).
+
+`work/GRAPH.md` is the register of record for work-item identity, and it had
+gone quietly wrong in three ways at once: five items referenced an epic E13 that
+was never defined, an item stayed Ready after another item delivered it, and
+three items discussed in conversation were never registered at all.
+
+None of those are visible by reading the file top to bottom, which is why they
+survived. Three checks:
+
+  1. **Every epic a work item cites is defined.** A dangling epic reference is
+     the declaration-without-a-consumer failure aimed at the register itself.
+  2. **Work-item ids are unique.** `next-id.py --check` covers the jsonl
+     registers; this covers the table, where the SCMS-044 collision happened.
+  3. **Every Done item cites an evidence record that exists.** A Done row whose
+     evidence id is absent is a claim with nothing behind it — the exact shape
+     of the claim/evidence drift this project keeps recording.
+
+    python3 scripts/check-work-graph.py
+    python3 scripts/check-work-graph.py --self-test
+"""
+import json
+import pathlib
+import re
+import sys
+
+ROOT = pathlib.Path(__file__).resolve().parent.parent
+GRAPH = ROOT / "work" / "GRAPH.md"
+EVIDENCE = ROOT / "records" / "evidence.jsonl"
+
+ITEM = re.compile(r"^\|\s*(SCMS-\d+)\s*\|([^|]*)\|\s*(E\d+(?:\+E\d+)?)\s*\|([^|]*)\|([^|]*)\|", re.M)
+EPIC = re.compile(r"^\|\s*(E\d+)\s*\|", re.M)
+
+
+def check(graph_text: str, evidence_ids: set[str]) -> list[str]:
+    problems: list[str] = []
+    epics = set(EPIC.findall(graph_text))
+    seen: set[str] = set()
+
+    for item_id, _title, epic_field, state, evidence_field in ITEM.findall(graph_text):
+        if item_id in seen:
+            problems.append(f"{item_id}: duplicate work-item id")
+        seen.add(item_id)
+
+        # An item may sit in more than one epic ("E8+E12").
+        for epic in epic_field.split("+"):
+            if epic not in epics:
+                problems.append(f"{item_id}: cites epic {epic}, which no row defines")
+
+        if state.strip().lower().startswith("done"):
+            cited = re.findall(r"(scms-evidence-\d+)", evidence_field)
+            if not cited:
+                # A Done item may legitimately point at a work file instead.
+                if "work/" not in evidence_field:
+                    problems.append(f"{item_id}: Done, and cites no evidence record")
+            for ev in cited:
+                if ev not in evidence_ids:
+                    problems.append(f"{item_id}: cites {ev}, which is not in records/evidence.jsonl")
+    return problems
+
+
+def evidence_ids() -> set[str]:
+    ids = set()
+    for line in EVIDENCE.read_text(encoding="utf-8").splitlines():
+        if line.strip():
+            ids.add(json.loads(line)["id"])
+    return ids
+
+
+def self_test() -> int:
+    """The gate must be able to fail, or it certifies nothing."""
+    good = ("| E1 | An epic | ref | state |\n"
+            "| SCMS-001 | A thing | E1 | Done | records/evidence.jsonl · scms-evidence-001 |\n")
+    assert check(good, {"scms-evidence-001"}) == [], check(good, {"scms-evidence-001"})
+
+    dangling_epic = "| SCMS-002 | A thing | E9 | Ready | — |\n"
+    assert any("cites epic E9" in p for p in check(dangling_epic, set())), "dangling epic not caught"
+
+    dupe = ("| E1 | An epic | ref | state |\n"
+            "| SCMS-001 | One | E1 | Ready | — |\n"
+            "| SCMS-001 | Two | E1 | Ready | — |\n")
+    assert any("duplicate" in p for p in check(dupe, set())), "duplicate id not caught"
+
+    dangling_ev = ("| E1 | An epic | ref | state |\n"
+                   "| SCMS-003 | A thing | E1 | Done | records/evidence.jsonl · scms-evidence-999 |\n")
+    assert any("scms-evidence-999" in p for p in check(dangling_ev, set())), "dangling evidence not caught"
+
+    print("self-test ok (dangling epics, duplicate ids and dangling evidence all detected)")
+    return 0
+
+
+def main() -> int:
+    if "--self-test" in sys.argv:
+        return self_test()
+    problems = check(GRAPH.read_text(encoding="utf-8"), evidence_ids())
+    if problems:
+        for p in problems:
+            print(f"WORK GRAPH: {p}")
+        return 1
+    items = len(ITEM.findall(GRAPH.read_text(encoding="utf-8")))
+    print(f"work graph ok ({items} items, {len(set(EPIC.findall(GRAPH.read_text(encoding='utf-8'))))} epics)")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
+
+
+========================================================================
 FILE: scripts/gen-context.py
 ========================================================================
 
@@ -25671,6 +25790,8 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-029 | Reconcile the corpus against live Postgres (seed-time vs current) | E8 | **Blocked** — needs owner-authorized credentials (protected action) | — |
 | SCMS-030 | The site as a reader expression of Canon (round-trip out) | E8 | Done — real reader routes resolve; NR-scms-004 recorded; awaiting owner verification | records/evidence.jsonl · scms-evidence-030 |
 | SCMS-031 | The authoring surface, and the authority gate it exposed | E12 | Done — SH-8 first slice; NR-scms-005 fixed; scms-blocker-003 raised; awaiting owner verification | records/evidence.jsonl · scms-evidence-031 |
+| E13 | **Own the store** — Canon in Postgres, blobs, auth, migrations; stop depending on zach-core | DESIGN.md §13 + SH-1, SH-2, SH-4 | In progress — schema, grants and blobs landed (SCMS-057/060); adapter and auth outstanding |
+| E14 | **Static delivery and live editing** — materialized pages, the live channel, page composition | DESIGN.md §7, §8.3, §8.5 | Ready — the pieces exist separately and nothing joins them |
 | SCMS-032 | The transactional outbox: nothing happens without an emission (R2) | E5 | Done — emission proven; delivery is SCMS-033; awaiting owner verification | records/evidence.jsonl · scms-evidence-032 |
 | SCMS-033 | Subscription lenses and fan-out over the wire (R2) | E5 | Done — lens narrows only; lag is subscriber-relative | records/evidence.jsonl · scms-evidence-033 |
 | SCMS-034 | Replay by last_event_id, no event loss, lagged disclosure (R2) | E5 | Done — landed with SCMS-033 | records/evidence.jsonl · scms-evidence-033 |
@@ -25678,7 +25799,7 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-036 | Evidence and attestations as Canon records | E3 | Done — forgery closed; SH-13 (self-attestation) remains owner policy | records/evidence.jsonl · scms-evidence-036 |
 | SCMS-037 | The site renders from Canon (consolidation, no deploy) | E8 | Done — third expression adapter, S3-checked; NR-scms-011 fixed; awaiting owner verification | records/evidence.jsonl · scms-evidence-037 |
 | SCMS-038 | Independent adversarial verification of the load-bearing claims | E0 | Done — 3 defects found and fixed (NR-scms-012/013), access claim survived (NR-scms-014); **not Verified** — a subagent is not an independent party | records/evidence.jsonl · scms-evidence-038 |
-| SCMS-039 | Recommended dispositions for the 25 open proposals on PR #28 | E0 | Done — 25 recommendations with reasoning; 6 narrowed or declined; **ratification NOT exercised** | — |
+| SCMS-039 | Recommended dispositions for the 25 open proposals on PR #28 | E0 | Done — 25 recommendations with reasoning; 6 narrowed or declined; **ratification NOT exercised** | records/evidence.jsonl · scms-evidence-039 |
 | SCMS-040 | The editor in preview: a usable authoring surface over real content | E12 | Done — SH-8 closed; preview published; awaiting owner verification | records/evidence.jsonl · scms-evidence-040 |
 | SCMS-041 | Migrate the corpus through the governed path (content.create@1) | E8+E12 | Done — creation is governed at last; SH-15 raised; awaiting owner verification | records/evidence.jsonl · scms-evidence-041 |
 | SCMS-042 | The editing session and the P7 instrument | E12 | Done — instrument built, NR-scms-008 fixed; **P7 stays open pending real edits** | records/evidence.jsonl · scms-evidence-042 |
@@ -25696,13 +25817,16 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-055 | Link and media evaluators (narrows SH-22) | E3 | Done — internal refs resolved, external URLs honestly INCONCLUSIVE; owner decision named | records/evidence.jsonl · scms-evidence-055 |
 | SCMS-056 | Derive supersession and revocation instead of storing them (closes SH-23) | E1 | Done — no row is rewritten; recomputation-equals-index vector | records/evidence.jsonl · scms-evidence-056 |
 | SCMS-057 | Canon in Postgres: schema, grants, and append-only by refusal | E13 | Done — 15 refusal checks against real PG; NR-scms-017 found; adapter is next | records/evidence.jsonl · scms-evidence-057 |
-| SCMS-058 | The outbox as a transactional trigger, not an in-process push | E13 | Ready — depends on SCMS-057; 'nothing happens without an emission' enforced by the store | — |
+| SCMS-058 | The outbox as a transactional trigger, not an in-process push | E13 | Done — delivered inside SCMS-057; the `canon_emit` trigger is SECURITY DEFINER and the runtime has no INSERT on the outbox | records/evidence.jsonl · scms-evidence-057 |
 | SCMS-059 | Authentication (closes SH-2) | E13 | Ready — the largest gap; semantic-cms currently has none | — |
 | SCMS-060 | Content-addressed blobs for prose and media (closes SH-4) | E13 | Done — digest is the key, immutable by grant; 6 more refusal checks | records/evidence.jsonl · scms-evidence-060 |
 | SCMS-061 | Cut over: deploy and decommission zach-core | E13 | **Blocked — protected action.** Owner authorization required at the time | — |
-| SCMS-062 | Materialize expressions to the CAS under their fingerprint | E4 | Ready — the static half; `canon_blob` and the fingerprint both exist, nothing writes one to the other | — |
-| SCMS-063 | The live channel to a browser (invalidation keys over SSE) | E5 | Ready — `deliver`/replay/`lagged` exist end to end server-side; nothing carries them to a client | — |
-| SCMS-064 | The page builder: composition editing through the bounded lane | E12 | Ready — page structure is already Canon (SCMS-016) and socket population is already the bounded lane (SCMS-021); the UI is what is missing | — |
+| SCMS-062 | Materialize expressions to the CAS under their fingerprint | E14 | Ready — the static half; `canon_blob` and the fingerprint both exist, nothing writes one to the other | — |
+| SCMS-063 | The live channel to a browser (invalidation keys over SSE) | E14 | Ready — `deliver`/replay/`lagged` exist end to end server-side; nothing carries them to a client | — |
+| SCMS-064 | The page builder: composition editing through the bounded lane | E14 | Ready — page structure is already Canon (SCMS-016) and socket population is already the bounded lane (SCMS-021); the UI is what is missing | — |
+| SCMS-065 | The Postgres store adapter (and this project's first runtime dependency) | E13 | **Ready — owner input invited on the driver.** The schema is proven; nothing in `impl/` reads or writes it. Needs `pg` or `postgres.js`, a lockfile, and `npm ci` in CI | — |
+| SCMS-066 | A migration runner | E13 | Ready — zach-core re-runs a declarative schema file and has none either, so this is a gap inherited rather than solved | — |
+| SCMS-067 | Work-graph integrity gate; reconcile SPEC_HEALTH against the graph | E0 | Partly done — the integrity gate is in CI and caught a dangling evidence reference; the SPEC_HEALTH reconciliation is still open | records/evidence.jsonl · scms-evidence-067 |
 | SCMS-044 | Route the editor through the surface pipeline it currently bypasses | E12 | Done — SH-16 closed; two duplicate access checks removed; awaiting owner verification | records/evidence.jsonl · scms-evidence-044 |
 | SCMS-018 | R1 live co-authoring — **free lane only** (convergent merge) | E1 | **Blocked on P7 only** — P22 was accepted 2026-08-28; P7 is deferred with a revisit condition the owner has since named (settle it from the editor workload) | records/blockers · scms-blocker-001 |
 | SCMS-010 | S4 cross-domain portability: a materially unrelated project (outside this repository, per owner doctrine 2026-08-28) consumes @semantic-systems/surface unmodified | external | Backlog — executes outside scms; scms records the conformance result | — |

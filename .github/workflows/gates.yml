@@ -131,6 +131,12 @@ jobs:
         run: node --test test/spine.test.ts
         working-directory: impl/e2e
 
+      - name: Work graph — self-test (gate can fail)
+        run: python3 scripts/check-work-graph.py --self-test
+
+      - name: Work-graph integrity
+        run: python3 scripts/check-work-graph.py
+
       - name: Record ids — self-test (gate can fail)
         run: python3 scripts/next-id.py --self-test
 
