@@ -1,6 +1,6 @@
 # PROJECT COMPILED CONTEXT
 Generator: 0.5.0
-Source digest: 1c55bc2f25007a60ff145fbdbeffdc1fa961878ca6977dd53d97e3adf1a421c5
+Source digest: 9701f45308d34108c780abdfd94825ae3368f01625b830f2dac016136a9f5984
 
 > Generated projection. Canonical sources remain authoritative.
 
@@ -1477,6 +1477,8 @@ decision record) — never by deletion.
 | ~~SH-16~~ | **RESOLVED** | The editor bypasses the surface pipeline | *Closed by SCMS-044:* the editor resolves a `ResolvedSurface` with `purpose: "edit"` and reads membership from it; the index resolves a collection surface. Both hand-rolled access comparisons are gone, leaving one implementation of the access rule in the read path. SH-16's own test passes — the authoring surface expresses two materially different ways with identical presented order and exposed operations while morphology differs, so it is not underspecified. | — |
 | SH-15 | **GAP — live contradiction** | Drafting republishes | `content.revise@1` builds its next envelope from the prior one, so a revision inherits `publicationState`. Reader surfaces resolve from `journal.current()`, so **an in-progress edit to a promoted subject reaches the public the instant it lands** — verified against landed code, not inferred. This contradicts §6's central claim that publishing is qualification plus promotion and never a boolean: `revise` currently republishes without either. | Defined in SCMS-045: a working copy as an `observed` envelope, so drafting against promoted content cannot move a state axis or enter a reader surface. Awaiting owner scheduling. |
 | SH-17 | **CAVEAT — consequence model** | Lag permits publishing | `permits()` allows consequential action in `stale-but-safe`, which is where a lagged client lands. §8.6 qualifies that as permitted **after converge**, and convergence is modelled nowhere — so a client that has been told it is 37 events behind can still promote against a view it knows is stale. Found while building SCMS-035; not fixed there, because whether lag blocks promotion is a consequence-model decision rather than an implementation detail. | Either model the converge step so `stale-but-safe` means *converged*, or make lag an explicit promotion gate in the consequence profile. Needs owner disposition. |
+| SH-19 | **CAVEAT — instrument limit** | The leak scan compares identities, not all spellings | After NR-scms-013 the S3 access-constraint check normalizes character references and percent-encoding before scanning, but an identity split across separate attributes or interleaved with markup is still invisible to it. It is a backstop against an adapter leaking by accident — the realistic failure — and not a proof against one encoding deliberately. | Either accept the limit explicitly in the S3 claim wording (current posture), or compare against a parsed DOM rather than a string. |
+| SH-20 | **THIN** | Intra-group order is unprotected | The S3 `required-priority` check only compares members whose priority values differ, and every member of a collection group shares a priority — so reversing an entire index is not caught. Probably correct, since priority is semantic and its realization is free, but it means order within a group carries no cross-expression guarantee. Found by the NR-scms-014 pass. | Decide whether intra-group order is a protected property. If it is not, say so in the S3 conformance wording so its absence is declared rather than emergent. |
 | ~~SH-12~~ | **RESOLVED** | Wire protocol concretes | *Closed by SCMS-024:* `schemas/scms/envelope.schema.json` (closed, hash-pattern-typed, freshness rule encoded conditionally) and `schemas/scms/golden/canonicalization.json` (4 positive vectors + 1 negative proving the check can fail). Residual limitation, recorded not hidden: no JSON-Schema library is available under the zero-dependency policy, so the schema document is not meta-validated and schema/runtime agreement is asserted case-wise. |
 
 ## Claim register
@@ -1497,7 +1499,7 @@ above its rung.
 | No persistent mutation outside a registered contract | **Implemented + Tested (source-level), and authorized as of SCMS-031** | SCMS-012 write path; SCMS-023 boundary gate with a self-test proving it can fail; SCMS-031 adds the authority gate the write path had been missing entirely (NR-scms-005), and NR-scms-006 corrects that gate after an adversarial pass found it failing OPEN on prototype-chain keys | Runtime capability enforcement, not just source-level |
 | Declared content types are enforced | **Implemented + Tested (where declared)** | SCMS-022: the governed write consults the declared type; opt-in, because types that do not exist are not pretended to exist | A declared type for every content kind in use |
 | R1 live co-authoring | **Partially established** | `required` lane proven (SCMS-012), `bounded` lane proven (SCMS-021); **free lane NOT built** — blocked on P7/P22 | Owner disposition of P7/P22, then the free lane |
-| R2 live propagation | **Implemented + Tested — semantic core, in memory** | SCMS-032 emission inside the journal's landing path; SCMS-033/034 delivery: backfill-then-live, replay from every cursor with no loss, `lagged` disclosure measured in the subscriber's own stream rather than global write volume, and executable catch-up-then-live | A network, durability, real latency, reconnection over a dropped socket, and the budgets SH-6 still lacks |
+| R2 live propagation | **Partially established — emission and wire, no real connection** | SCMS-032 outbox; SCMS-033/034 wire, replay and lag; SCMS-035 derived freshness. **SCMS-038 found and fixed two defects here**: the cursor leaked exact global write volume, and a malformed cursor caused silent total event loss | A real connection under latency; durability (SH-1); and a measured propagation budget (SH-6) |
 | R3 live honesty | **Implemented + Tested (semantic core), and now derived rather than asserted** | SCMS-017: six states, the drafting/consequential asymmetry, presence expiring by construction. SCMS-035: the chip's freshness is derived from actual transport deliveries — a client with no delivery cannot render `live`. **NR-scms-010 corrected the editor, which had been claiming `live · checked 0s ago` while holding no subscription at all** | Freshness under real latency on a real connection; and SH-17, since a lagged client can still publish |
 | Real content maps into Canon without collapsing what the source keeps | **Implemented + Tested against a real corpus** | SCMS-028: 12 vectors over the actual 215-entry archive — unlisted preserved as itself, private content at owner access, model-generated field kept as a separate `derived` envelope, and the source's own status collapse surfaced as 22 findings rather than inherited | The same against the live Postgres state (SCMS-029) — the reader round-trip is now closed by SCMS-030 |
 | The site can be a reader expression of Canon rather than a content client | **Implemented + Tested over a real corpus** | SCMS-030: the real /writing and /work routes resolve as surfaces over the migrated archive; feed and sitemap derive from the page's own ResolvedSurface, so a feed cannot disagree with its page; unlisted content is reachable by link and in no index | Wiring the declarations into the site's renderer, and a deployment |
@@ -15526,6 +15528,16 @@ import type { ResolvedSurface, SurfaceRequest, AccessLevel } from "../../surface
 export interface RouteDeclaration {
   /** The site path, as readers know it. */
   path: string;
+  /**
+   * Content kinds this route may present as its subject.
+   *
+   * The index routes filter by kind through the lens; the detail routes did
+   * not, so `/work/<an-article-slug>` rendered an article under a URL that
+   * promises project work (SCMS-038). Nothing private leaked — both were
+   * public — but the partition the URL scheme asserts was not enforced, which
+   * makes the URL a claim the system did not keep.
+   */
+  kinds?: string[];
   /** How the route asks Canon for its content. Access is the READER's, not the route's. */
   request: (access: AccessLevel, subject?: string) => SurfaceRequest;
   /** Detail routes take a subject from the path; index routes do not. */
@@ -15545,6 +15557,7 @@ export const READER_ROUTES: RouteDeclaration[] = [
   {
     path: "/writing/[slug]",
     parameterized: true,
+    kinds: ["article", "note"],
     request: (access, subject) => ({
       profile: "focus", purpose: "understand", subject, access,
       lens: { traversal: { radius: 1 } },
@@ -15561,6 +15574,7 @@ export const READER_ROUTES: RouteDeclaration[] = [
   {
     path: "/work/[slug]",
     parameterized: true,
+    kinds: ["project", "role"],
     request: (access, subject) => ({
       profile: "focus", purpose: "understand", subject, access,
       lens: { traversal: { radius: 1 } },
@@ -15580,6 +15594,18 @@ export function renderRoute(
 ): RenderedRoute | { path: string; failure: string } {
   const surface = resolveSurface(snapshot as never, route.request(access, subject));
   if (isFailure(surface)) return { path: route.path, failure: surface.failure };
+
+  // A detail route presents one subject; it must be of a kind this route
+  // claims. Refusing as `subject-not-found` keeps the §5 disclosure rule: a
+  // reader learns that this URL has no such page, not that the subject exists
+  // elsewhere.
+  if (route.kinds && subject !== undefined) {
+    const kind = (snapshot as { subjects: Array<{ id: string; kind: string }> })
+      .subjects.find((s) => s.id === subject)?.kind;
+    if (kind === undefined || !route.kinds.includes(kind)) {
+      return { path: route.path, failure: "subject-not-found" };
+    }
+  }
   return {
     path: route.parameterized ? route.path.replace("[slug]", subject ?? "") : route.path,
     surface,
@@ -15820,6 +15846,32 @@ test("a detail route resolves a real project together with its real relation", (
   assert.ok(rendered.subjects.includes("cursed-crypt"));
   assert.ok(rendered.subjects.includes("founder-cpo"),
     "the relation declared in the owner's own frontmatter resolved into the page");
+});
+
+test("a detail route refuses a subject of the wrong kind (SCMS-038)", () => {
+  // /work/<article-slug> used to render the article, because only the index
+  // routes filtered by kind. Nothing private leaked — both are public — but a
+  // URL that promises project work and serves an essay is a claim the system
+  // did not keep.
+  const article = migrated.content.find(
+    (e) => e.minimumAccess === "public"
+      && (e.body as unknown as { contentKind: string }).contentKind === "article")!.subjectId;
+
+  const wrong = renderRoute(snapshot, route("/work/[slug]"), "public", article);
+  assert.ok(isRouteFailure(wrong), `/work/${article} should not resolve an article`);
+  assert.equal((wrong as { failure: string }).failure, "subject-not-found",
+    "and it refuses the way an absent subject does, so the URL discloses nothing");
+
+  // Control: the same subject resolves under the route that does claim it.
+  const right = renderRoute(snapshot, route("/writing/[slug]"), "public", article);
+  assert.ok(!isRouteFailure(right), `/writing/${article} must still resolve`);
+
+  // And the partition holds in the other direction.
+  const project = migrated.content.find(
+    (e) => e.minimumAccess === "public"
+      && (e.body as unknown as { contentKind: string }).contentKind === "project")!.subjectId;
+  assert.ok(isRouteFailure(renderRoute(snapshot, route("/writing/[slug]"), "public", project)));
+  assert.ok(!isRouteFailure(renderRoute(snapshot, route("/work/[slug]"), "public", project)));
 });
 
 
@@ -16804,6 +16856,33 @@ import type { ExpressionArtifact } from "./expressions.ts";
 
 const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
+/**
+ * Decode the representations an HTML or URL emitter can produce, so the leak
+ * scan compares identities rather than spellings.
+ *
+ * An adversarial pass (SCMS-038) showed the boundary-anchored scan reporting
+ * `equivalent: true` while a real private slug sat in the output as numeric
+ * character references. That is a false NEGATIVE, and strictly worse than the
+ * false positive it replaced in NR-scms-011, because it is silent.
+ *
+ * **What this does not do, stated rather than implied:** it cannot see an
+ * identity that an expression splits across separate attributes or interleaves
+ * with markup. This scan is a backstop against an adapter leaking by accident —
+ * the realistic failure — not a proof against one encoding deliberately. The
+ * claim it supports is worded to match, and SH-19 records the gap.
+ */
+function normalizeForScan(output: string): string {
+  let out = output;
+  // Numeric character references, decimal and hex.
+  out = out.replace(/&#(\d+);/g, (_, d: string) => String.fromCodePoint(Number(d)));
+  out = out.replace(/&#[xX]([0-9a-fA-F]+);/g, (_, h: string) => String.fromCodePoint(parseInt(h, 16)));
+  // The named references our own escaper emits.
+  out = out.replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"');
+  // Percent-encoding, which any href may carry.
+  try { out = decodeURIComponent(out); } catch { /* leave as-is on malformed input */ }
+  return out;
+}
+
 export interface EquivalenceFinding {
   property:
     | "member-identity" | "semantic-grouping" | "required-priority"
@@ -16907,7 +16986,7 @@ export function checkEquivalence(
   for (const token of forbiddenTokens) {
     const boundary = new RegExp(`(^|[^A-Za-z0-9_-])${escapeRegExp(token)}([^A-Za-z0-9_-]|$)`);
     for (const [label, art] of [["A", a], ["B", b]] as const) {
-      if (boundary.test(art.output) || art.presentedOrder.includes(token)) {
+      if (boundary.test(normalizeForScan(art.output)) || art.presentedOrder.includes(token)) {
         findings.push({ property: "access-constraint", detail: `${label} leaked '${token}'` });
       }
     }
@@ -17300,6 +17379,35 @@ test("a genuine leak of a forbidden identity still fires", () => {
   assert.ok(result.findings.some((f) => f.property === "access-constraint"),
     `a forbidden identity actually present ('${present}') must be reported`);
   assert.equal(result.equivalent, false);
+});
+
+test("an encoded identity is still caught — the scan compares identities, not spellings", () => {
+  // An adversarial pass found the scan reporting equivalent:true while a real
+  // private slug sat in the output as numeric character references. A silent
+  // false negative in a leak check is worse than a noisy false positive.
+  const s = surface();
+  const a = expressStructural(s);
+  const b = expressLinear(s);
+  const secret = "10-forms-of-wasteful-marketing";
+
+  const encodings = [
+    secret.split("").map((c) => `&#${c.codePointAt(0)};`).join(""),
+    secret.split("").map((c) => `&#x${c.codePointAt(0)!.toString(16)};`).join(""),
+    encodeURIComponent(secret),
+  ];
+
+  for (const encoded of encodings) {
+    const leaky: ExpressionArtifact = { ...a, output: `${a.output}\n<a href="/x/${encoded}">link</a>` };
+    const result = checkEquivalence(s, leaky, b, [secret]);
+    assert.ok(result.findings.some((f) => f.property === "access-constraint"),
+      `an identity encoded as ${encoded.slice(0, 24)}... escaped the scan`);
+  }
+
+  // Control: the same surface with no leak still passes, so the scan has not
+  // simply been made to fire on everything.
+  assert.deepEqual(
+    checkEquivalence(s, a, b, [secret]).findings.filter((f) => f.property === "access-constraint"),
+    []);
 });
 
 
@@ -18182,6 +18290,22 @@ FILE: impl/transport/src/wire.ts
  * no message, and its cursor simply does not advance. Re-requesting from an old
  * cursor is cheap and correct — the alternative, advancing the cursor with an
  * empty message, would announce that a wave occurred.
+ *
+ * 3. **The cursor counts what THIS subscriber has seen, not where the journal
+ *    is.** (SCMS-038, NR-scms-012.) The first version handed back the global
+ *    `eventId`, which closed the leak in the *lag count* and left it wide open
+ *    in the cursor itself: two deliveries five minutes apart differ by the total
+ *    number of Canon writes in between, including writes to subjects the
+ *    subscriber cannot see and does not know exist. Subtracting two integers
+ *    recovered the exact figure. The rule in point 2 was right and applied to
+ *    one field out of two.
+ *
+ *    A `position` is therefore an index into the subscriber's *own* relevant
+ *    stream. Two positions differ by exactly what that subscriber was shown, so
+ *    the only volume it can infer is its own — which it already knows. The cost
+ *    is that a delivery scans the whole stream for relevance rather than the
+ *    tail; that is honest and slow rather than fast and leaky, and durability
+ *    (SH-1) will decide the real indexing.
  */
 import type { CanonJournal, OutboxEvent } from "../../canon/src/journal.ts";
 import { fanOut } from "../../notify/src/fanout.ts";
@@ -18198,8 +18322,13 @@ export interface SubscriptionLens {
 export interface Connection {
   subscription: Subscription;
   lens?: SubscriptionLens;
-  /** The last event this client acknowledged. `null` means it has seen nothing. */
-  lastEventId: number | null;
+  /**
+   * How many of THIS subscriber's relevant events it has already consumed.
+   * `null` means none — a new subscriber, whose first delivery is a backfill.
+   *
+   * Deliberately not a global event id: see point 3 in the module note.
+   */
+  position: number | null;
 }
 
 export type DeliveryPhase = "backfill" | "live" | "lagged";
@@ -18209,8 +18338,18 @@ export interface Delivery {
   phase: DeliveryPhase;
   /** Invalidation keys — subject ids to re-fetch. Never content. */
   keys: string[];
-  /** The event id the client should hold after applying this delivery. */
+  /**
+   * The position the client should hold after applying this delivery — a count
+   * of its own consumed events, never a journal offset.
+   */
   cursor: number;
+  /**
+   * Set when the supplied position could not be used and the delivery restarted
+   * from the beginning. A reset is never silent: losing a client's place is
+   * exactly the condition that must be disclosed rather than papered over
+   * (NR-scms-012).
+   */
+  positionReset?: { reason: "unusable-position"; supplied: unknown };
   /** Only on `lagged`: how many further relevant events remain, and the way out. */
   lag?: { behind: number; recovery: "catch-up-then-live" };
 }
@@ -18228,15 +18367,27 @@ export function deliver(
   journal: CanonJournal, connection: Connection, options: DeliverOptions = {},
 ): Delivery | null {
   const maxBurst = options.maxBurst ?? Number.POSITIVE_INFINITY;
-  const pending = journal.eventsSince(connection.lastEventId);
 
-  // Relevance BEFORE burst limiting, so lag is measured in this subscriber's
-  // own stream rather than in global activity.
-  const relevant = pending.filter((e) => relevantTo(e, connection));
-  if (relevant.length === 0) return null;
+  // The subscriber's own stream, computed first. Relevance before position, so
+  // a position is an index into what this subscriber may see and nothing else.
+  const own = journal.events().filter((e) => relevantTo(e, connection));
 
-  const lagged = relevant.length > maxBurst;
-  const window = lagged ? relevant.slice(0, maxBurst) : relevant;
+  // A position that cannot be used must not silently mean "caught up". That was
+  // the NaN defect: `NaN > x` is false for every element, so a malformed cursor
+  // filtered the entire stream away and the client went permanently silent,
+  // indistinguishable from having nothing to hear (NR-scms-012).
+  const supplied = connection.position;
+  const usable = supplied === null
+    || (typeof supplied === "number" && Number.isInteger(supplied)
+        && supplied >= 0 && supplied <= own.length);
+  const start = usable && supplied !== null ? supplied : 0;
+
+  const pendingOwn = own.slice(start);
+  if (pendingOwn.length === 0) return null;
+
+  const lagged = pendingOwn.length > maxBurst;
+  const window = lagged ? pendingOwn.slice(0, maxBurst) : pendingOwn;
+  const relevant = pendingOwn;
 
   // Who-is-told is still SCMS-026's question, asked of the subjects in the
   // window. Reusing it keeps one implementation of the non-leak rule.
@@ -18244,14 +18395,15 @@ export function deliver(
   const invalidations = fanOut([connection.subscription], changed);
   const keys = invalidations[0]?.keys ?? [];
 
-  const cursor = window[window.length - 1].eventId;
+  const cursor = start + window.length;
   const phase: DeliveryPhase = lagged
     ? "lagged"
-    : connection.lastEventId === null ? "backfill" : "live";
+    : (supplied === null || !usable) ? "backfill" : "live";
 
   return {
     subscriptionId: connection.subscription.id,
     phase, keys, cursor,
+    ...(usable ? {} : { positionReset: { reason: "unusable-position" as const, supplied } }),
     ...(lagged
       ? { lag: { behind: relevant.length - window.length, recovery: "catch-up-then-live" as const } }
       : {}),
@@ -18285,7 +18437,7 @@ export function catchUp(
     const d = deliver(journal, cursorState, options);
     if (!d) break;
     deliveries.push(d);
-    cursorState = { ...cursorState, lastEventId: d.cursor };
+    cursorState = { ...cursorState, position: d.cursor };
     if (d.phase !== "lagged") break;
   }
   return { deliveries, connection: cursorState };
@@ -18386,9 +18538,9 @@ function world() {
   j.append(doc("secret", "S", "owner"), "t");
   return j;
 }
-const conn = (lastEventId: number | null, over: Partial<Connection> = {}): Connection => ({
+const conn = (position: number | null, over: Partial<Connection> = {}): Connection => ({
   subscription: { id: "sub-1", access: "public", dependencies: ["a", "b"] },
-  lastEventId, ...over,
+  position, ...over,
 });
 
 test("a new subscriber gets a backfill burst of everything it may see", () => {
@@ -18396,7 +18548,9 @@ test("a new subscriber gets a backfill burst of everything it may see", () => {
   const d = deliver(j, conn(null))!;
   assert.equal(d.phase, "backfill");
   assert.deepEqual(d.keys, ["a", "b"]);
-  assert.equal(d.cursor, 1, "the cursor stops at the last RELEVANT event, not the last event");
+  // The cursor counts what THIS subscriber consumed — two relevant events, so
+  // 2. It is not a journal offset; that was the leak NR-scms-012 closed.
+  assert.equal(d.cursor, 2, "the cursor counts the subscriber's own consumed events");
 });
 
 test("a caught-up subscriber hears nothing, and silence carries no information", () => {
@@ -18513,6 +18667,57 @@ test("the wire carries keys, never content", () => {
   assert.ok(!JSON.stringify(d).includes("A Very Distinctive Title"),
     "a client re-fetches through access projection; the wire must not shortcut it");
   assert.deepEqual(d.keys, ["a"]);
+});
+
+
+// ── SCMS-038 findings: the cursor was a side channel, and NaN was silent ────
+
+test("the cursor reveals nothing about writes the subscriber cannot see", () => {
+  // Two deliveries with a burst of invisible writes in between. Subtracting the
+  // cursors used to yield the exact count of those writes, including subjects
+  // this subscriber does not know exist.
+  const j = new CanonJournal();
+  const sub = { id: "s1", access: "public" as const, dependencies: ["pub1", "pub2"] };
+
+  for (let i = 0; i < 3; i++) j.append(doc(`secret${i}`, `S${i}`, "owner"), "t");
+  j.append(doc("pub1", "P1", "public"), "t");
+  const first = deliver(j, { subscription: sub, position: null })!;
+
+  for (let i = 0; i < 50; i++) j.append(doc(`secretB${i}`, `SB${i}`, "owner"), "t");
+  j.append(doc("pub2", "P2", "public"), "t");
+  const second = deliver(j, { subscription: sub, position: first.cursor })!;
+
+  assert.deepEqual(first.keys, ["pub1"]);
+  assert.deepEqual(second.keys, ["pub2"]);
+  assert.equal(second.cursor - first.cursor, second.keys.length,
+    "the cursor advanced by exactly what this subscriber was shown");
+  assert.equal(second.cursor, 2, "two of its own events consumed, regardless of 53 global writes");
+});
+
+test("an unusable position restarts from the beginning and says so", () => {
+  const j = new CanonJournal();
+  const sub = { id: "s1", access: "public" as const, dependencies: ["a"] };
+  j.append(doc("a", "A", "public"), "t");
+
+  for (const bad of [Number.NaN, -1, 1.5, 99, "3" as unknown as number]) {
+    const d = deliver(j, { subscription: sub, position: bad as number });
+    assert.ok(d, `position ${String(bad)} produced silence — the NaN defect`);
+    assert.equal(d!.phase, "backfill");
+    assert.equal(d!.positionReset?.reason, "unusable-position");
+    assert.deepEqual(d!.keys, ["a"], "no event was lost");
+  }
+});
+
+test("a usable position is NOT reported as a reset — the disclosure means something", () => {
+  const j = new CanonJournal();
+  const sub = { id: "s1", access: "public" as const, dependencies: ["a"] };
+  j.append(doc("a", "A", "public"), "t");
+  const first = deliver(j, { subscription: sub, position: null })!;
+  assert.equal(first.positionReset, undefined);
+  j.append(doc("a", "A second", "public"), "t");
+  const second = deliver(j, { subscription: sub, position: first.cursor })!;
+  assert.equal(second.positionReset, undefined);
+  assert.equal(second.phase, "live");
 });
 
 
@@ -23153,7 +23358,7 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-035 | The provenance chip driven by a real transport (R2 meets R3) | E6 | Done — freshness derived, not asserted; NR-scms-009 fixed; SH-17 raised | records/evidence.jsonl · scms-evidence-035 |
 | SCMS-036 | Evidence and attestations as Canon records | E3 | Done — forgery closed; SH-13 (self-attestation) remains owner policy | records/evidence.jsonl · scms-evidence-036 |
 | SCMS-037 | The site renders from Canon (consolidation, no deploy) | E8 | Done — third expression adapter, S3-checked; NR-scms-011 fixed; awaiting owner verification | records/evidence.jsonl · scms-evidence-037 |
-| SCMS-038 | Independent adversarial verification of the load-bearing claims | E0 | Ready — nothing has ever been marked Verified; targets the new authority gate first | — |
+| SCMS-038 | Independent adversarial verification of the load-bearing claims | E0 | Done — 3 defects found and fixed (NR-scms-012/013), access claim survived (NR-scms-014); **not Verified** — a subagent is not an independent party | records/evidence.jsonl · scms-evidence-038 |
 | SCMS-039 | Recommended dispositions for the 25 open proposals on PR #28 | E0 | Done — 25 recommendations with reasoning; 6 narrowed or declined; **ratification NOT exercised** | — |
 | SCMS-040 | The editor in preview: a usable authoring surface over real content | E12 | Done — SH-8 closed; preview published; awaiting owner verification | records/evidence.jsonl · scms-evidence-040 |
 | SCMS-041 | Migrate the corpus through the governed path (content.create@1) | E8+E12 | Done — creation is governed at last; SH-15 raised; awaiting owner verification | records/evidence.jsonl · scms-evidence-041 |

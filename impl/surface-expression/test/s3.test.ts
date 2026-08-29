@@ -196,3 +196,32 @@ test("a genuine leak of a forbidden identity still fires", () => {
     `a forbidden identity actually present ('${present}') must be reported`);
   assert.equal(result.equivalent, false);
 });
+
+test("an encoded identity is still caught — the scan compares identities, not spellings", () => {
+  // An adversarial pass found the scan reporting equivalent:true while a real
+  // private slug sat in the output as numeric character references. A silent
+  // false negative in a leak check is worse than a noisy false positive.
+  const s = surface();
+  const a = expressStructural(s);
+  const b = expressLinear(s);
+  const secret = "10-forms-of-wasteful-marketing";
+
+  const encodings = [
+    secret.split("").map((c) => `&#${c.codePointAt(0)};`).join(""),
+    secret.split("").map((c) => `&#x${c.codePointAt(0)!.toString(16)};`).join(""),
+    encodeURIComponent(secret),
+  ];
+
+  for (const encoded of encodings) {
+    const leaky: ExpressionArtifact = { ...a, output: `${a.output}\n<a href="/x/${encoded}">link</a>` };
+    const result = checkEquivalence(s, leaky, b, [secret]);
+    assert.ok(result.findings.some((f) => f.property === "access-constraint"),
+      `an identity encoded as ${encoded.slice(0, 24)}... escaped the scan`);
+  }
+
+  // Control: the same surface with no leak still passes, so the scan has not
+  // simply been made to fire on everything.
+  assert.deepEqual(
+    checkEquivalence(s, a, b, [secret]).findings.filter((f) => f.property === "access-constraint"),
+    []);
+});

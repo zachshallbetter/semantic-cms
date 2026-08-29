@@ -172,3 +172,29 @@ test("a detail route resolves a real project together with its real relation", (
   assert.ok(rendered.subjects.includes("founder-cpo"),
     "the relation declared in the owner's own frontmatter resolved into the page");
 });
+
+test("a detail route refuses a subject of the wrong kind (SCMS-038)", () => {
+  // /work/<article-slug> used to render the article, because only the index
+  // routes filtered by kind. Nothing private leaked — both are public — but a
+  // URL that promises project work and serves an essay is a claim the system
+  // did not keep.
+  const article = migrated.content.find(
+    (e) => e.minimumAccess === "public"
+      && (e.body as unknown as { contentKind: string }).contentKind === "article")!.subjectId;
+
+  const wrong = renderRoute(snapshot, route("/work/[slug]"), "public", article);
+  assert.ok(isRouteFailure(wrong), `/work/${article} should not resolve an article`);
+  assert.equal((wrong as { failure: string }).failure, "subject-not-found",
+    "and it refuses the way an absent subject does, so the URL discloses nothing");
+
+  // Control: the same subject resolves under the route that does claim it.
+  const right = renderRoute(snapshot, route("/writing/[slug]"), "public", article);
+  assert.ok(!isRouteFailure(right), `/writing/${article} must still resolve`);
+
+  // And the partition holds in the other direction.
+  const project = migrated.content.find(
+    (e) => e.minimumAccess === "public"
+      && (e.body as unknown as { contentKind: string }).contentKind === "project")!.subjectId;
+  assert.ok(isRouteFailure(renderRoute(snapshot, route("/writing/[slug]"), "public", project)));
+  assert.ok(!isRouteFailure(renderRoute(snapshot, route("/work/[slug]"), "public", project)));
+});

@@ -26,9 +26,9 @@ function world() {
   j.append(doc("secret", "S", "owner"), "t");
   return j;
 }
-const conn = (lastEventId: number | null, over: Partial<Connection> = {}): Connection => ({
+const conn = (position: number | null, over: Partial<Connection> = {}): Connection => ({
   subscription: { id: "sub-1", access: "public", dependencies: ["a", "b"] },
-  lastEventId, ...over,
+  position, ...over,
 });
 
 test("a new subscriber gets a backfill burst of everything it may see", () => {
@@ -36,7 +36,9 @@ test("a new subscriber gets a backfill burst of everything it may see", () => {
   const d = deliver(j, conn(null))!;
   assert.equal(d.phase, "backfill");
   assert.deepEqual(d.keys, ["a", "b"]);
-  assert.equal(d.cursor, 1, "the cursor stops at the last RELEVANT event, not the last event");
+  // The cursor counts what THIS subscriber consumed — two relevant events, so
+  // 2. It is not a journal offset; that was the leak NR-scms-012 closed.
+  assert.equal(d.cursor, 2, "the cursor counts the subscriber's own consumed events");
 });
 
 test("a caught-up subscriber hears nothing, and silence carries no information", () => {
@@ -153,4 +155,55 @@ test("the wire carries keys, never content", () => {
   assert.ok(!JSON.stringify(d).includes("A Very Distinctive Title"),
     "a client re-fetches through access projection; the wire must not shortcut it");
   assert.deepEqual(d.keys, ["a"]);
+});
+
+
+// ── SCMS-038 findings: the cursor was a side channel, and NaN was silent ────
+
+test("the cursor reveals nothing about writes the subscriber cannot see", () => {
+  // Two deliveries with a burst of invisible writes in between. Subtracting the
+  // cursors used to yield the exact count of those writes, including subjects
+  // this subscriber does not know exist.
+  const j = new CanonJournal();
+  const sub = { id: "s1", access: "public" as const, dependencies: ["pub1", "pub2"] };
+
+  for (let i = 0; i < 3; i++) j.append(doc(`secret${i}`, `S${i}`, "owner"), "t");
+  j.append(doc("pub1", "P1", "public"), "t");
+  const first = deliver(j, { subscription: sub, position: null })!;
+
+  for (let i = 0; i < 50; i++) j.append(doc(`secretB${i}`, `SB${i}`, "owner"), "t");
+  j.append(doc("pub2", "P2", "public"), "t");
+  const second = deliver(j, { subscription: sub, position: first.cursor })!;
+
+  assert.deepEqual(first.keys, ["pub1"]);
+  assert.deepEqual(second.keys, ["pub2"]);
+  assert.equal(second.cursor - first.cursor, second.keys.length,
+    "the cursor advanced by exactly what this subscriber was shown");
+  assert.equal(second.cursor, 2, "two of its own events consumed, regardless of 53 global writes");
+});
+
+test("an unusable position restarts from the beginning and says so", () => {
+  const j = new CanonJournal();
+  const sub = { id: "s1", access: "public" as const, dependencies: ["a"] };
+  j.append(doc("a", "A", "public"), "t");
+
+  for (const bad of [Number.NaN, -1, 1.5, 99, "3" as unknown as number]) {
+    const d = deliver(j, { subscription: sub, position: bad as number });
+    assert.ok(d, `position ${String(bad)} produced silence — the NaN defect`);
+    assert.equal(d!.phase, "backfill");
+    assert.equal(d!.positionReset?.reason, "unusable-position");
+    assert.deepEqual(d!.keys, ["a"], "no event was lost");
+  }
+});
+
+test("a usable position is NOT reported as a reset — the disclosure means something", () => {
+  const j = new CanonJournal();
+  const sub = { id: "s1", access: "public" as const, dependencies: ["a"] };
+  j.append(doc("a", "A", "public"), "t");
+  const first = deliver(j, { subscription: sub, position: null })!;
+  assert.equal(first.positionReset, undefined);
+  j.append(doc("a", "A second", "public"), "t");
+  const second = deliver(j, { subscription: sub, position: first.cursor })!;
+  assert.equal(second.positionReset, undefined);
+  assert.equal(second.phase, "live");
 });

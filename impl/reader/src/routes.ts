@@ -30,6 +30,16 @@ import type { ResolvedSurface, SurfaceRequest, AccessLevel } from "../../surface
 export interface RouteDeclaration {
   /** The site path, as readers know it. */
   path: string;
+  /**
+   * Content kinds this route may present as its subject.
+   *
+   * The index routes filter by kind through the lens; the detail routes did
+   * not, so `/work/<an-article-slug>` rendered an article under a URL that
+   * promises project work (SCMS-038). Nothing private leaked — both were
+   * public — but the partition the URL scheme asserts was not enforced, which
+   * makes the URL a claim the system did not keep.
+   */
+  kinds?: string[];
   /** How the route asks Canon for its content. Access is the READER's, not the route's. */
   request: (access: AccessLevel, subject?: string) => SurfaceRequest;
   /** Detail routes take a subject from the path; index routes do not. */
@@ -49,6 +59,7 @@ export const READER_ROUTES: RouteDeclaration[] = [
   {
     path: "/writing/[slug]",
     parameterized: true,
+    kinds: ["article", "note"],
     request: (access, subject) => ({
       profile: "focus", purpose: "understand", subject, access,
       lens: { traversal: { radius: 1 } },
@@ -65,6 +76,7 @@ export const READER_ROUTES: RouteDeclaration[] = [
   {
     path: "/work/[slug]",
     parameterized: true,
+    kinds: ["project", "role"],
     request: (access, subject) => ({
       profile: "focus", purpose: "understand", subject, access,
       lens: { traversal: { radius: 1 } },
@@ -84,6 +96,18 @@ export function renderRoute(
 ): RenderedRoute | { path: string; failure: string } {
   const surface = resolveSurface(snapshot as never, route.request(access, subject));
   if (isFailure(surface)) return { path: route.path, failure: surface.failure };
+
+  // A detail route presents one subject; it must be of a kind this route
+  // claims. Refusing as `subject-not-found` keeps the §5 disclosure rule: a
+  // reader learns that this URL has no such page, not that the subject exists
+  // elsewhere.
+  if (route.kinds && subject !== undefined) {
+    const kind = (snapshot as { subjects: Array<{ id: string; kind: string }> })
+      .subjects.find((s) => s.id === subject)?.kind;
+    if (kind === undefined || !route.kinds.includes(kind)) {
+      return { path: route.path, failure: "subject-not-found" };
+    }
+  }
   return {
     path: route.parameterized ? route.path.replace("[slug]", subject ?? "") : route.path,
     surface,

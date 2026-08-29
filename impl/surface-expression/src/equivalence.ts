@@ -15,6 +15,33 @@ import type { ExpressionArtifact } from "./expressions.ts";
 
 const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
+/**
+ * Decode the representations an HTML or URL emitter can produce, so the leak
+ * scan compares identities rather than spellings.
+ *
+ * An adversarial pass (SCMS-038) showed the boundary-anchored scan reporting
+ * `equivalent: true` while a real private slug sat in the output as numeric
+ * character references. That is a false NEGATIVE, and strictly worse than the
+ * false positive it replaced in NR-scms-011, because it is silent.
+ *
+ * **What this does not do, stated rather than implied:** it cannot see an
+ * identity that an expression splits across separate attributes or interleaves
+ * with markup. This scan is a backstop against an adapter leaking by accident —
+ * the realistic failure — not a proof against one encoding deliberately. The
+ * claim it supports is worded to match, and SH-19 records the gap.
+ */
+function normalizeForScan(output: string): string {
+  let out = output;
+  // Numeric character references, decimal and hex.
+  out = out.replace(/&#(\d+);/g, (_, d: string) => String.fromCodePoint(Number(d)));
+  out = out.replace(/&#[xX]([0-9a-fA-F]+);/g, (_, h: string) => String.fromCodePoint(parseInt(h, 16)));
+  // The named references our own escaper emits.
+  out = out.replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"');
+  // Percent-encoding, which any href may carry.
+  try { out = decodeURIComponent(out); } catch { /* leave as-is on malformed input */ }
+  return out;
+}
+
 export interface EquivalenceFinding {
   property:
     | "member-identity" | "semantic-grouping" | "required-priority"
@@ -118,7 +145,7 @@ export function checkEquivalence(
   for (const token of forbiddenTokens) {
     const boundary = new RegExp(`(^|[^A-Za-z0-9_-])${escapeRegExp(token)}([^A-Za-z0-9_-]|$)`);
     for (const [label, art] of [["A", a], ["B", b]] as const) {
-      if (boundary.test(art.output) || art.presentedOrder.includes(token)) {
+      if (boundary.test(normalizeForScan(art.output)) || art.presentedOrder.includes(token)) {
         findings.push({ property: "access-constraint", detail: `${label} leaked '${token}'` });
       }
     }
