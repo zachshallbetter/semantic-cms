@@ -9,14 +9,14 @@
     "repositories": [
       {
         "path": ".",
-        "commit": "f980c3411f3c591d733e7da9524332c48810d4fc",
+        "commit": "5e70c9948c5d16b3cf47cca469fd73f0abaf4c10",
         "branch": "main",
         "dirty": true,
         "remote": "https://github.com/zachshallbetter/semantic-cms.git"
       }
     ]
   },
-  "aggregateSourceDigest": "dae03b049a2653075bf014ca784aa3fe9b9cea0fe8bad1ec4a88d31f05cb1928",
+  "aggregateSourceDigest": "eea09528901b3631ffaf8b9c6fd7b437187083e8756e719da5f39cde16e908e2",
   "sources": [
     {
       "path": ".agents/skills/compile-context/SKILL.md",
@@ -100,8 +100,8 @@
     },
     {
       "path": "SPEC_HEALTH.md",
-      "bytes": 19823,
-      "sha256": "96628050e9c3ca82524c5ec34b9689dca844319b864338cb866b01a09bc3ebe0"
+      "bytes": 20548,
+      "sha256": "0c76f9e662e647454978267a903f6620b5312b980dbdd4f95a7131449904f6d3"
     },
     {
       "path": "VERSION",
@@ -240,8 +240,8 @@
     },
     {
       "path": "impl/canon/src/freeze.ts",
-      "bytes": 6390,
-      "sha256": "1d1032778ffb835ea23c0515615fc99d7fe7797a0f6d2d64f2ba1a24a8d7bd50"
+      "bytes": 6873,
+      "sha256": "f6d4f8dfe4e85900337063e76cf5baa57c039d76132c07431cccff201078d7e0"
     },
     {
       "path": "impl/canon/src/journal.ts",
@@ -455,13 +455,13 @@
     },
     {
       "path": "impl/reader/src/routes.ts",
-      "bytes": 7156,
-      "sha256": "8e05c8f2f90cc5a84540d83fe81cd1104b3fa98e2740dfabb75385b30c6dc7aa"
+      "bytes": 7981,
+      "sha256": "803c716302c5170748bc87803b1f44d9a78ff987fcbe762a01c642a01cfb4030"
     },
     {
       "path": "impl/reader/test/reader.test.ts",
-      "bytes": 9965,
-      "sha256": "6d24fe5eb70c5fc68e87075014baf6f7a61a8ab65b8b2da76cf7b713b2065bc1"
+      "bytes": 12725,
+      "sha256": "7f45d7aec99245b016826e33fd44522b1393e68527bff19cd9f95fe76e52d7e9"
     },
     {
       "path": "impl/schema/package.json",
@@ -485,8 +485,8 @@
     },
     {
       "path": "impl/site/server/serve.ts",
-      "bytes": 8127,
-      "sha256": "d89788c3e6a903494dc4ca5511a08a64512d6bdeee4091cff1a81a2d11323f78"
+      "bytes": 9149,
+      "sha256": "8fd1aeb13e5178a7ad47f2ddc23c51b5a0dbeac59377334e6ad46dba0e54362f"
     },
     {
       "path": "impl/site/src/express.ts",
@@ -505,8 +505,8 @@
     },
     {
       "path": "impl/site/test/site.test.ts",
-      "bytes": 7287,
-      "sha256": "5920464fe4505ec9d8c11855e33c8a3b51e88d1fe84c1d0e78d7931ddeec03bf"
+      "bytes": 8285,
+      "sha256": "55c64a2558eeba71e494991f69c49222b1c6aa23b6155b2e5c425815eb34d6af"
     },
     {
       "path": "impl/surface-expression/package.json",
@@ -540,13 +540,13 @@
     },
     {
       "path": "impl/surface-resolver/src/resolver.ts",
-      "bytes": 12570,
-      "sha256": "7f5fdcb92996409fd3c7341a76dcbb7e1392bf7d971bb9b9842b17718f2b5c70"
+      "bytes": 14461,
+      "sha256": "048ef518acfe8eed929a85b828e4014a35004ac70824eae2249b85d80259f661"
     },
     {
       "path": "impl/surface-resolver/src/types.ts",
-      "bytes": 5875,
-      "sha256": "4af426345fe367e3aea65aac416e8f480403b7922ec1b8e316599600ba3b40b2"
+      "bytes": 6255,
+      "sha256": "cac59136fb7f0f364d618430d8202ca3515b9ee028865dc1a1f671257cb834f2"
     },
     {
       "path": "impl/surface-resolver/test/resolver.test.ts",
@@ -695,8 +695,8 @@
     },
     {
       "path": "work/GRAPH.md",
-      "bytes": 12821,
-      "sha256": "e0b4cb2a82a51529595f2f3f3ead7be29c7e90e9d8c510c1f6c4c85d1ddcdaea"
+      "bytes": 13028,
+      "sha256": "dd944efaa20c13df7f3a76b5cc55742204fccfb56f3ed8229fba40657530abb1"
     },
     {
       "path": "work/SCMS-001.md",
@@ -897,6 +897,11 @@
       "path": "work/SCMS-048.md",
       "bytes": 3320,
       "sha256": "5881e7fcc0c6e2ba70e1dd1e699a0bd37936d7703614800762fd6d7691f529e9"
+    },
+    {
+      "path": "work/SCMS-050.md",
+      "bytes": 4068,
+      "sha256": "214801372dd88501f5d8201ef90b49736d3f2a225c7f019354846b71beee8a25"
     }
   ]
 }

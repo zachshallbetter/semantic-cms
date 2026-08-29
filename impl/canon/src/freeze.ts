@@ -44,6 +44,15 @@ export interface FrozenSnapshot {
   snapshotId: string;
   subjects: Array<{
     id: string; kind: string; access: AccessLevel; entitled?: boolean;
+    /**
+     * The publication axis, carried so the read path can consult it.
+     *
+     * It was absent, and the consequence was that nothing downstream could:
+     * reader routes showed never-published drafts and unpublished records to
+     * the public, and `content.unpublish@1` — the compensation SCMS-020 built
+     * — removed nothing from any surface (NR-scms-015).
+     */
+    publicationState: string;
     /** The subject's Canon revision — lets surface fingerprints track content. */
     revision?: string;
     attrs?: Record<string, string | number | boolean | null>;
@@ -83,6 +92,7 @@ export function freeze(journal: CanonJournal, snapshotId: string): FrozenSnapsho
         id: entry.envelope.subjectId,
         kind: b.contentKind,
         access: entry.envelope.minimumAccess,
+        publicationState: entry.envelope.state.publicationState,
         ...(entry.envelope.revision === undefined ? {} : { revision: entry.envelope.revision }),
         ...(b.entitled === undefined ? {} : { entitled: b.entitled }),
         ...(b.attrs === undefined ? {} : { attrs: b.attrs }),

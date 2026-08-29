@@ -110,8 +110,24 @@ const routeFor = (p: string) => READER_ROUTES.find((r) => r.path === p)!;
 
 function page(rendered: RenderedRoute, title: string): string {
   const art = expressReaderWeb(rendered.surface, hydrate);
+
+  // An empty surface is a legitimate surface, and a blank page reads as broken.
+  // §8.3's rule — failure degrades to truth, not to a spinner — applies to
+  // emptiness too: say what is true and what would change it.
+  const empty = art.presentedOrder.length === 0
+    ? `<article><h1>Nothing published yet</h1>
+         <p class="dek">This route resolves correctly and has no members. Every record in Canon
+         is currently <code>unpublished</code>: publication is qualification plus promotion, and
+         nothing has crossed that gate yet.</p>
+         <p class="dek">Migration creates records through <code>content.create@1</code>, which
+         refuses to create already-published content — a caller must not be able to supply the
+         value that decides the gate. Promoting the ${imported.publicationNotCarried.length}
+         records that were published in the source is reconciliation work (SCMS-029), not
+         something the importer may do on its own.</p></article>`
+    : "";
+
   return renderShell({
-    title: `${title} · ${SITE_TITLE}`, siteTitle: SITE_TITLE, body: art.output,
+    title: `${title} · ${SITE_TITLE}`, siteTitle: SITE_TITLE, body: empty + art.output,
     provenance: { snapshot: rendered.surface.sourceSnapshot, fingerprint: rendered.surface.fingerprint },
   });
 }

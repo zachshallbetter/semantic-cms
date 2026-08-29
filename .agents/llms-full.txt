@@ -1,6 +1,6 @@
 # PROJECT COMPILED CONTEXT
 Generator: 0.5.0
-Source digest: dae03b049a2653075bf014ca784aa3fe9b9cea0fe8bad1ec4a88d31f05cb1928
+Source digest: eea09528901b3631ffaf8b9c6fd7b437187083e8756e719da5f39cde16e908e2
 
 > Generated projection. Canonical sources remain authoritative.
 
@@ -1485,6 +1485,7 @@ decision record) — never by deletion.
 | SH-17 | **CAVEAT — consequence model** | Lag permits publishing | `permits()` allows consequential action in `stale-but-safe`, which is where a lagged client lands. §8.6 qualifies that as permitted **after converge**, and convergence is modelled nowhere — so a client that has been told it is 37 events behind can still promote against a view it knows is stale. Found while building SCMS-035; not fixed there, because whether lag blocks promotion is a consequence-model decision rather than an implementation detail. | **The mechanism now exists** (SCMS-048: `converge()` acknowledges remote activity and leaves the client current, refusing in the four states catching up cannot resolve). What remains is the policy: flip `permits('stale-but-safe','consequential')` to require convergence, or make lag an explicit promotion gate in the consequence profile. One line either way. Needs owner disposition. |
 | SH-19 | **CAVEAT — instrument limit** | The leak scan compares identities, not all spellings | After NR-scms-013 the S3 access-constraint check normalizes character references and percent-encoding before scanning, but an identity split across separate attributes or interleaved with markup is still invisible to it. It is a backstop against an adapter leaking by accident — the realistic failure — and not a proof against one encoding deliberately. | Either accept the limit explicitly in the S3 claim wording (current posture), or compare against a parsed DOM rather than a string. |
 | SH-20 | **THIN** | Intra-group order is unprotected | The S3 `required-priority` check only compares members whose priority values differ, and every member of a collection group shares a priority — so reversing an entire index is not caught. Probably correct, since priority is semantic and its realization is free, but it means order within a group carries no cross-expression guarantee. Found by the NR-scms-014 pass. | Decide whether intra-group order is a protected property. If it is not, say so in the S3 conformance wording so its absence is declared rather than emergent. |
+| SH-21 | **GAP — migration** | The corpus is unpublished | `content.create@1` refuses to create already-published content (correctly — a caller must not supply the value deciding the gate), so all 215 migrated records arrive `unpublished`, including the 61 that were published in the source. Since SCMS-050 made the read path consult publication, the site correctly renders empty. | Promote those records through the real gate, which requires attestations and therefore intersects SH-13. Part of SCMS-029's reconciliation; not something the importer may do on its own. |
 | ~~SH-12~~ | **RESOLVED** | Wire protocol concretes | *Closed by SCMS-024:* `schemas/scms/envelope.schema.json` (closed, hash-pattern-typed, freshness rule encoded conditionally) and `schemas/scms/golden/canonicalization.json` (4 positive vectors + 1 negative proving the check can fail). Residual limitation, recorded not hidden: no JSON-Schema library is available under the zero-dependency policy, so the schema document is not meta-validated and schema/runtime agreement is asserted case-wise. |
 
 ## Claim register
@@ -1501,7 +1502,7 @@ above its rung.
 | Dependencies are pinned and consumable | **Documented + hash-locked** | All pins content-digested (alignment record); SES and FPB re-pinned upstream-first | Admission scans (P17) per pin; UD-8/UD-9 closed |
 | Surface resolution is access-safe | **Implemented + Tested** | SCMS-008/014: hidden state never enters a dependency set, and cannot move an output, trace, or invalidation (byte-identical results) | Adversarial review of the access boundary by an independent party |
 | One surface can be expressed two materially different ways | **S3 conformance (narrow path)** | SCMS-009: 10 vectors, six preserved properties, morphology provably differing | S4 — and S4 must run **outside** this repository (SCMS-010) |
-| Publishing is qualification **plus** promotion, never a boolean | **Implemented + Tested — with one claim corrected and one gap open** | SCMS-013/020: promotion refuses non-qualified, under-verified, and mismatched candidates; compensation exists and round-trips. **This row previously also claimed 'unauthorised'. That was false** — NR-scms-005 showed no handler authorized anything, and an anonymous caller could promote an owner-private draft. Authorization now exists (SCMS-031) and is tested by reason, not just by outcome | Attestations that a caller cannot write for themselves (scms-blocker-003 / SH-13) |
+| Publishing is qualification **plus** promotion, never a boolean | **Implemented + Tested — with one claim corrected and one gap open** | SCMS-013/020: promotion refuses non-qualified, under-verified, and mismatched candidates; compensation exists and round-trips. **This row previously also claimed 'unauthorised'. That was false** — NR-scms-005 showed no handler authorized anything, and an anonymous caller could promote an owner-private draft. Authorization now exists (SCMS-031) and is tested by reason, not just by outcome | Attestations a caller cannot write for themselves (scms-blocker-003 / SH-13). **SCMS-050 corrected a larger gap: until then the read path never consulted publication at all, so this entire gate had no effect on what a reader saw** |
 | No persistent mutation outside a registered contract | **Implemented + Tested (source-level), and authorized as of SCMS-031** | SCMS-012 write path; SCMS-023 boundary gate with a self-test proving it can fail; SCMS-031 adds the authority gate the write path had been missing entirely (NR-scms-005), and NR-scms-006 corrects that gate after an adversarial pass found it failing OPEN on prototype-chain keys | Runtime capability enforcement, not just source-level |
 | Declared content types are enforced | **Implemented + Tested (where declared)** | SCMS-022: the governed write consults the declared type; opt-in, because types that do not exist are not pretended to exist | A declared type for every content kind in use |
 | R1 live co-authoring | **Partially established** | `required` lane proven (SCMS-012), `bounded` lane proven (SCMS-021); **free lane NOT built** — blocked on P7/P22 | Owner disposition of P7/P22, then the free lane |
@@ -8707,6 +8708,15 @@ export interface FrozenSnapshot {
   snapshotId: string;
   subjects: Array<{
     id: string; kind: string; access: AccessLevel; entitled?: boolean;
+    /**
+     * The publication axis, carried so the read path can consult it.
+     *
+     * It was absent, and the consequence was that nothing downstream could:
+     * reader routes showed never-published drafts and unpublished records to
+     * the public, and `content.unpublish@1` — the compensation SCMS-020 built
+     * — removed nothing from any surface (NR-scms-015).
+     */
+    publicationState: string;
     /** The subject's Canon revision — lets surface fingerprints track content. */
     revision?: string;
     attrs?: Record<string, string | number | boolean | null>;
@@ -8746,6 +8756,7 @@ export function freeze(journal: CanonJournal, snapshotId: string): FrozenSnapsho
         id: entry.envelope.subjectId,
         kind: b.contentKind,
         access: entry.envelope.minimumAccess,
+        publicationState: entry.envelope.state.publicationState,
         ...(entry.envelope.revision === undefined ? {} : { revision: entry.envelope.revision }),
         ...(b.entitled === undefined ? {} : { entitled: b.entitled }),
         ...(b.attrs === undefined ? {} : { attrs: b.attrs }),
@@ -16106,7 +16117,16 @@ FILE: impl/reader/src/routes.ts
  *   **A feed is an expression of the same ResolvedSurface as its page — never a
  *   second query.**
  *
- * Index routes carry `where listed === true`. Unlisted content is public — a
+ * Every reader route carries `require: { publicationState: ["promoted"] }`.
+ * Publication gates REACHABILITY; listedness gates DISCOVERY. They are different
+ * axes and §3.5 exists to keep them apart: an unlisted published piece is
+ * readable by link, and an unpublished piece is readable by nobody, however
+ * public its access level. Until SCMS-050 the read path consulted neither the
+ * publication axis nor anything derived from it, so a never-published draft
+ * appeared on the public site and `content.unpublish@1` removed nothing from it
+ * (NR-scms-015).
+ *
+ * Index routes additionally carry `where listed === true`. Unlisted content is public — a
  * reader with the link may read it — but it appears in no index, no feed, and no
  * sitemap. Discovery *includes* on the flag rather than excluding on its
  * negation, so an entry with no flag at all stays out of the index.
@@ -16148,7 +16168,11 @@ export const READER_ROUTES: RouteDeclaration[] = [
     parameterized: false,
     request: (access) => ({
       profile: "collection", purpose: "discover", access,
-      lens: { include: { kinds: ["article", "note"] }, where: [{ attr: "listed", equals: true }] },
+      lens: {
+        include: { kinds: ["article", "note"] },
+        where: [{ attr: "listed", equals: true }],
+        require: { publicationState: ["promoted"] },
+      },
     }),
   },
   {
@@ -16157,7 +16181,7 @@ export const READER_ROUTES: RouteDeclaration[] = [
     kinds: ["article", "note"],
     request: (access, subject) => ({
       profile: "focus", purpose: "understand", subject, access,
-      lens: { traversal: { radius: 1 } },
+      lens: { traversal: { radius: 1 }, require: { publicationState: ["promoted"] } },
     }),
   },
   {
@@ -16165,7 +16189,11 @@ export const READER_ROUTES: RouteDeclaration[] = [
     parameterized: false,
     request: (access) => ({
       profile: "collection", purpose: "discover", access,
-      lens: { include: { kinds: ["project", "role"] }, where: [{ attr: "listed", equals: true }] },
+      lens: {
+        include: { kinds: ["project", "role"] },
+        where: [{ attr: "listed", equals: true }],
+        require: { publicationState: ["promoted"] },
+      },
     }),
   },
   {
@@ -16174,7 +16202,7 @@ export const READER_ROUTES: RouteDeclaration[] = [
     kinds: ["project", "role"],
     request: (access, subject) => ({
       profile: "focus", purpose: "understand", subject, access,
-      lens: { traversal: { radius: 1 } },
+      lens: { traversal: { radius: 1 }, require: { publicationState: ["promoted"] } },
     }),
   },
 ];
@@ -16341,14 +16369,31 @@ test("a private entry's detail route is refused, not rendered empty", () => {
   assert.ok(["subject-not-found", "subject-inaccessible"].includes((r as { failure: string }).failure));
 });
 
-test("the owner sees more than the public reader — the difference is exactly the private set", () => {
+test("the reader route shows the same published set to everyone; access still narrows it", () => {
+  // Before SCMS-050 this asserted that the owner sees drafts here. That premise
+  // was the defect: the reader routes are the SITE, and the site is the site
+  // regardless of who is looking. Unpublished work belongs to the editor, which
+  // is a different surface with a different lens.
   const pub = new Set(render("/writing", "public").subjects);
   const owner = new Set(render("/writing", "owner").subjects);
   for (const s of pub) assert.ok(owner.has(s), "the owner sees everything the public sees");
-  const extra = [...owner].filter((s) => !pub.has(s));
-  assert.ok(extra.length > 0, "the owner sees drafts");
-  for (const s of extra) assert.ok(privateSubjects.has(s), `${s} appeared for the owner but is not private`);
+
+  // Whatever the owner sees and the public does not is private — access still
+  // narrows. For this corpus that set is empty, because every private entry is
+  // also unpublished and the publication gate removes it for both.
+  for (const s of [...owner].filter((x) => !pub.has(x))) {
+    assert.ok(privateSubjects.has(s), `${s} appeared for the owner but is not private`);
+  }
+
+  // And nothing unpublished reaches either view — the property that was missing.
+  const unpublished = new Set(migrated.content
+    .filter((e) => e.state.publicationState !== "promoted").map((e) => e.subjectId));
+  for (const s of [...pub, ...owner]) {
+    assert.ok(!unpublished.has(s), `${s} is unpublished and reached a reader route`);
+  }
+  assert.ok(pub.size > 0, "and the route is not trivially empty");
 });
+
 
 test("the feed is derived from the page's surface, and cannot reach past it", () => {
   const rendered = render("/writing", "public");
@@ -16469,6 +16514,42 @@ test("a detail route refuses a subject of the wrong kind (SCMS-038)", () => {
       && (e.body as unknown as { contentKind: string }).contentKind === "project")!.subjectId;
   assert.ok(isRouteFailure(renderRoute(snapshot, route("/writing/[slug]"), "public", project)));
   assert.ok(!isRouteFailure(renderRoute(snapshot, route("/work/[slug]"), "public", project)));
+});
+
+test("unpublishing removes a record from the site (SCMS-050)", () => {
+  // content.unpublish@1 was built in SCMS-020 because promote declared a
+  // compensation that did not exist. The compensation then existed and removed
+  // nothing from any reader surface, because the read path never consulted the
+  // publication axis. This is the vector that would have caught it.
+  const j = new CanonJournal();
+  const mk = (id: string, publicationState: string) => ({
+    schemaVersion: "scms-0.1", subjectId: id,
+    compatibility: { protocol: "scms-0.1", subjectSchema: "article@1" },
+    provenance: { kind: "declared", authority: "project.owner", source: "t" },
+    minimumAccess: "public",
+    body: { kind: "Content", contentKind: "article",
+            slots: { title: [{ kind: "text", value: id }] }, attrs: { listed: true } },
+    state: { semanticMaturity: "complete", evidenceState: "qualified",
+             publicationState, deliveryState: "unpropagated" },
+  });
+  j.append(mk("published", "promoted") as never, "t");
+  j.append(mk("never-published", "unpublished") as never, "t");
+  j.append(mk("taken-down", "unpublished") as never, "t");
+
+  const shown = renderRoute(freeze(j, "w") as never, route("/writing"), "public");
+  assert.ok(!isRouteFailure(shown));
+  assert.deepEqual((shown as { subjects: string[] }).subjects, ["published"],
+    "a never-published draft and a taken-down record are both absent");
+
+  // Reachability, not just listing: an unpublished record has no page either.
+  for (const gone of ["never-published", "taken-down"]) {
+    assert.ok(isRouteFailure(
+      renderRoute(freeze(j, "w") as never, route("/writing/[slug]"), "public", gone)),
+      `${gone} must not be readable by direct link`);
+  }
+  // Control: the published one is.
+  assert.ok(!isRouteFailure(
+    renderRoute(freeze(j, "w") as never, route("/writing/[slug]"), "public", "published")));
 });
 
 
@@ -16929,8 +17010,24 @@ const routeFor = (p: string) => READER_ROUTES.find((r) => r.path === p)!;
 
 function page(rendered: RenderedRoute, title: string): string {
   const art = expressReaderWeb(rendered.surface, hydrate);
+
+  // An empty surface is a legitimate surface, and a blank page reads as broken.
+  // §8.3's rule — failure degrades to truth, not to a spinner — applies to
+  // emptiness too: say what is true and what would change it.
+  const empty = art.presentedOrder.length === 0
+    ? `<article><h1>Nothing published yet</h1>
+         <p class="dek">This route resolves correctly and has no members. Every record in Canon
+         is currently <code>unpublished</code>: publication is qualification plus promotion, and
+         nothing has crossed that gate yet.</p>
+         <p class="dek">Migration creates records through <code>content.create@1</code>, which
+         refuses to create already-published content — a caller must not be able to supply the
+         value that decides the gate. Promoting the ${imported.publicationNotCarried.length}
+         records that were published in the source is reconciliation work (SCMS-029), not
+         something the importer may do on its own.</p></article>`
+    : "";
+
   return renderShell({
-    title: `${title} · ${SITE_TITLE}`, siteTitle: SITE_TITLE, body: art.output,
+    title: `${title} · ${SITE_TITLE}`, siteTitle: SITE_TITLE, body: empty + art.output,
     provenance: { snapshot: rendered.surface.sourceSnapshot, fingerprint: rendered.surface.fingerprint },
   });
 }
@@ -17395,14 +17492,31 @@ test("a detail page renders the article body and its real relation", () => {
   assert.notDeepEqual(art.morphology, {}, "and the adapter chose its own container forms");
 });
 
-test("the owner's view differs from the public view by exactly the private set", () => {
+test("the reader route shows the same published set to everyone; access still narrows it", () => {
+  // Before SCMS-050 this asserted that the owner sees drafts here. That premise
+  // was the defect: the reader routes are the SITE, and the site is the site
+  // regardless of who is looking. Unpublished work belongs to the editor, which
+  // is a different surface with a different lens.
   const pub = new Set(render("/writing", "public").subjects);
   const owner = new Set(render("/writing", "owner").subjects);
-  for (const s of pub) assert.ok(owner.has(s));
-  const extra = [...owner].filter((s) => !pub.has(s));
-  assert.ok(extra.length > 0);
-  for (const s of extra) assert.ok(privateSubjects.has(s));
+  for (const s of pub) assert.ok(owner.has(s), "the owner sees everything the public sees");
+
+  // Whatever the owner sees and the public does not is private — access still
+  // narrows. For this corpus that set is empty, because every private entry is
+  // also unpublished and the publication gate removes it for both.
+  for (const s of [...owner].filter((x) => !pub.has(x))) {
+    assert.ok(privateSubjects.has(s), `${s} appeared for the owner but is not private`);
+  }
+
+  // And nothing unpublished reaches either view — the property that was missing.
+  const unpublished = new Set(migrated.content
+    .filter((e) => e.state.publicationState !== "promoted").map((e) => e.subjectId));
+  for (const s of [...pub, ...owner]) {
+    assert.ok(!unpublished.has(s), `${s} is unpublished and reached a reader route`);
+  }
+  assert.ok(pub.size > 0, "and the route is not trivially empty");
 });
+
 
 test("the page states what it was derived from", () => {
   const rendered = render("/writing", "public");
@@ -18073,7 +18187,7 @@ FILE: impl/surface-resolver/src/resolver.ts
  * - the focus anchor participates regardless of include.kinds (kinds scope
  *   traversal candidates), but remains subject to where-predicates and
  *   entitlement withholding;
- * - eligibility precedence is kinds → where → entitlement, first non-eligible
+ * - eligibility precedence is require → kinds → where → entitlement, first non-eligible
  *   outcome wins;
  * - `subject-inaccessible` is disclosed only at owner access and above; below
  *   that it maps to `subject-not-found` (SSS §10's declared less-revealing
@@ -18145,6 +18259,22 @@ export function resolveSurface(
         : { failure: "subject-not-found", message: "no such subject" };
     }
     anchor = subjects.get(raw.id);
+
+    // A state predicate can disqualify the anchor itself, and a focus surface
+    // whose subject is disqualified is not an empty page — it is no page. Before
+    // SCMS-050 this returned a surface with no members, so a detail route for an
+    // unpublished record rendered blank instead of 404ing.
+    //
+    // The disclosure mapping is the same one used above: below owner access the
+    // reason is not revealed, because "this exists but is not published" tells
+    // an unauthorized reader that it exists.
+    const required = request.lens?.require?.publicationState;
+    if (required && anchor && !required.includes(anchor.publicationState ?? "")) {
+      return rank >= ACCESS_RANK.owner
+        ? { failure: "subject-inaccessible",
+            message: `subject exists but its publication state is '${anchor.publicationState}'` }
+        : { failure: "subject-not-found", message: "no such subject" };
+    }
   }
 
   // BIND CONTEXT — only the declared temporal coordinate enters resolution.
@@ -18308,6 +18438,28 @@ function evaluateEligibility(
   rank: number,
 ): { outcome: EligibilityOutcome; reason: string; basis: ResolutionBasis[] } {
   const isAnchor = request.profile === "focus" && c.depth === 0;
+
+  // State predicates run FIRST and apply to the anchor too. A focus route may
+  // waive the kind filter for its own subject — that is what makes /work/<slug>
+  // resolve the thing you asked for — but it may not waive publication, or an
+  // unpublished draft would be readable by direct link (NR-scms-015).
+  const requiredPublication = request.lens?.require?.publicationState;
+  if (requiredPublication) {
+    const actual = c.subject.publicationState;
+    if (actual === undefined) {
+      // Absent stays distinguishable from ineligible (SSS-INV-013), and still
+      // fails closed, because only `eligible` is ever included.
+      return { outcome: "unknown", reason: "publication state absent", basis: [] };
+    }
+    if (!requiredPublication.includes(actual)) {
+      return {
+        outcome: "ineligible",
+        reason: `publication state '${actual}' not in [${requiredPublication.join(", ")}]`,
+        basis: [],
+      };
+    }
+  }
+
   const kinds = request.lens?.include?.kinds;
   if (!isAnchor && kinds && !kinds.includes(c.subject.kind)) {
     return { outcome: "ineligible", reason: `kind '${c.subject.kind}' not in lens.include.kinds`, basis: [] };
@@ -18432,6 +18584,14 @@ export interface SurfaceLens {
     relationTypes?: string[];
   };
   where?: Array<{ attr: string; equals: string | number | boolean }>;
+  /**
+   * Subject-state predicates evaluated at candidacy, alongside access and kind.
+   *
+   * Distinct from `where`, which reads authored attributes: these read the
+   * record's own state axes, which no caller sets directly. Publication is the
+   * first, because the read path had no way to consult it at all (NR-scms-015).
+   */
+  require?: { publicationState?: string[] };
   orderBy?: { attr: string; dir: "asc" | "desc" };
   // `limit` is deliberately absent from the narrow path: a declared field the
   // resolver would not consume is decoration (P27). It returns with real
@@ -24106,6 +24266,7 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-047 | The inspector's three tabs (owner design direction) | E12 | Done — SSS/SES panels exposed with member basis; unbuilt mockup parts recorded, not started | records/evidence.jsonl · scms-evidence-047 |
 | SCMS-048 | The converge step (SH-17 mechanism) and the P27 declaration-parity gate | E6+E0 | Done — mechanism landed, policy flip left to owner; parity gate in CI | records/evidence.jsonl · scms-evidence-048 |
 | SCMS-049 | Extend the composed proof to outbox, wire, editor and site | E7 | Done — four new seams; composite invariant asserts the Canon/delivered boundary both ways | records/evidence.jsonl · scms-evidence-049 |
+| SCMS-050 | The read path consults the publication axis (NR-scms-015) | E8 | Done — promotion now decides what readers see; site renders empty and says why | records/evidence.jsonl · scms-evidence-050 |
 | SCMS-044 | Route the editor through the surface pipeline it currently bypasses | E12 | Done — SH-16 closed; two duplicate access checks removed; awaiting owner verification | records/evidence.jsonl · scms-evidence-044 |
 | SCMS-018 | R1 live co-authoring — **free lane only** (convergent merge) | E1 | **Blocked** — awaiting disposition of P7/P22 on PR #28 | records/blockers · scms-blocker-001 |
 | SCMS-010 | S4 cross-domain portability: a materially unrelated project (outside this repository, per owner doctrine 2026-08-28) consumes @semantic-systems/surface unmodified | external | Backlog — executes outside scms; scms records the conformance result | — |
@@ -26677,4 +26838,84 @@ produces information. If the owner declines P27, the CI step is one line to remo
 
 **Done — a qualifier in §8.6 has a referent, and the failure class with the most instances now has a
 checker.**
+
+
+========================================================================
+FILE: work/SCMS-050.md
+========================================================================
+
+# SCMS-050 — The read path consults the publication axis
+
+**Intent ref:** PROJECT_INTENT.md · **Epic:** E8 · **Effect class:** E1
+**Assigned by:** coordinator goal, on noticing the site server never mentioned publication.
+**State:** Ready → Claimed → Done (closing state at bottom)
+
+## The defect
+
+`publicationState` appeared **nowhere** in the read path — not in the reader routes, not in the
+resolver, not even in the frozen snapshot, which did not carry the field at all.
+
+Reproduced before fixing:
+
+```
+snapshot carries publicationState? false
+/writing shows: [ 'actually-published', 'never-published-draft', 'was-unpublished-again' ]
+```
+
+A never-published draft and a record that had been taken down both appeared on the public site,
+beside the genuinely published one.
+
+## Why this is the largest instance of the failure class
+
+The whole qualification-and-promotion apparatus — EQP profiles, evidence records, attestations,
+`content.promote@1` at effect class E3, its `reauthenticate` verification, the compensation
+`content.unpublish@1` — **had no consumer in the read path.** The system's central claim, that
+*publishing is qualification plus promotion and never a boolean*, had no effect on what a reader
+sees.
+
+The sharpest part: `content.unpublish@1` exists because SCMS-020 found that *"promote declared a
+compensation interaction that did not exist."* The compensation then existed and **removed nothing
+from any surface**. The same failure, one level up, and I did not look for it there.
+
+## The fix
+
+- `freeze()` carries `publicationState` into snapshot subjects.
+- `SurfaceLens` gains `require: { publicationState }` — a **state** predicate, distinct from `where`,
+  which reads authored attributes. State axes are not caller-set, so they belong in their own clause.
+- The resolver evaluates it **first**, before kinds, and **applies it to the focus anchor**. A focus
+  route may waive the kind filter for its own subject — that is what makes a detail page resolve
+  what you asked for — but it may not waive publication, or an unpublished draft stays readable by
+  direct link.
+- A disqualified anchor is a **failure, not an empty surface**. Previously a detail route for an
+  unpublished record returned a surface with no members, so the page rendered blank instead of
+  404ing. The disclosure mapping is the existing one: below owner access the reason is withheld,
+  because *"this exists but is not published"* tells an unauthorized reader that it exists.
+- Absent publication state resolves to `unknown`, not `ineligible` — SSS-INV-013 keeps them
+  distinguishable — and still fails closed, because only `eligible` is ever included.
+
+Publication gates **reachability**; listedness gates **discovery**. Different axes, which is what
+§3.5 exists to protect.
+
+## Two vectors changed their meaning, correctly
+
+`the owner sees more than the public reader` asserted that an owner sees drafts on a reader route.
+That premise *was* the defect: the reader routes are the **site**, and the site is the site
+regardless of who is looking. Unpublished work belongs to the editor, a different surface with a
+different lens. Rewritten to assert what should hold — public ⊆ owner, every difference is private,
+and nothing unpublished reaches either view.
+
+## The honest consequence
+
+**The site now renders empty.** `content.create@1` refuses to create already-published content, so
+the migrated corpus arrives unpublished, and 61 records that were published in the source are not
+published here. That is true rather than broken, and the site says so: the empty state explains that
+publication is qualification plus promotion, that nothing has crossed that gate, and that promoting
+those records is reconciliation work (SCMS-029) rather than something the importer may do alone.
+
+A blank page would have been the same fact told badly. §8.3's rule — failure degrades to truth, not
+to a spinner — applies to emptiness too.
+
+## Closing state
+
+**Done — promotion now decides what readers see, and unpublishing takes things down.**
 

@@ -11,7 +11,16 @@
  *   **A feed is an expression of the same ResolvedSurface as its page — never a
  *   second query.**
  *
- * Index routes carry `where listed === true`. Unlisted content is public — a
+ * Every reader route carries `require: { publicationState: ["promoted"] }`.
+ * Publication gates REACHABILITY; listedness gates DISCOVERY. They are different
+ * axes and §3.5 exists to keep them apart: an unlisted published piece is
+ * readable by link, and an unpublished piece is readable by nobody, however
+ * public its access level. Until SCMS-050 the read path consulted neither the
+ * publication axis nor anything derived from it, so a never-published draft
+ * appeared on the public site and `content.unpublish@1` removed nothing from it
+ * (NR-scms-015).
+ *
+ * Index routes additionally carry `where listed === true`. Unlisted content is public — a
  * reader with the link may read it — but it appears in no index, no feed, and no
  * sitemap. Discovery *includes* on the flag rather than excluding on its
  * negation, so an entry with no flag at all stays out of the index.
@@ -53,7 +62,11 @@ export const READER_ROUTES: RouteDeclaration[] = [
     parameterized: false,
     request: (access) => ({
       profile: "collection", purpose: "discover", access,
-      lens: { include: { kinds: ["article", "note"] }, where: [{ attr: "listed", equals: true }] },
+      lens: {
+        include: { kinds: ["article", "note"] },
+        where: [{ attr: "listed", equals: true }],
+        require: { publicationState: ["promoted"] },
+      },
     }),
   },
   {
@@ -62,7 +75,7 @@ export const READER_ROUTES: RouteDeclaration[] = [
     kinds: ["article", "note"],
     request: (access, subject) => ({
       profile: "focus", purpose: "understand", subject, access,
-      lens: { traversal: { radius: 1 } },
+      lens: { traversal: { radius: 1 }, require: { publicationState: ["promoted"] } },
     }),
   },
   {
@@ -70,7 +83,11 @@ export const READER_ROUTES: RouteDeclaration[] = [
     parameterized: false,
     request: (access) => ({
       profile: "collection", purpose: "discover", access,
-      lens: { include: { kinds: ["project", "role"] }, where: [{ attr: "listed", equals: true }] },
+      lens: {
+        include: { kinds: ["project", "role"] },
+        where: [{ attr: "listed", equals: true }],
+        require: { publicationState: ["promoted"] },
+      },
     }),
   },
   {
@@ -79,7 +96,7 @@ export const READER_ROUTES: RouteDeclaration[] = [
     kinds: ["project", "role"],
     request: (access, subject) => ({
       profile: "focus", purpose: "understand", subject, access,
-      lens: { traversal: { radius: 1 } },
+      lens: { traversal: { radius: 1 }, require: { publicationState: ["promoted"] } },
     }),
   },
 ];

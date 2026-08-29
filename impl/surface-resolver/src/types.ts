@@ -68,6 +68,14 @@ export interface SurfaceLens {
     relationTypes?: string[];
   };
   where?: Array<{ attr: string; equals: string | number | boolean }>;
+  /**
+   * Subject-state predicates evaluated at candidacy, alongside access and kind.
+   *
+   * Distinct from `where`, which reads authored attributes: these read the
+   * record's own state axes, which no caller sets directly. Publication is the
+   * first, because the read path had no way to consult it at all (NR-scms-015).
+   */
+  require?: { publicationState?: string[] };
   orderBy?: { attr: string; dir: "asc" | "desc" };
   // `limit` is deliberately absent from the narrow path: a declared field the
   // resolver would not consume is decoration (P27). It returns with real

@@ -69,14 +69,31 @@ test("a private entry's detail route is refused, not rendered empty", () => {
   assert.ok(["subject-not-found", "subject-inaccessible"].includes((r as { failure: string }).failure));
 });
 
-test("the owner sees more than the public reader — the difference is exactly the private set", () => {
+test("the reader route shows the same published set to everyone; access still narrows it", () => {
+  // Before SCMS-050 this asserted that the owner sees drafts here. That premise
+  // was the defect: the reader routes are the SITE, and the site is the site
+  // regardless of who is looking. Unpublished work belongs to the editor, which
+  // is a different surface with a different lens.
   const pub = new Set(render("/writing", "public").subjects);
   const owner = new Set(render("/writing", "owner").subjects);
   for (const s of pub) assert.ok(owner.has(s), "the owner sees everything the public sees");
-  const extra = [...owner].filter((s) => !pub.has(s));
-  assert.ok(extra.length > 0, "the owner sees drafts");
-  for (const s of extra) assert.ok(privateSubjects.has(s), `${s} appeared for the owner but is not private`);
+
+  // Whatever the owner sees and the public does not is private — access still
+  // narrows. For this corpus that set is empty, because every private entry is
+  // also unpublished and the publication gate removes it for both.
+  for (const s of [...owner].filter((x) => !pub.has(x))) {
+    assert.ok(privateSubjects.has(s), `${s} appeared for the owner but is not private`);
+  }
+
+  // And nothing unpublished reaches either view — the property that was missing.
+  const unpublished = new Set(migrated.content
+    .filter((e) => e.state.publicationState !== "promoted").map((e) => e.subjectId));
+  for (const s of [...pub, ...owner]) {
+    assert.ok(!unpublished.has(s), `${s} is unpublished and reached a reader route`);
+  }
+  assert.ok(pub.size > 0, "and the route is not trivially empty");
 });
+
 
 test("the feed is derived from the page's surface, and cannot reach past it", () => {
   const rendered = render("/writing", "public");
@@ -197,4 +214,40 @@ test("a detail route refuses a subject of the wrong kind (SCMS-038)", () => {
       && (e.body as unknown as { contentKind: string }).contentKind === "project")!.subjectId;
   assert.ok(isRouteFailure(renderRoute(snapshot, route("/writing/[slug]"), "public", project)));
   assert.ok(!isRouteFailure(renderRoute(snapshot, route("/work/[slug]"), "public", project)));
+});
+
+test("unpublishing removes a record from the site (SCMS-050)", () => {
+  // content.unpublish@1 was built in SCMS-020 because promote declared a
+  // compensation that did not exist. The compensation then existed and removed
+  // nothing from any reader surface, because the read path never consulted the
+  // publication axis. This is the vector that would have caught it.
+  const j = new CanonJournal();
+  const mk = (id: string, publicationState: string) => ({
+    schemaVersion: "scms-0.1", subjectId: id,
+    compatibility: { protocol: "scms-0.1", subjectSchema: "article@1" },
+    provenance: { kind: "declared", authority: "project.owner", source: "t" },
+    minimumAccess: "public",
+    body: { kind: "Content", contentKind: "article",
+            slots: { title: [{ kind: "text", value: id }] }, attrs: { listed: true } },
+    state: { semanticMaturity: "complete", evidenceState: "qualified",
+             publicationState, deliveryState: "unpropagated" },
+  });
+  j.append(mk("published", "promoted") as never, "t");
+  j.append(mk("never-published", "unpublished") as never, "t");
+  j.append(mk("taken-down", "unpublished") as never, "t");
+
+  const shown = renderRoute(freeze(j, "w") as never, route("/writing"), "public");
+  assert.ok(!isRouteFailure(shown));
+  assert.deepEqual((shown as { subjects: string[] }).subjects, ["published"],
+    "a never-published draft and a taken-down record are both absent");
+
+  // Reachability, not just listing: an unpublished record has no page either.
+  for (const gone of ["never-published", "taken-down"]) {
+    assert.ok(isRouteFailure(
+      renderRoute(freeze(j, "w") as never, route("/writing/[slug]"), "public", gone)),
+      `${gone} must not be readable by direct link`);
+  }
+  // Control: the published one is.
+  assert.ok(!isRouteFailure(
+    renderRoute(freeze(j, "w") as never, route("/writing/[slug]"), "public", "published")));
 });

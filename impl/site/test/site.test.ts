@@ -129,14 +129,31 @@ test("a detail page renders the article body and its real relation", () => {
   assert.notDeepEqual(art.morphology, {}, "and the adapter chose its own container forms");
 });
 
-test("the owner's view differs from the public view by exactly the private set", () => {
+test("the reader route shows the same published set to everyone; access still narrows it", () => {
+  // Before SCMS-050 this asserted that the owner sees drafts here. That premise
+  // was the defect: the reader routes are the SITE, and the site is the site
+  // regardless of who is looking. Unpublished work belongs to the editor, which
+  // is a different surface with a different lens.
   const pub = new Set(render("/writing", "public").subjects);
   const owner = new Set(render("/writing", "owner").subjects);
-  for (const s of pub) assert.ok(owner.has(s));
-  const extra = [...owner].filter((s) => !pub.has(s));
-  assert.ok(extra.length > 0);
-  for (const s of extra) assert.ok(privateSubjects.has(s));
+  for (const s of pub) assert.ok(owner.has(s), "the owner sees everything the public sees");
+
+  // Whatever the owner sees and the public does not is private — access still
+  // narrows. For this corpus that set is empty, because every private entry is
+  // also unpublished and the publication gate removes it for both.
+  for (const s of [...owner].filter((x) => !pub.has(x))) {
+    assert.ok(privateSubjects.has(s), `${s} appeared for the owner but is not private`);
+  }
+
+  // And nothing unpublished reaches either view — the property that was missing.
+  const unpublished = new Set(migrated.content
+    .filter((e) => e.state.publicationState !== "promoted").map((e) => e.subjectId));
+  for (const s of [...pub, ...owner]) {
+    assert.ok(!unpublished.has(s), `${s} is unpublished and reached a reader route`);
+  }
+  assert.ok(pub.size > 0, "and the route is not trivially empty");
 });
+
 
 test("the page states what it was derived from", () => {
   const rendered = render("/writing", "public");

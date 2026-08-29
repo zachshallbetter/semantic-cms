@@ -12,7 +12,7 @@
  * - the focus anchor participates regardless of include.kinds (kinds scope
  *   traversal candidates), but remains subject to where-predicates and
  *   entitlement withholding;
- * - eligibility precedence is kinds → where → entitlement, first non-eligible
+ * - eligibility precedence is require → kinds → where → entitlement, first non-eligible
  *   outcome wins;
  * - `subject-inaccessible` is disclosed only at owner access and above; below
  *   that it maps to `subject-not-found` (SSS §10's declared less-revealing
@@ -84,6 +84,22 @@ export function resolveSurface(
         : { failure: "subject-not-found", message: "no such subject" };
     }
     anchor = subjects.get(raw.id);
+
+    // A state predicate can disqualify the anchor itself, and a focus surface
+    // whose subject is disqualified is not an empty page — it is no page. Before
+    // SCMS-050 this returned a surface with no members, so a detail route for an
+    // unpublished record rendered blank instead of 404ing.
+    //
+    // The disclosure mapping is the same one used above: below owner access the
+    // reason is not revealed, because "this exists but is not published" tells
+    // an unauthorized reader that it exists.
+    const required = request.lens?.require?.publicationState;
+    if (required && anchor && !required.includes(anchor.publicationState ?? "")) {
+      return rank >= ACCESS_RANK.owner
+        ? { failure: "subject-inaccessible",
+            message: `subject exists but its publication state is '${anchor.publicationState}'` }
+        : { failure: "subject-not-found", message: "no such subject" };
+    }
   }
 
   // BIND CONTEXT — only the declared temporal coordinate enters resolution.
@@ -247,6 +263,28 @@ function evaluateEligibility(
   rank: number,
 ): { outcome: EligibilityOutcome; reason: string; basis: ResolutionBasis[] } {
   const isAnchor = request.profile === "focus" && c.depth === 0;
+
+  // State predicates run FIRST and apply to the anchor too. A focus route may
+  // waive the kind filter for its own subject — that is what makes /work/<slug>
+  // resolve the thing you asked for — but it may not waive publication, or an
+  // unpublished draft would be readable by direct link (NR-scms-015).
+  const requiredPublication = request.lens?.require?.publicationState;
+  if (requiredPublication) {
+    const actual = c.subject.publicationState;
+    if (actual === undefined) {
+      // Absent stays distinguishable from ineligible (SSS-INV-013), and still
+      // fails closed, because only `eligible` is ever included.
+      return { outcome: "unknown", reason: "publication state absent", basis: [] };
+    }
+    if (!requiredPublication.includes(actual)) {
+      return {
+        outcome: "ineligible",
+        reason: `publication state '${actual}' not in [${requiredPublication.join(", ")}]`,
+        basis: [],
+      };
+    }
+  }
+
   const kinds = request.lens?.include?.kinds;
   if (!isAnchor && kinds && !kinds.includes(c.subject.kind)) {
     return { outcome: "ineligible", reason: `kind '${c.subject.kind}' not in lens.include.kinds`, basis: [] };
