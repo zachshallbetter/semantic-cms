@@ -78,7 +78,7 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-060 | Content-addressed blobs for prose and media (closes SH-4) | E13 | Done — digest is the key, immutable by grant; 6 more refusal checks | records/evidence.jsonl · scms-evidence-060 |
 | SCMS-061 | Cut over: deploy and decommission zach-core | E13 | **Blocked — protected action.** Owner authorization required at the time | — |
 | SCMS-062 | Materialize expressions to the CAS under their fingerprint | E14 | Done — pure; digest names content, fingerprint invalidates, access is in the key | records/evidence.jsonl · scms-evidence-062 |
-| SCMS-063 | The live channel to a browser (invalidation keys over SSE) | E14 | Ready — `deliver`/replay/`lagged` exist end to end server-side; nothing carries them to a client | — |
+| SCMS-063 | The live channel to a browser (invalidation keys over SSE) | E14 | Done — full loop verified; NR-scms-018 (a third path that leaked) found and fixed | work/SCMS-063.md |
 | SCMS-064 | The page builder: composition editing through the bounded lane | E14 | Ready — page structure is already Canon (SCMS-016) and socket population is already the bounded lane (SCMS-021); the UI is what is missing | — |
 | SCMS-065 | The Postgres store adapter (and this project's first runtime dependency) | E13 | **Ready — owner input invited on the driver.** The schema is proven; nothing in `impl/` reads or writes it. Needs `pg` or `postgres.js`, a lockfile, and `npm ci` in CI | — |
 | SCMS-066 | A migration runner | E13 | Ready — zach-core re-runs a declarative schema file and has none either, so this is a gap inherited rather than solved | — |

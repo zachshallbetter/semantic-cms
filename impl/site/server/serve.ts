@@ -29,6 +29,7 @@ import { governedImport } from "../../migrate/src/governed.ts";
 import { ARTICLE_TYPE, checkArticle } from "../../schema/src/schema.ts";
 import type { ArticleInstance } from "../../schema/src/schema.ts";
 import { replayActions } from "./replay.ts";
+import { openLiveChannel } from "./live.ts";
 import { migrateAll } from "../../migrate/src/zach-core.ts";
 import type { SourceEntry } from "../../migrate/src/zach-core.ts";
 import { READER_ROUTES, renderRoute, isRouteFailure, siteMap } from "../../reader/src/routes.ts";
@@ -116,7 +117,25 @@ const replayed = replayActions(
   join(process.env.HOME ?? "", ".scms-data/actions.jsonl"),
   { id: "project.owner", role: "owner" }, new Date().toISOString());
 
-const snapshot = freeze(journal, "site");
+let snapshot = freeze(journal, "site");
+
+/**
+ * The live channel. Rebuilding the snapshot on change is what makes the
+ * invalidation honest: a client told to re-fetch must find the new state, not
+ * the state that prompted the message.
+ */
+const ACTIONS_LOG = join(process.env.HOME ?? "", ".scms-data/actions.jsonl");
+let waveCount = 0;
+const live = openLiveChannel({
+  journal, registry, logPath: ACTIONS_LOG,
+  actor: { id: "project.owner", role: "owner" },
+  now: () => new Date().toISOString(),
+  onChange: () => { snapshot = freeze(journal, `site-${++waveCount}`); },
+});
+// Polling the log is the development-grade stand-in for LISTEN/NOTIFY, which
+// the schema already emits (SCMS-057). Replaced, not extended, by the adapter.
+const pump = setInterval(() => live.pump(), 1000);
+pump.unref();
 
 const byId = new Map(journal.current().map((e) => [e.envelope.subjectId, e]));
 const hydrate: Hydrator = (subject) => {
@@ -166,6 +185,25 @@ const send = (res: ServerResponse, code: number, type: string, body: string) => 
 const server = createServer((req, res) => {
   const url = new URL(req.url ?? "/", ORIGIN);
   const path = url.pathname.replace(/\/$/, "") || "/";
+
+  if (req.method === "GET" && path === "/events") {
+    // A subscriber is scoped to the page it is viewing, and the scope is that
+    // page's own accessible dependency set — computed after access projection,
+    // which is what makes the filter in `deliver` sound rather than a promise
+    // (NR-scms-018).
+    const viewing = url.searchParams.get("path") ?? "/writing";
+    const target = viewing.startsWith("/work") ? "/work" : "/writing";
+    const r = renderRoute(snapshot, routeFor(target), "public");
+    const deps = isRouteFailure(r) ? [] : (r as RenderedRoute).surface.dependencies.map((d) => d.subject);
+    live.attach(res, `${Date.now()}-${Math.random().toString(36).slice(2)}`, deps);
+    return;
+  }
+
+  if (req.method === "GET" && path === "/api/live-status") {
+    return send(res, 200, "application/json", JSON.stringify({
+      clients: live.clientCount(), events: journal.events().length, waves: waveCount,
+    }));
+  }
 
   const notFound = () => send(res, 404, "text/html; charset=utf-8", renderShell({
     title: `Not found · ${SITE_TITLE}`, siteTitle: SITE_TITLE,
@@ -220,5 +258,6 @@ server.listen(PORT, () => {
     + `  replayed ${replayed.applied} owner action(s)`
     + `${replayed.refused.length ? `, ${replayed.refused.length} refused` : ""}\n`
     + `  ${journal.current().filter((e) => e.envelope.state.publicationState === "promoted").length} promoted\n`
-    + `  public access only — no auth here, and none implied\n`);
+    + `  public access only — no auth here, and none implied\n`
+    + `  live channel on /events, watching ${ACTIONS_LOG}\n`);
 });

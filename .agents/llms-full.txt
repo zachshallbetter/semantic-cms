@@ -1,6 +1,6 @@
 # PROJECT COMPILED CONTEXT
 Generator: 0.5.0
-Source digest: 9bcb4b3f0823b84a18513384cf6b81ad2ee1a2b13495554a9ee371b9883d49a5
+Source digest: 422374c07bd04704c613f6f42052663c025d12b0be2e21609c232492905fe661
 
 > Generated projection. Canonical sources remain authoritative.
 
@@ -18632,6 +18632,166 @@ FILE: impl/site/package.json
 
 
 ========================================================================
+FILE: impl/site/server/live.ts
+========================================================================
+
+/**
+ * The live channel (SCMS-063, epic E14).
+ *
+ * §8.3 states what this must do, and — just as importantly — what it must not:
+ *
+ *   "The notify phase pushes **invalidation keys**; clients re-fetch through
+ *    access projection. If the live channel fails, the client silently keeps its
+ *    snapshot and says so — failure degrades to truth, not to a spinner."
+ *
+ * So the wire carries **keys, never content**. A subscriber is told *which
+ * subject changed*, and re-fetches through the same access projection it would
+ * have used anyway. That is what keeps the channel from becoming a second read
+ * path with its own access rules — the failure NR-scms-004 and NR-scms-006 were
+ * both instances of.
+ *
+ * **How the site learns anything changed.** The editor and the site are separate
+ * processes, and the site rebuilds its Canon at startup by replaying the action
+ * log through the contracts (SCMS-051). This watches that log and replays the
+ * increment, so an edit in the editor reaches a reader without either process
+ * knowing about the other.
+ *
+ * That is development-grade custody, and deliberately so: the real mechanism is
+ * already in the schema. `canon_emit` calls `pg_notify('canon_outbox', ...)`,
+ * which is the native channel §8.1 requires. When the store adapter lands
+ * (SCMS-065) this watcher is replaced by a LISTEN, and nothing above it changes
+ * — which is the point of keeping the seam here rather than in the routes.
+ */
+import { readFileSync, existsSync } from "node:fs";
+import type { ServerResponse } from "node:http";
+import type { CanonJournal } from "../../canon/src/journal.ts";
+import type { ContractRegistry } from "../../contracts/src/runtime.ts";
+import { deliver } from "../../transport/src/wire.ts";
+import { replayActions } from "./replay.ts";
+
+export interface LiveClient {
+  id: string;
+  res: ServerResponse;
+  /** The subject ids this client's page actually depends on, post-access-projection. */
+  dependencies: string[];
+  /** How many of this client's own relevant events it has consumed (SCMS-038). */
+  position: number | null;
+}
+
+/**
+ * What each client is told is decided by `deliver` (SCMS-033), and not here.
+ *
+ * The first version of this file computed the wave itself, straight from
+ * `journal.events()`, and ignored `minimumAccess` — so a **public** SSE client
+ * was sent the subject ids of owner-scoped evidence and attestation records,
+ * revision hashes included. It learned that qualification had happened, on which
+ * revision, and which obligations ran (NR-scms-018).
+ *
+ * The cause is one this project keeps recording: I wrote a third notification
+ * path beside `fanOut` and `deliver`, both of which were built specifically to
+ * be non-leaking, and the new one did not inherit the property. A second
+ * implementation of a rule is a second chance to get it wrong — and I did it
+ * while quoting §8.3 in the paragraph above.
+ *
+ * So there is no wave computation in this module any more. `deliver` filters
+ * against the subscriber's own accessible dependency set, which was computed
+ * after access projection, so a change a reader cannot observe cannot reach it.
+ */
+
+/** SSE framing. Comments double as keep-alives and are ignored by EventSource. */
+function send(res: ServerResponse, event: string, data: unknown): void {
+  res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+}
+
+export interface LiveChannel {
+  /** @param dependencies the accessible dependency set of the page this client is viewing */
+  attach(res: ServerResponse, id: string, dependencies: string[]): void;
+  /** Replay any new actions and tell every client what changed. Returns the wave size. */
+  pump(): number;
+  clientCount(): number;
+  close(): void;
+}
+
+export function openLiveChannel(opts: {
+  journal: CanonJournal;
+  registry: ContractRegistry;
+  logPath: string;
+  actor: { id: string; role: string };
+  /** Explicit clock — no ambient time, as everywhere else. */
+  now: () => string;
+  onChange?: () => void;
+}): LiveChannel {
+  const clients = new Map<string, LiveClient>();
+  let replayed = existsSync(opts.logPath)
+    ? readFileSync(opts.logPath, "utf8").split("\n").filter(Boolean).length
+    : 0;
+
+  function pump(): number {
+    if (!existsSync(opts.logPath)) return 0;
+    const lines = readFileSync(opts.logPath, "utf8").split("\n").filter(Boolean);
+    if (lines.length <= replayed) return 0;
+
+    // Replay only the increment, through the contracts — a replayed action
+    // crosses exactly the gates the original crossed (SCMS-052).
+    replayActions(opts.journal, opts.registry, opts.logPath, opts.actor, opts.now());
+    replayed = lines.length;
+    opts.onChange?.();
+
+    let told = 0;
+    for (const client of clients.values()) {
+      // One delivery per subscriber, filtered by that subscriber's own
+      // accessible dependency set. Silence is a valid outcome and carries no
+      // information — a client with nothing to hear gets no message at all.
+      const delivery = deliver(opts.journal, {
+        subscription: { id: client.id, access: "public", dependencies: client.dependencies },
+        position: client.position,
+      });
+      if (!delivery) continue;
+      send(client.res, "invalidate", { keys: delivery.keys, phase: delivery.phase });
+      client.position = delivery.cursor;
+      told += delivery.keys.length;
+    }
+    return told;
+  }
+
+  return {
+    attach(res, id, dependencies) {
+      res.writeHead(200, {
+        "content-type": "text/event-stream",
+        "cache-control": "no-store",
+        connection: "keep-alive",
+      });
+      // Tell the client where it stands immediately. A client that has just
+      // connected is current, and should say so rather than assume it.
+      // A client that has just been served a page is CAUGHT UP, not new: the
+      // page it is holding was rendered from the state it is about to be told
+      // about. Starting at `null` made the first wave a backfill of everything
+      // the page already showed, so a browser re-fetched on connect for no
+      // reason.
+      //
+      // The position is taken from `deliver` rather than counted here, because
+      // "how many events are relevant to this subscriber" is exactly the
+      // question `deliver` already answers correctly — and reimplementing it is
+      // how NR-scms-018 happened one function earlier.
+      const caughtUp = deliver(opts.journal, {
+        subscription: { id, access: "public", dependencies },
+        position: null,
+      });
+      send(res, "ready", { at: opts.now(), position: caughtUp?.cursor ?? 0 });
+      clients.set(id, { id, res, dependencies, position: caughtUp?.cursor ?? 0 });
+      res.on("close", () => { clients.delete(id); });
+    },
+    pump,
+    clientCount: () => clients.size,
+    close() {
+      for (const c of clients.values()) c.res.end();
+      clients.clear();
+    },
+  };
+}
+
+
+========================================================================
 FILE: impl/site/server/replay.ts
 ========================================================================
 
@@ -18770,6 +18930,7 @@ import { governedImport } from "../../migrate/src/governed.ts";
 import { ARTICLE_TYPE, checkArticle } from "../../schema/src/schema.ts";
 import type { ArticleInstance } from "../../schema/src/schema.ts";
 import { replayActions } from "./replay.ts";
+import { openLiveChannel } from "./live.ts";
 import { migrateAll } from "../../migrate/src/zach-core.ts";
 import type { SourceEntry } from "../../migrate/src/zach-core.ts";
 import { READER_ROUTES, renderRoute, isRouteFailure, siteMap } from "../../reader/src/routes.ts";
@@ -18857,7 +19018,25 @@ const replayed = replayActions(
   join(process.env.HOME ?? "", ".scms-data/actions.jsonl"),
   { id: "project.owner", role: "owner" }, new Date().toISOString());
 
-const snapshot = freeze(journal, "site");
+let snapshot = freeze(journal, "site");
+
+/**
+ * The live channel. Rebuilding the snapshot on change is what makes the
+ * invalidation honest: a client told to re-fetch must find the new state, not
+ * the state that prompted the message.
+ */
+const ACTIONS_LOG = join(process.env.HOME ?? "", ".scms-data/actions.jsonl");
+let waveCount = 0;
+const live = openLiveChannel({
+  journal, registry, logPath: ACTIONS_LOG,
+  actor: { id: "project.owner", role: "owner" },
+  now: () => new Date().toISOString(),
+  onChange: () => { snapshot = freeze(journal, `site-${++waveCount}`); },
+});
+// Polling the log is the development-grade stand-in for LISTEN/NOTIFY, which
+// the schema already emits (SCMS-057). Replaced, not extended, by the adapter.
+const pump = setInterval(() => live.pump(), 1000);
+pump.unref();
 
 const byId = new Map(journal.current().map((e) => [e.envelope.subjectId, e]));
 const hydrate: Hydrator = (subject) => {
@@ -18907,6 +19086,25 @@ const send = (res: ServerResponse, code: number, type: string, body: string) => 
 const server = createServer((req, res) => {
   const url = new URL(req.url ?? "/", ORIGIN);
   const path = url.pathname.replace(/\/$/, "") || "/";
+
+  if (req.method === "GET" && path === "/events") {
+    // A subscriber is scoped to the page it is viewing, and the scope is that
+    // page's own accessible dependency set — computed after access projection,
+    // which is what makes the filter in `deliver` sound rather than a promise
+    // (NR-scms-018).
+    const viewing = url.searchParams.get("path") ?? "/writing";
+    const target = viewing.startsWith("/work") ? "/work" : "/writing";
+    const r = renderRoute(snapshot, routeFor(target), "public");
+    const deps = isRouteFailure(r) ? [] : (r as RenderedRoute).surface.dependencies.map((d) => d.subject);
+    live.attach(res, `${Date.now()}-${Math.random().toString(36).slice(2)}`, deps);
+    return;
+  }
+
+  if (req.method === "GET" && path === "/api/live-status") {
+    return send(res, 200, "application/json", JSON.stringify({
+      clients: live.clientCount(), events: journal.events().length, waves: waveCount,
+    }));
+  }
 
   const notFound = () => send(res, 404, "text/html; charset=utf-8", renderShell({
     title: `Not found · ${SITE_TITLE}`, siteTitle: SITE_TITLE,
@@ -18961,7 +19159,8 @@ server.listen(PORT, () => {
     + `  replayed ${replayed.applied} owner action(s)`
     + `${replayed.refused.length ? `, ${replayed.refused.length} refused` : ""}\n`
     + `  ${journal.current().filter((e) => e.envelope.state.publicationState === "promoted").length} promoted\n`
-    + `  public access only — no auth here, and none implied\n`);
+    + `  public access only — no auth here, and none implied\n`
+    + `  live channel on /events, watching ${ACTIONS_LOG}\n`);
 });
 
 
@@ -19195,6 +19394,9 @@ a.card:hover{border-color:var(--accent)}
 a.card p{margin:.35rem 0 0;color:var(--muted);font-size:.95rem}
 nav[data-operations]{display:none}
 nav[data-operations]:has(button){display:flex;gap:.5rem;margin-top:2rem}
+#live-chip{margin-left:.4rem}
+#live-chip[data-state="live"]{color:var(--accent)}
+#live-chip[data-state="stale"]{color:var(--muted)}
 footer.prov{margin-top:4rem;padding-top:1rem;border-top:1px solid var(--rule);
   color:var(--muted);font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace}
 a:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
@@ -19219,12 +19421,219 @@ export function renderShell(o: ShellOptions): string {
 </header>
 ${o.body}
 ${o.provenance
-  ? `<footer class="prov">rendered from Canon · snapshot ${esc(o.provenance.snapshot)} · surface ${esc(o.provenance.fingerprint.slice(0, 16))}</footer>`
+  ? `<footer class="prov">rendered from Canon · snapshot ${esc(o.provenance.snapshot)} · surface ${esc(o.provenance.fingerprint.slice(0, 16))}
+     <span id="live-chip" data-state="snapshot">· snapshot</span></footer>`
   : ""}
+<script>
+// §8.3: the channel pushes invalidation KEYS and the client re-fetches through
+// its own access projection. It never receives content, so it cannot be shown
+// anything the page itself would not have resolved.
+//
+// And failure degrades to truth: if the channel drops, the chip says snapshot
+// and the page keeps the state it has. It never spins, and it never claims live
+// without a connection behind it (the rule NR-scms-010 was written about).
+(function () {
+  var chip = document.getElementById("live-chip");
+  if (!chip || !window.EventSource) return;
+  var say = function (state, text) { chip.dataset.state = state; chip.textContent = "· " + text; };
+
+  var es = new EventSource("/events?path=" + encodeURIComponent(window.location.pathname));
+  es.addEventListener("ready", function () { say("live", "live"); });
+  es.addEventListener("invalidate", function (e) {
+    var keys = [];
+    try { keys = (JSON.parse(e.data) || {}).keys || []; } catch (_) { return; }
+    if (!keys.length) return;
+    say("stale", keys.length + " changed \u2014 refreshing");
+    // Re-fetch through the same route, which resolves through access
+    // projection exactly as the first render did.
+    fetch(window.location.pathname, { headers: { "cache-control": "no-cache" } })
+      .then(function (r) { return r.text(); })
+      .then(function (html) {
+        var doc = new DOMParser().parseFromString(html, "text/html");
+        var next = doc.querySelector(".wrap");
+        var here = document.querySelector(".wrap");
+        if (next && here) { here.innerHTML = next.innerHTML; say("live", "live"); }
+      })
+      .catch(function () { say("snapshot", "snapshot \u2014 refresh failed"); });
+  });
+  es.onerror = function () { say("snapshot", "snapshot"); };
+})();
+</script>
 </div>
 </body>
 </html>`;
 }
+
+
+========================================================================
+FILE: impl/site/test/live.test.ts
+========================================================================
+
+/**
+ * SCMS-063 vectors: the live channel tells each client only what it may hear.
+ */
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { mkdtempSync, writeFileSync, appendFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { CanonJournal } from "../../canon/src/journal.ts";
+import {
+  ContractRegistry, CONTENT_CREATE, createHandler, CONTENT_REVISE, reviseHandler,
+} from "../../contracts/src/runtime.ts";
+import { CONTENT_PROMOTE, promoteHandler } from "../../qualification/src/promote.ts";
+import {
+  RECORD_EVIDENCE, recordEvidenceHandler, ATTEST, attestHandler,
+} from "../../qualification/src/canon-evidence.ts";
+import { openLiveChannel } from "../server/live.ts";
+
+const OWNER = { id: "project.owner", role: "owner" };
+const AT = "2026-08-29T00:00:00Z";
+
+/** Captures what a client was actually sent. */
+function fakeRes() {
+  const frames: string[] = [];
+  return {
+    frames,
+    writeHead() {}, end() {}, on() {},
+    write(chunk: string) { frames.push(chunk); return true; },
+    events() {
+      return frames.map((f) => {
+        const ev = /event: (\w+)/.exec(f)?.[1] ?? "";
+        const data = /data: (.*)\n\n/.exec(f)?.[1] ?? "{}";
+        return { event: ev, data: JSON.parse(data) as Record<string, unknown> };
+      });
+    },
+  };
+}
+
+function world() {
+  const journal = new CanonJournal();
+  const registry = new ContractRegistry();
+  registry.register(CONTENT_CREATE, createHandler);
+  registry.register(CONTENT_REVISE, reviseHandler);
+  registry.register(CONTENT_PROMOTE, promoteHandler as never);
+  registry.register(RECORD_EVIDENCE, recordEvidenceHandler as never);
+  registry.register(ATTEST, attestHandler as never);
+  for (const [id, access] of [["public-1", "public"], ["private-1", "owner"]] as const) {
+    registry.execute(journal, {
+      contract: "icp:interaction/content.create@1.0.0", requestId: `c-${id}`, actor: OWNER,
+      input: { subjectId: id, contentKind: "note", minimumAccess: access, source: "t",
+               body: { kind: "Content", contentKind: "note",
+                       slots: { title: [{ kind: "text", value: id }], body: [{ kind: "prose", value: "b" }] },
+                       attrs: { listed: true } } },
+    } as never, { occurredAt: AT, instanceId: `i-${id}`, authority: "owner" });
+  }
+  const logPath = join(mkdtempSync(join(tmpdir(), "scms-live-")), "actions.jsonl");
+  writeFileSync(logPath, "", "utf8");
+  return { journal, registry, logPath };
+}
+
+const channel = (w: ReturnType<typeof world>) => openLiveChannel({
+  journal: w.journal, registry: w.registry, logPath: w.logPath,
+  actor: OWNER, now: () => AT,
+});
+
+test("a connecting client is caught up, not backfilled with what it already sees", () => {
+  const w = world();
+  const live = channel(w);
+  const res = fakeRes();
+  live.attach(res as never, "c1", ["public-1"]);
+
+  const evs = res.events();
+  assert.equal(evs.length, 1, "connecting sends exactly one frame");
+  assert.equal(evs[0].event, "ready");
+  assert.ok(typeof evs[0].data.position === "number",
+    "and states the position it is caught up to");
+  live.close();
+});
+
+test("a public client is never told about an owner-scoped change (NR-scms-018)", () => {
+  // The defect this vector exists for: the first version computed the wave from
+  // journal.events() directly and sent every changed subject id to every
+  // client, including owner-scoped evidence and attestation records.
+  const w = world();
+  const live = channel(w);
+  const res = fakeRes();
+  live.attach(res as never, "c1", ["public-1"]);
+
+  // A qualification wave touches owner-scoped evidence and attestation records.
+  appendFileSync(w.logPath, JSON.stringify({ type: "qualify", subject: "public-1" }) + "\n");
+  live.pump();
+
+  const sent = JSON.stringify(res.events());
+  assert.ok(!sent.includes("evidence:"), "evidence subject ids must not reach a public client");
+  assert.ok(!sent.includes("attestation:"), "nor attestation ids");
+  live.close();
+});
+
+test("a client hears about a subject its page actually depends on", () => {
+  const w = world();
+  const live = channel(w);
+  const res = fakeRes();
+  live.attach(res as never, "c1", ["public-1"]);
+
+  appendFileSync(w.logPath,
+    JSON.stringify({ type: "revise", subject: "public-1",
+                     changes: { slots: { title: [{ kind: "text", value: "changed" }] } } }) + "\n");
+  live.pump();
+
+  const inv = res.events().filter((e) => e.event === "invalidate");
+  assert.equal(inv.length, 1);
+  assert.deepEqual(inv[0].data.keys, ["public-1"]);
+  live.close();
+});
+
+test("silence carries no information — a client with nothing to hear gets no frame", () => {
+  const w = world();
+  const live = channel(w);
+  const res = fakeRes();
+  // This client's page depends on nothing that is about to change.
+  live.attach(res as never, "c1", ["some-other-subject"]);
+  const before = res.frames.length;
+
+  appendFileSync(w.logPath,
+    JSON.stringify({ type: "revise", subject: "public-1",
+                     changes: { slots: { title: [{ kind: "text", value: "changed" }] } } }) + "\n");
+  live.pump();
+
+  assert.equal(res.frames.length, before,
+    "an empty notification would announce that a wave occurred");
+  live.close();
+});
+
+test("the wire carries keys, never content", () => {
+  const w = world();
+  const live = channel(w);
+  const res = fakeRes();
+  live.attach(res as never, "c1", ["public-1"]);
+
+  appendFileSync(w.logPath,
+    JSON.stringify({ type: "revise", subject: "public-1",
+                     changes: { slots: { title: [{ kind: "text", value: "SECRET-TITLE-TEXT" }] } } }) + "\n");
+  live.pump();
+
+  assert.ok(!JSON.stringify(res.events()).includes("SECRET-TITLE-TEXT"),
+    "an invalidation names a subject; the client re-fetches through access projection");
+  live.close();
+});
+
+test("a refused action produces no wave — Canon decides, not the log", () => {
+  // Replay re-crosses the gates, so a log entry is a request rather than a fact.
+  // Promoting without qualifying first is refused, and a reader must not be told
+  // that something happened when nothing did.
+  const w = world();
+  const live = channel(w);
+  const res = fakeRes();
+  live.attach(res as never, "c1", ["public-1"]);
+  const before = res.frames.length;
+
+  appendFileSync(w.logPath, JSON.stringify({ type: "promote", subject: "public-1" }) + "\n");
+  live.pump();
+
+  assert.equal(res.frames.length, before, "a refused promotion is not a change");
+  live.close();
+});
 
 
 ========================================================================
@@ -26963,7 +27372,7 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-060 | Content-addressed blobs for prose and media (closes SH-4) | E13 | Done — digest is the key, immutable by grant; 6 more refusal checks | records/evidence.jsonl · scms-evidence-060 |
 | SCMS-061 | Cut over: deploy and decommission zach-core | E13 | **Blocked — protected action.** Owner authorization required at the time | — |
 | SCMS-062 | Materialize expressions to the CAS under their fingerprint | E14 | Done — pure; digest names content, fingerprint invalidates, access is in the key | records/evidence.jsonl · scms-evidence-062 |
-| SCMS-063 | The live channel to a browser (invalidation keys over SSE) | E14 | Ready — `deliver`/replay/`lagged` exist end to end server-side; nothing carries them to a client | — |
+| SCMS-063 | The live channel to a browser (invalidation keys over SSE) | E14 | Done — full loop verified; NR-scms-018 (a third path that leaked) found and fixed | work/SCMS-063.md |
 | SCMS-064 | The page builder: composition editing through the bounded lane | E14 | Ready — page structure is already Canon (SCMS-016) and socket population is already the bounded lane (SCMS-021); the UI is what is missing | — |
 | SCMS-065 | The Postgres store adapter (and this project's first runtime dependency) | E13 | **Ready — owner input invited on the driver.** The schema is proven; nothing in `impl/` reads or writes it. Needs `pg` or `postgres.js`, a lockfile, and `npm ci` in CI | — |
 | SCMS-066 | A migration runner | E13 | Ready — zach-core re-runs a declarative schema file and has none either, so this is a gap inherited rather than solved | — |
@@ -29912,6 +30321,69 @@ No auth, no migration runner, no connection pooling, no production database.
 ## Closing state
 
 **Done — the database refuses what the design says it must, and says so in fifteen checks.**
+
+
+========================================================================
+FILE: work/SCMS-063.md
+========================================================================
+
+# SCMS-063 — The live channel to a browser
+
+**Intent ref:** PROJECT_INTENT.md · **Epic:** E14 · **Effect class:** E1
+**Assigned by:** owner — *"how about static pages and realtime editing of the page itself?"*
+**State:** Ready → Claimed → Done (closing state at bottom)
+
+## What it does
+
+An SSE endpoint that pushes **invalidation keys** to a browser, per §8.3. The client re-fetches
+through the same route it first rendered — so the channel carries *which subject changed* and never
+content, and cannot become a second read path with its own access rules.
+
+The full loop, driven end to end: promote in the editor → the action log grows → the site replays
+the increment **through the contracts** → the outbox emits → `deliver` filters per subscriber → SSE
+pushes one key → the browser re-fetches and swaps.
+
+## The defect this produced, and the reason it happened
+
+The first version computed the wave itself, straight from `journal.events()`, ignoring
+`minimumAccess`. A **public** SSE client was sent the subject ids of owner-scoped evidence and
+attestation records, revision hashes included — it learned that qualification had happened, on which
+revision, and which obligations ran.
+
+I wrote a **third** notification path beside `fanOut` (SCMS-026) and `deliver` (SCMS-033), both of
+which exist precisely to be non-leaking, and the new one did not inherit the property. I did it while
+quoting §8.3 in the module docstring.
+
+Recorded as **NR-scms-018**. There is now no wave computation in the module: `deliver` decides what
+each subscriber hears, filtering against that subscriber's own accessible dependency set.
+
+## A second thing the fix surfaced
+
+With the leak closed, a connecting client got an 80-key backfill — `position: null` means "has seen
+nothing", so its first wave was everything its page already showed. But a client that has just been
+served a page is **caught up**, not new. The position now comes from `deliver` rather than being
+counted locally, for the same reason as above: "how many events are relevant to this subscriber" is
+the question `deliver` already answers, and reimplementing it is how the leak happened one function
+earlier.
+
+## Failure degrades to truth
+
+§8.3 is explicit that a dropped channel must not become a spinner. If the EventSource errors, the
+chip reads `snapshot` and the page keeps the state it has. It never claims `live` without a
+connection behind it — the rule NR-scms-010 was written about.
+
+## What this is NOT
+
+The file-watch is **development-grade custody**, and deliberately a seam rather than a design. The
+real mechanism is already in the schema: `canon_emit` calls `pg_notify('canon_outbox', …)`, which is
+the native channel §8.1 requires. When the adapter lands (SCMS-065) the watcher is replaced by a
+LISTEN and nothing above it changes.
+
+No reconnect-with-backoff, no `lagged` handling in the client, no auth — the site is public-only.
+
+## Closing state
+
+**Done — an edit in the editor reaches a reader's open page, and tells them only what they may hear.**
 
 
 ========================================================================

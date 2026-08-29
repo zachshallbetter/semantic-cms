@@ -41,6 +41,9 @@ a.card:hover{border-color:var(--accent)}
 a.card p{margin:.35rem 0 0;color:var(--muted);font-size:.95rem}
 nav[data-operations]{display:none}
 nav[data-operations]:has(button){display:flex;gap:.5rem;margin-top:2rem}
+#live-chip{margin-left:.4rem}
+#live-chip[data-state="live"]{color:var(--accent)}
+#live-chip[data-state="stale"]{color:var(--muted)}
 footer.prov{margin-top:4rem;padding-top:1rem;border-top:1px solid var(--rule);
   color:var(--muted);font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace}
 a:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
@@ -65,8 +68,44 @@ export function renderShell(o: ShellOptions): string {
 </header>
 ${o.body}
 ${o.provenance
-  ? `<footer class="prov">rendered from Canon · snapshot ${esc(o.provenance.snapshot)} · surface ${esc(o.provenance.fingerprint.slice(0, 16))}</footer>`
+  ? `<footer class="prov">rendered from Canon · snapshot ${esc(o.provenance.snapshot)} · surface ${esc(o.provenance.fingerprint.slice(0, 16))}
+     <span id="live-chip" data-state="snapshot">· snapshot</span></footer>`
   : ""}
+<script>
+// §8.3: the channel pushes invalidation KEYS and the client re-fetches through
+// its own access projection. It never receives content, so it cannot be shown
+// anything the page itself would not have resolved.
+//
+// And failure degrades to truth: if the channel drops, the chip says snapshot
+// and the page keeps the state it has. It never spins, and it never claims live
+// without a connection behind it (the rule NR-scms-010 was written about).
+(function () {
+  var chip = document.getElementById("live-chip");
+  if (!chip || !window.EventSource) return;
+  var say = function (state, text) { chip.dataset.state = state; chip.textContent = "· " + text; };
+
+  var es = new EventSource("/events?path=" + encodeURIComponent(window.location.pathname));
+  es.addEventListener("ready", function () { say("live", "live"); });
+  es.addEventListener("invalidate", function (e) {
+    var keys = [];
+    try { keys = (JSON.parse(e.data) || {}).keys || []; } catch (_) { return; }
+    if (!keys.length) return;
+    say("stale", keys.length + " changed \u2014 refreshing");
+    // Re-fetch through the same route, which resolves through access
+    // projection exactly as the first render did.
+    fetch(window.location.pathname, { headers: { "cache-control": "no-cache" } })
+      .then(function (r) { return r.text(); })
+      .then(function (html) {
+        var doc = new DOMParser().parseFromString(html, "text/html");
+        var next = doc.querySelector(".wrap");
+        var here = document.querySelector(".wrap");
+        if (next && here) { here.innerHTML = next.innerHTML; say("live", "live"); }
+      })
+      .catch(function () { say("snapshot", "snapshot \u2014 refresh failed"); });
+  });
+  es.onerror = function () { say("snapshot", "snapshot"); };
+})();
+</script>
 </div>
 </body>
 </html>`;
