@@ -1,6 +1,6 @@
 # PROJECT COMPILED CONTEXT
 Generator: 0.5.0
-Source digest: 8fa33afd3b9ab6c2f572b352b236184a7dbfed468f3ede3e95c389c2cce71f2a
+Source digest: efeadee2480439094c9366ac8cb280a5e171007db8103f39b29fdf8aeba2bb9e
 
 > Generated projection. Canonical sources remain authoritative.
 
@@ -1484,7 +1484,7 @@ decision record) — never by deletion.
 | SH-15 | **GAP — live contradiction** | Drafting republishes | `content.revise@1` builds its next envelope from the prior one, so a revision inherits `publicationState`. Reader surfaces resolve from `journal.current()`, so **an in-progress edit to a promoted subject reaches the public the instant it lands** — verified against landed code, not inferred. This contradicts §6's central claim that publishing is qualification plus promotion and never a boolean: `revise` currently republishes without either. | Defined in SCMS-045: a working copy as an `observed` envelope, so drafting against promoted content cannot move a state axis or enter a reader surface. Awaiting owner scheduling. |
 | SH-17 | **CAVEAT — consequence model** | Lag permits publishing | `permits()` allows consequential action in `stale-but-safe`, which is where a lagged client lands. §8.6 qualifies that as permitted **after converge**, and convergence is modelled nowhere — so a client that has been told it is 37 events behind can still promote against a view it knows is stale. Found while building SCMS-035; not fixed there, because whether lag blocks promotion is a consequence-model decision rather than an implementation detail. | **The mechanism now exists** (SCMS-048: `converge()` acknowledges remote activity and leaves the client current, refusing in the four states catching up cannot resolve). What remains is the policy: flip `permits('stale-but-safe','consequential')` to require convergence, or make lag an explicit promotion gate in the consequence profile. One line either way. Needs owner disposition. |
 | SH-19 | **CAVEAT — instrument limit** | The leak scan compares identities, not all spellings | After NR-scms-013 the S3 access-constraint check normalizes character references and percent-encoding before scanning, but an identity split across separate attributes or interleaved with markup is still invisible to it. It is a backstop against an adapter leaking by accident — the realistic failure — and not a proof against one encoding deliberately. | Either accept the limit explicitly in the S3 claim wording (current posture), or compare against a parsed DOM rather than a string. |
-| SH-20 | **THIN** | Intra-group order is unprotected | The S3 `required-priority` check only compares members whose priority values differ, and every member of a collection group shares a priority — so reversing an entire index is not caught. Probably correct, since priority is semantic and its realization is free, but it means order within a group carries no cross-expression guarantee. Found by the NR-scms-014 pass. | Decide whether intra-group order is a protected property. If it is not, say so in the S3 conformance wording so its absence is declared rather than emergent. |
+| ~~SH-20~~ | **RESOLVED as a declared non-property** | Intra-group order is unprotected | *Closed by SCMS-053:* S3 does not promise intra-group order, and now says so. `checkEquivalence` reports `intraGroupOrderMatched` without enforcing it — priority is semantic and its realization is free, so an adapter may legitimately order a group by reading time, alphabet, or nothing at all. What was wrong is that the absence was true by omission: an unwritten missing guarantee is indistinguishable from one people assume they have. A caller who needs the property can now check for it. | — |
 | SH-21 | **GAP — migration** | The corpus is unpublished | `content.create@1` refuses to create already-published content (correctly — a caller must not supply the value deciding the gate), so all 215 migrated records arrive `unpublished`, including the 61 that were published in the source. Since SCMS-050 made the read path consult publication, the site correctly renders empty. | Promote those records through the real gate, which requires attestations and therefore intersects SH-13. Part of SCMS-029's reconciliation; not something the importer may do on its own. |
 | ~~SH-12~~ | **RESOLVED** | Wire protocol concretes | *Closed by SCMS-024:* `schemas/scms/envelope.schema.json` (closed, hash-pattern-typed, freshness rule encoded conditionally) and `schemas/scms/golden/canonicalization.json` (4 positive vectors + 1 negative proving the check can fail). Residual limitation, recorded not hidden: no JSON-Schema library is available under the zero-dependency policy, so the schema document is not meta-validated and schema/runtime agreement is asserted case-wise. |
 
@@ -17974,6 +17974,22 @@ export interface EquivalenceResult {
   equivalent: boolean;
   materiallyDifferent: boolean;
   findings: EquivalenceFinding[];
+  /**
+   * Whether member order matched WITHIN each group, reported and not enforced.
+   *
+   * `required-priority` only compares members whose priority values differ, and
+   * every member of a collection shares a priority — so reversing an entire
+   * index passes S3 today (SH-20). That is probably correct: priority is
+   * semantic and its realization is free, so an adapter may legitimately order
+   * a group by reading time, alphabet, or nothing at all.
+   *
+   * But it was true by omission rather than by decision, and an absent
+   * guarantee that nobody has written down is indistinguishable from one people
+   * assume they have. Reporting it makes the absence legible: a caller who
+   * needs intra-group order preserved can now check for it, and one who does
+   * not can see that S3 never promised it.
+   */
+  intraGroupOrderMatched: boolean;
   /** What each expression chose, for the record. */
   morphologies: Record<string, Record<string, string>>;
 }
@@ -18090,9 +18106,16 @@ export function checkEquivalence(
     });
   }
 
+  // Reported, not enforced — see the field's note.
+  const groupsInBoth = Object.keys(a.presentedGroups)
+    .filter((g) => Object.hasOwn(b.presentedGroups, g));
+  const intraGroupOrderMatched = groupsInBoth.every(
+    (g) => JSON.stringify(a.presentedGroups[g]) === JSON.stringify(b.presentedGroups[g]));
+
   return {
     equivalent: findings.filter((f) => f.property !== "materially-different").length === 0,
     materiallyDifferent,
+    intraGroupOrderMatched,
     findings,
     morphologies: { [a.expression]: a.morphology, [b.expression]: b.morphology },
   };
@@ -18487,6 +18510,31 @@ test("an encoded identity is still caught — the scan compares identities, not 
   assert.deepEqual(
     checkEquivalence(s, a, b, [secret]).findings.filter((f) => f.property === "access-constraint"),
     []);
+});
+
+test("intra-group order is REPORTED, not enforced (SH-20)", () => {
+  const s = surface();
+  const a = expressStructural(s);
+  const b = expressLinear(s);
+
+  // Honest case: both adapters present each group in the same sequence.
+  const straight = checkEquivalence(s, a, b);
+  assert.equal(straight.intraGroupOrderMatched, true);
+  assert.equal(straight.equivalent, true);
+
+  // Now reverse one group's members in one expression. S3 still passes — that
+  // is the point of the report, not a defect in it. Priority is semantic and
+  // its realization is free, so an adapter may order a group as it likes.
+  const groupId = Object.keys(a.presentedGroups)[0];
+  const reversed = {
+    ...a,
+    presentedGroups: { ...a.presentedGroups, [groupId]: [...a.presentedGroups[groupId]].reverse() },
+  };
+  const result = checkEquivalence(s, reversed, b);
+  assert.equal(result.equivalent, true, "S3 does not promise intra-group order");
+  assert.equal(result.intraGroupOrderMatched,
+    a.presentedGroups[groupId].length > 1 ? false : true,
+    "but the report says whether it held, so the absence is legible rather than assumed");
 });
 
 
@@ -24637,6 +24685,7 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-050 | The read path consults the publication axis (NR-scms-015) | E8 | Done — promotion now decides what readers see; site renders empty and says why | records/evidence.jsonl · scms-evidence-050 |
 | SCMS-051 | Qualify, promote, and a reader who sees it | E8 | Done — arc closes end to end; verified by interaction; nothing deployed | records/evidence.jsonl · scms-evidence-051 |
 | SCMS-052 | Vector the replay path (raise SCMS-051's rung) | E8 | Done — 7 vectors incl. the gates-not-state control | records/evidence.jsonl · scms-evidence-052 |
+| SCMS-053 | Intra-group order as a declared non-property (closes SH-20) | E1 | Done — reported, not enforced; no conformance outcome changed | records/evidence.jsonl · scms-evidence-053 |
 | SCMS-044 | Route the editor through the surface pipeline it currently bypasses | E12 | Done — SH-16 closed; two duplicate access checks removed; awaiting owner verification | records/evidence.jsonl · scms-evidence-044 |
 | SCMS-018 | R1 live co-authoring — **free lane only** (convergent merge) | E1 | **Blocked** — awaiting disposition of P7/P22 on PR #28 | records/blockers · scms-blocker-001 |
 | SCMS-010 | S4 cross-domain portability: a materially unrelated project (outside this repository, per owner doctrine 2026-08-28) consumes @semantic-systems/surface unmodified | external | Backlog — executes outside scms; scms records the conformance result | — |

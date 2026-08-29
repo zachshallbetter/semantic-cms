@@ -54,6 +54,22 @@ export interface EquivalenceResult {
   equivalent: boolean;
   materiallyDifferent: boolean;
   findings: EquivalenceFinding[];
+  /**
+   * Whether member order matched WITHIN each group, reported and not enforced.
+   *
+   * `required-priority` only compares members whose priority values differ, and
+   * every member of a collection shares a priority — so reversing an entire
+   * index passes S3 today (SH-20). That is probably correct: priority is
+   * semantic and its realization is free, so an adapter may legitimately order
+   * a group by reading time, alphabet, or nothing at all.
+   *
+   * But it was true by omission rather than by decision, and an absent
+   * guarantee that nobody has written down is indistinguishable from one people
+   * assume they have. Reporting it makes the absence legible: a caller who
+   * needs intra-group order preserved can now check for it, and one who does
+   * not can see that S3 never promised it.
+   */
+  intraGroupOrderMatched: boolean;
   /** What each expression chose, for the record. */
   morphologies: Record<string, Record<string, string>>;
 }
@@ -170,9 +186,16 @@ export function checkEquivalence(
     });
   }
 
+  // Reported, not enforced — see the field's note.
+  const groupsInBoth = Object.keys(a.presentedGroups)
+    .filter((g) => Object.hasOwn(b.presentedGroups, g));
+  const intraGroupOrderMatched = groupsInBoth.every(
+    (g) => JSON.stringify(a.presentedGroups[g]) === JSON.stringify(b.presentedGroups[g]));
+
   return {
     equivalent: findings.filter((f) => f.property !== "materially-different").length === 0,
     materiallyDifferent,
+    intraGroupOrderMatched,
     findings,
     morphologies: { [a.expression]: a.morphology, [b.expression]: b.morphology },
   };

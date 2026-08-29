@@ -225,3 +225,28 @@ test("an encoded identity is still caught — the scan compares identities, not 
     checkEquivalence(s, a, b, [secret]).findings.filter((f) => f.property === "access-constraint"),
     []);
 });
+
+test("intra-group order is REPORTED, not enforced (SH-20)", () => {
+  const s = surface();
+  const a = expressStructural(s);
+  const b = expressLinear(s);
+
+  // Honest case: both adapters present each group in the same sequence.
+  const straight = checkEquivalence(s, a, b);
+  assert.equal(straight.intraGroupOrderMatched, true);
+  assert.equal(straight.equivalent, true);
+
+  // Now reverse one group's members in one expression. S3 still passes — that
+  // is the point of the report, not a defect in it. Priority is semantic and
+  // its realization is free, so an adapter may order a group as it likes.
+  const groupId = Object.keys(a.presentedGroups)[0];
+  const reversed = {
+    ...a,
+    presentedGroups: { ...a.presentedGroups, [groupId]: [...a.presentedGroups[groupId]].reverse() },
+  };
+  const result = checkEquivalence(s, reversed, b);
+  assert.equal(result.equivalent, true, "S3 does not promise intra-group order");
+  assert.equal(result.intraGroupOrderMatched,
+    a.presentedGroups[groupId].length > 1 ? false : true,
+    "but the report says whether it held, so the absence is legible rather than assumed");
+});
