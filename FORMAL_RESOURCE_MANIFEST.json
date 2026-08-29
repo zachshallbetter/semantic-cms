@@ -7,13 +7,20 @@
       "kind": "protocol",
       "required": true,
       "version": "1.0.0",
-      "revisionOrDigest": "sha256:a0dea5489d296481860201ea92d90b8ccfda32575bb9fda1e7ee9ece4a08fabc",
+      "revisionOrDigest": "sha256:97e0ef3b16528588ed7ab644f691b112b682d6c467d829620e29921b541462ee",
       "canonicalSource": "/Users/zachshallbetter/Projects/_Protocols/semantic-expression-system",
       "mountOrAddress": "/Users/zachshallbetter/Projects/_Protocols/semantic-expression-system",
       "authorityRole": "Semantic model (Element/Slot/Block/Socket/Composition/Variant/State/Operation), expression cascade, Projection Contracts, typed invariance, conformance vocabulary.",
-      "inventory": ["docs/SES-SPECIFICATION.md", "docs/schemas/ses.schema.json", "docs/conformance/"],
-      "compatibility": {"semantics": "bound-as-declared", "authority": "imported, never enlarged"},
-      "sourceState": "local directory, not under version control; digest is aggregate sha256 of file sha256s over the mount (node_modules/.git excluded), computed 2026-08-28"
+      "inventory": [
+        "docs/SES-SPECIFICATION.md",
+        "docs/schemas/ses.schema.json",
+        "docs/conformance/"
+      ],
+      "compatibility": {
+        "semantics": "bound-as-declared",
+        "authority": "imported, never enlarged"
+      },
+      "sourceState": "git repository, clean at 40e543653112 (SES-041: adds package.json for downstream pinning; no normative change); digest is aggregate sha256 of file sha256s over the mount (.git/node_modules excluded), computed 2026-08-28"
     },
     {
       "id": "sps",
@@ -24,8 +31,15 @@
       "canonicalSource": "/Users/zachshallbetter/Projects/_Protocols/semantic-publication-substrate",
       "mountOrAddress": "/Users/zachshallbetter/Projects/_Protocols/semantic-publication-substrate",
       "authorityRole": "Publication layering (six-layer stack, source-of-truth ownership), evidence-resolved morphology, protected-resource discovery boundary.",
-      "inventory": ["docs/ARCHITECTURE.md", "docs/EXPERIENCE.md", "app.js"],
-      "compatibility": {"semantics": "bound-as-declared", "authority": "imported, never enlarged"},
+      "inventory": [
+        "docs/ARCHITECTURE.md",
+        "docs/EXPERIENCE.md",
+        "app.js"
+      ],
+      "compatibility": {
+        "semantics": "bound-as-declared",
+        "authority": "imported, never enlarged"
+      },
       "sourceState": "local directory, not under version control; aggregate digest computed 2026-08-28"
     },
     {
@@ -37,8 +51,13 @@
       "canonicalSource": "/Users/zachshallbetter/Projects/_Protocols/interaction-contract-protocol",
       "mountOrAddress": "/Users/zachshallbetter/Projects/_Protocols/interaction-contract-protocol",
       "authorityRole": "Governed consequential interaction: contract tuple, canonical instance states, outcome classes, change receipts, executable recovery, verification levels.",
-      "inventory": ["INTERACTION_CONTRACT_PROTOCOL_v0.1.0.md"],
-      "compatibility": {"semantics": "bound-as-declared", "authority": "imported, never enlarged"},
+      "inventory": [
+        "INTERACTION_CONTRACT_PROTOCOL_v0.1.0.md"
+      ],
+      "compatibility": {
+        "semantics": "bound-as-declared",
+        "authority": "imported, never enlarged"
+      },
       "sourceState": "local directory, not under version control; aggregate digest computed 2026-08-28"
     },
     {
@@ -50,8 +69,15 @@
       "canonicalSource": "/Users/zachshallbetter/Projects/_Protocols/evidence-qualification-protocol",
       "mountOrAddress": "/Users/zachshallbetter/Projects/_Protocols/evidence-qualification-protocol",
       "authorityRole": "Qualification semantics: evidence results and validity, qualification radius, required-evidence equation, attestations, promotion boundary.",
-      "inventory": ["schemas/candidate.schema.json", "schemas/evidence-record.schema.json", "schemas/qualification-attestation.schema.json"],
-      "compatibility": {"semantics": "bound-as-declared", "authority": "imported, never enlarged"},
+      "inventory": [
+        "schemas/candidate.schema.json",
+        "schemas/evidence-record.schema.json",
+        "schemas/qualification-attestation.schema.json"
+      ],
+      "compatibility": {
+        "semantics": "bound-as-declared",
+        "authority": "imported, never enlarged"
+      },
       "sourceState": "local directory, not under version control; aggregate digest computed 2026-08-28"
     },
     {
@@ -63,8 +89,14 @@
       "canonicalSource": "https://github.com/zachshallbetter/IEPE",
       "mountOrAddress": "/Users/zachshallbetter/Projects/_Protocols/intent-evidence-project-engine",
       "authorityRole": "Operating engine: intent-to-promotion chain, condition classification, blocker fingerprints, agent project package compilation.",
-      "inventory": ["docs/PROTOCOL.md", "docs/AGENT_PROJECT_PACKAGE.md"],
-      "compatibility": {"semantics": "bound-as-declared", "authority": "imported, never enlarged"},
+      "inventory": [
+        "docs/PROTOCOL.md",
+        "docs/AGENT_PROJECT_PACKAGE.md"
+      ],
+      "compatibility": {
+        "semantics": "bound-as-declared",
+        "authority": "imported, never enlarged"
+      },
       "sourceState": "pin reuses the recorded IEPE-001 reference from SES/SPS (.iepe/protocol-reference.json); local mount aggregate digest sha256:68bfdea32e2c8ca8f8ea324383c611d4db030bc8045ab49655d760eec149476b computed 2026-08-28"
     },
     {
@@ -76,8 +108,13 @@
       "canonicalSource": "/Users/zachshallbetter/Projects/_Protocols/human-computer-mutual-legibility",
       "mountOrAddress": "/Users/zachshallbetter/Projects/_Protocols/human-computer-mutual-legibility",
       "authorityRole": "Consistency states, relationship state, typed uncertainty, delegation risk posture, design principles. Research corpus: informs, does not command; empirical claims remain unvalidated by its own admission.",
-      "inventory": ["Human-Computer-Mutual-Legibility-Research-Corpus-v2/"],
-      "compatibility": {"semantics": "bound-as-declared", "evidence": "hypothesis-stage, imported as such"},
+      "inventory": [
+        "Human-Computer-Mutual-Legibility-Research-Corpus-v2/"
+      ],
+      "compatibility": {
+        "semantics": "bound-as-declared",
+        "evidence": "hypothesis-stage, imported as such"
+      },
       "sourceState": "local directory, not under version control; aggregate digest computed 2026-08-28"
     },
     {
@@ -89,8 +126,15 @@
       "canonicalSource": "/Users/zachshallbetter/Projects/fundamental-engine",
       "mountOrAddress": "/Users/zachshallbetter/Projects/fundamental-engine",
       "authorityRole": "Field runtime concepts: semantic layers, metric provenance classes, association-vs-coupling, projection purity, five senses of time, live-data honesty, hysteretic events, quality governor.",
-      "inventory": ["docs/canonical/", "packages/core/src/semantic/layers.ts", "data/recipes.json"],
-      "compatibility": {"semantics": "bound-as-declared", "authority": "imported, never enlarged"},
+      "inventory": [
+        "docs/canonical/",
+        "packages/core/src/semantic/layers.ts",
+        "data/recipes.json"
+      ],
+      "compatibility": {
+        "semantics": "bound-as-declared",
+        "authority": "imported, never enlarged"
+      },
       "sourceState": "git repository, clean working tree at pin time (2026-08-28)"
     },
     {
@@ -102,22 +146,37 @@
       "canonicalSource": "/Users/zachshallbetter/Projects/reflective-rust",
       "mountOrAddress": "/Users/zachshallbetter/Projects/reflective-rust",
       "authorityRole": "Envelope shape, provenance classes and no-promotion rule, observation freshness and drift, access projection, canonical identity (JCS + SHA-256), staged one-way derivation, dependency fingerprints.",
-      "inventory": ["crates/reflective-rust-protocol/src/lib.rs", "docs/04-runtime/", "CONFORMANCE.md"],
-      "compatibility": {"semantics": "bound-as-declared", "authority": "imported, never enlarged"},
+      "inventory": [
+        "crates/reflective-rust-protocol/src/lib.rs",
+        "docs/04-runtime/",
+        "CONFORMANCE.md"
+      ],
+      "compatibility": {
+        "semantics": "bound-as-declared",
+        "authority": "imported, never enlarged"
+      },
       "sourceState": "DIRTY at pin time: git 3a1c3c727e02 with 61 uncommitted paths on 2026-08-28. The pin is provisional until the working tree is committed or the binding is re-pinned; per integrity policy this is disclosed, not hidden."
     },
     {
       "id": "fpb",
       "kind": "policy",
       "required": true,
-      "version": "0.5.0",
-      "revisionOrDigest": "sha256:839b9843b734fd7452ce88be223d10065111fbe5ffbeac225f0af62012db1eb3",
-      "canonicalSource": "/Users/zachshallbetter/Projects/_formal-project-bootstrap/formal-project-bootstrap-v0.5.0",
-      "mountOrAddress": "/Users/zachshallbetter/Projects/_formal-project-bootstrap/formal-project-bootstrap-v0.5.0",
+      "version": "0.5.1",
+      "revisionOrDigest": "sha256:32e8da6625cb9bac436c48de6e88b8d525b24606b32b2d8a48b11f70f8874f48",
+      "canonicalSource": "/Users/zachshallbetter/Projects/_formal-project-bootstrap/formal-project-bootstrap-v0.5.1",
+      "mountOrAddress": "/Users/zachshallbetter/Projects/_formal-project-bootstrap/formal-project-bootstrap-v0.5.1",
       "authorityRole": "Operating substrate this project is initialized from: authority model, work graph, evidence method, context compilation, conformance ladder.",
-      "inventory": ["PACKAGE_MANIFEST.json", "docs/", "schemas/", "scripts/"],
-      "compatibility": {"semantics": "bound-as-declared", "authority": "governs project operation"},
-      "sourceState": "released package; digest is sha256 of PACKAGE_MANIFEST.json, which itself binds per-file sha256 digests"
+      "inventory": [
+        "PACKAGE_MANIFEST.json",
+        "docs/",
+        "schemas/",
+        "scripts/"
+      ],
+      "compatibility": {
+        "semantics": "bound-as-declared",
+        "authority": "governs project operation"
+      },
+      "sourceState": "released package v0.5.1 (2026-08-28: adds instrument stratification, upstream-first repair doctrine, named drafting failure classes; doc-level additive); digest is sha256 of PACKAGE_MANIFEST.json, which binds per-file sha256 digests; full gate (check-all.py) passed at re-pin"
     }
   ],
   "integrityPolicy": {
@@ -126,7 +185,7 @@
     "rejectRemoteLatestForRequiredResources": true,
     "rejectGeneratedContextAsAuthority": true,
     "consumptionModel": "dependencies-only: pinned versions/revisions consumed via package/crate dependency, schema-pack import, or mechanical sync from the pin; a synced copy is a cache of the pin, not a fork; local modification of consumed code or specs is prohibited",
-    "repairDoctrine": "upstream-first: a needed, broken, or missing capability is repaired in the owning project under that project's authority, then re-pinned here; a re-pin is a compatibility event and may trigger re-qualification (owner directive, 2026-08-28; DESIGN.md §12.1)",
+    "repairDoctrine": "upstream-first: a needed, broken, or missing capability is repaired in the owning project under that project's authority, then re-pinned here; a re-pin is a compatibility event and may trigger re-qualification (owner directive, 2026-08-28; DESIGN.md \u00a712.1)",
     "divergenceRequiresDeviation": true
   }
 }

@@ -19,3 +19,15 @@ what new evidence would justify reopening it
 Do not convert an abandoned path into universal doctrine unless the evidence supports that scope.
 
 Do not delete a negative result merely because a later implementation succeeded by a different method.
+
+## Named drafting failure classes
+
+Recorded once, checked on normative changes:
+
+```text
+authorization by the cheaper record
+  two record types attach to one consequential effect; the weaker is made sufficient
+descriptive-to-normative contamination
+  canonizing a worked example imports its accidents (sequencing, defaults)
+  along with its essence; norms choose these, never inherit them
+```

@@ -22,6 +22,7 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-003 | Canonize the dependency isolation doctrine | E1 | Done — awaiting owner verification | records/evidence.jsonl · scms-evidence-003 |
 | SCMS-004 | Review titan-node, titan-observatory, and Tools | E0+E1 | Done — proposals P17–P28 await owner disposition (#5) | records/evidence.jsonl · scms-evidence-004 |
 | SCMS-005 | Resolve the gap register (build excluded) | E1+E0 | Done — awaiting owner rulings on #26 (recipient) and #28 (v2 PR) | records/evidence.jsonl · scms-evidence-005 |
+| SCMS-006 | First upstream-first cycle: FPB v0.5.1 + SES packaging; re-pin | E1+E2 | Done — awaiting owner verification | records/evidence.jsonl · scms-evidence-006 |
 
 ## Epic register
 
