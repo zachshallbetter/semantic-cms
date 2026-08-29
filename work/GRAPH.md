@@ -73,7 +73,7 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-057 | Canon in Postgres: schema, grants, and append-only by refusal | E13 | Done — 15 refusal checks against real PG; NR-scms-017 found; adapter is next | records/evidence.jsonl · scms-evidence-057 |
 | SCMS-058 | The outbox as a transactional trigger, not an in-process push | E13 | Ready — depends on SCMS-057; 'nothing happens without an emission' enforced by the store | — |
 | SCMS-059 | Authentication (closes SH-2) | E13 | Ready — the largest gap; semantic-cms currently has none | — |
-| SCMS-060 | Content-addressed blobs for prose and media (closes SH-4) | E13 | Ready — depends on SCMS-057; bodySha256 already exists in the model | — |
+| SCMS-060 | Content-addressed blobs for prose and media (closes SH-4) | E13 | Done — digest is the key, immutable by grant; 6 more refusal checks | records/evidence.jsonl · scms-evidence-060 |
 | SCMS-061 | Cut over: deploy and decommission zach-core | E13 | **Blocked — protected action.** Owner authorization required at the time | — |
 | SCMS-044 | Route the editor through the surface pipeline it currently bypasses | E12 | Done — SH-16 closed; two duplicate access checks removed; awaiting owner verification | records/evidence.jsonl · scms-evidence-044 |
 | SCMS-018 | R1 live co-authoring — **free lane only** (convergent merge) | E1 | **Blocked** — awaiting disposition of P7/P22 on PR #28 | records/blockers · scms-blocker-001 |

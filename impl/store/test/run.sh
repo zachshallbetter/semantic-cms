@@ -10,7 +10,7 @@ dropdb --if-exists "$DB" >/dev/null 2>&1 || true
 createdb "$DB"
 trap 'dropdb --if-exists "$DB" >/dev/null 2>&1 || true' EXIT
 
-psql -q -d "$DB" -f "$HERE/../sql/001-canon.sql" >/dev/null
+for f in "$HERE"/../sql/*.sql; do psql -q -d "$DB" -f "$f" >/dev/null; done
 out="$(psql -q -d "$DB" -f "$HERE/grants.sql" 2>&1 | grep -E 'PASS|FAIL' || true)"
 echo "$out"
 

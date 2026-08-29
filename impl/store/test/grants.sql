@@ -116,3 +116,52 @@ SELECT '15 receipt/event parity: ' ||
   THEN 'PASS' ELSE 'FAIL' END;
 
 RESET ROLE;
+
+-- ── Blobs (SCMS-060) ───────────────────────────────────────────────────────
+SET ROLE scms_runtime;
+
+INSERT INTO canon_blob (digest, bytes, byte_length, media_type)
+VALUES ('sha256:' || repeat('7',64), 'hello canon', 11, 'text/markdown');
+\if :ERROR
+  SELECT '16 runtime CAN store a blob: FAIL';
+\else
+  SELECT '16 runtime CAN store a blob: PASS';
+\endif
+
+-- The digest is the key, so identical bytes are one row rather than two.
+INSERT INTO canon_blob (digest, bytes, byte_length, media_type)
+VALUES ('sha256:' || repeat('7',64), 'hello canon', 11, 'text/markdown');
+\if :ERROR
+  SELECT '17 same digest stored twice is refused (dedup by naming): PASS';
+\else
+  SELECT '17 same digest stored twice is refused (dedup by naming): FAIL';
+\endif
+
+-- A length that disagrees with the bytes would let the manifest and the store
+-- drift apart silently.
+INSERT INTO canon_blob (digest, bytes, byte_length, media_type)
+VALUES ('sha256:' || repeat('8',64), 'four', 99, 'text/plain');
+\if :ERROR
+  SELECT '18 length must agree with the bytes: PASS';
+\else
+  SELECT '18 length must agree with the bytes: FAIL';
+\endif
+
+UPDATE canon_blob SET bytes = 'tampered';
+\if :ERROR
+  SELECT '19 blobs are immutable by grant: PASS';
+\else
+  SELECT '19 blobs are immutable by grant: FAIL — the name would be a lie';
+\endif
+
+DELETE FROM canon_blob;
+\if :ERROR
+  SELECT '20 blobs cannot be deleted by the runtime: PASS';
+\else
+  SELECT '20 blobs cannot be deleted by the runtime: FAIL';
+\endif
+
+SELECT '21 an unreferenced blob is identifiable, not removed: ' ||
+  CASE WHEN (SELECT count(*) FROM canon_blob_unreferenced) = 1 THEN 'PASS' ELSE 'FAIL' END;
+
+RESET ROLE;
