@@ -1,0 +1,8 @@
+{
+  "name": "@scms/migrate",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "zach-core → Canon migration (SCMS-028, epic E8): maps the real zachshallbetter.com archive into Canon records without collapsing distinctions the source keeps, and surfacing one the source collapses. Runs against the actual 215-entry corpus manifest.",
+  "scripts": { "test": "node --test test/migration.test.ts" }
+}

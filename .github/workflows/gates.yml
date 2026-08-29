@@ -80,6 +80,10 @@ jobs:
         run: node --test test/fanout.test.ts
         working-directory: impl/notify
 
+      - name: Real-corpus migration (SCMS-028 · zach-core → Canon)
+        run: node --test test/migration.test.ts
+        working-directory: impl/migrate
+
       - name: End-to-end spine (SCMS-019 · the composed narrow path)
         run: node --test test/spine.test.ts
         working-directory: impl/e2e

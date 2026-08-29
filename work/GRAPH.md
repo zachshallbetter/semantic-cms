@@ -42,6 +42,8 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-025 | Reconcile the claim register to the evidence | E1 | Done — awaiting owner verification | records/evidence.jsonl · scms-evidence-025 |
 | SCMS-026 | Subscription fan-out: who is told, and who must not be | E1 | Done — awaiting owner verification | records/evidence.jsonl · scms-evidence-026 |
 | SCMS-027 | Extend the composed proof to the full landed surface | E1 | Done — awaiting owner verification | records/evidence.jsonl · scms-evidence-027 |
+| SCMS-028 | Map the zach-core corpus into Canon (first real workload) | E8 | Done — 215 real entries map, 22 source-collapse findings raised; awaiting owner verification | records/evidence.jsonl · scms-evidence-028 |
+| SCMS-029 | Reconcile the corpus against live Postgres (seed-time vs current) | E8 | **Blocked** — needs owner-authorized credentials (protected action) | — |
 | SCMS-018 | R1 live co-authoring — **free lane only** (convergent merge) | E1 | **Blocked** — awaiting disposition of P7/P22 on PR #28 | records/blockers · scms-blocker-001 |
 | SCMS-010 | S4 cross-domain portability: a materially unrelated project (outside this repository, per owner doctrine 2026-08-28) consumes @semantic-systems/surface unmodified | external | Backlog — executes outside scms; scms records the conformance result | — |
 
@@ -56,7 +58,7 @@ epic as the owner assigns the corresponding piece of work.
 | E4 | Projection — resolver, projection contracts, access projection, derivations, fingerprint invalidation | DESIGN.md §4, §7 | In progress — resolver + S3 + invalidation landed; SCMS-015 open |
 | E5 | Field — semantic metrics, workspace morphology, editorial time | DESIGN.md §9 | Backlog |
 | E6 | Observation — presence, consistency states, provenance chips, drift, degradation | DESIGN.md §8, §10 | In progress — semantic core landed (SCMS-017); transport pending P10 |
-| E8 | **Migration 1 — zachshallbetter.com** (the first real workload; rcp-001) | DESIGN.md §14 + SH-9 | Ready — owner-confirmed 2026-08-28 |
+| E8 | **Consolidation 1 — zach-core + zachshallbetter → one project** (rcp-001; the CMS is the substrate, the site is its reader expression) | DESIGN.md §14 + SH-9 | Ready — owner-confirmed 2026-08-28 |
 | E9 | Migration 2 — a friends site (first multi-property test) | — | Backlog — after E8 |
 | E10 | Migration 3 — fundamental-engine (first materially different domain; earns S4) | SSS S4 | Backlog — after E9 |
 | E11 | Migration 4 — infinite-verse (publication domain; sibling-system integration) | — | Backlog — after E10 |
