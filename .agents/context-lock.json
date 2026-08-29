@@ -9,14 +9,14 @@
     "repositories": [
       {
         "path": ".",
-        "commit": "421e1de1519a6064fc027efc679c8a086bbb4b12",
+        "commit": "9cc8a07fc4ec0de132e96027e069a4daa3b8d9d8",
         "branch": "main",
         "dirty": true,
         "remote": "https://github.com/zachshallbetter/semantic-cms.git"
       }
     ]
   },
-  "aggregateSourceDigest": "4f7fcd58ec121a66d685fa3c3b59a4842bda56a7b8b91b318c73d6cb40a90a8f",
+  "aggregateSourceDigest": "7aae019744dfea99e0343db6e3219f5f461836c28e40b60f7c724d0a7ccb851f",
   "sources": [
     {
       "path": ".agents/skills/compile-context/SKILL.md",
@@ -55,8 +55,8 @@
     },
     {
       "path": ".github/workflows/gates.yml",
-      "bytes": 3928,
-      "sha256": "7de2cfa40d6232d7687c7fe551f060a570da0c5e3ac93c2e9c09d46367c857a6"
+      "bytes": 4094,
+      "sha256": "453db45edc6198ccf2ba44d27bef2fa0bbb04033f58a996799f63b27418168bc"
     },
     {
       "path": "AGENTS.md",
@@ -100,8 +100,8 @@
     },
     {
       "path": "SPEC_HEALTH.md",
-      "bytes": 12586,
-      "sha256": "aa4bb927c20a42f5ae55e678e6d02cb6524669c451b2de4b5bcfde59fbb77874"
+      "bytes": 12814,
+      "sha256": "ba11a1bafcfd1751ed01c19fd358a35df55546dd6c8221814b72667bc82b19a2"
     },
     {
       "path": "VERSION",
@@ -245,8 +245,8 @@
     },
     {
       "path": "impl/canon/src/journal.ts",
-      "bytes": 6387,
-      "sha256": "3e40b551e64a1383e9e0bb8adc9fd187dcb973d9ad228a391b770fc929fd3d71"
+      "bytes": 8963,
+      "sha256": "c8880d2e7c9c954d58b4789bd0efd7ce1b04798cbd7a1cee015b1edbed7facc0"
     },
     {
       "path": "impl/canon/test/canon.test.ts",
@@ -342,6 +342,21 @@
       "path": "impl/observation/test/observation.test.ts",
       "bytes": 7520,
       "sha256": "31aec5615441dc5c9c2c238eab1f6086f536e1792e649fb36ed3cb3e118fb12b"
+    },
+    {
+      "path": "impl/outbox/package.json",
+      "bytes": 369,
+      "sha256": "3dc4dc5a8383f6fb7a0b50cff1ce1cef1ec18ae63eb6629dfa6d9f8db9416fd2"
+    },
+    {
+      "path": "impl/outbox/src/integrity.ts",
+      "bytes": 3851,
+      "sha256": "382e70c56ff086cbaa907b0025e13c2cd68645b92dea0c19723a24afa7173dd6"
+    },
+    {
+      "path": "impl/outbox/test/outbox.test.ts",
+      "bytes": 7382,
+      "sha256": "405ff07054a2d6bba4e69ffc8f376d8e5a5062fbb0909510473297d82bcee73a"
     },
     {
       "path": "impl/projection-cache/package.json",
@@ -555,8 +570,8 @@
     },
     {
       "path": "work/GRAPH.md",
-      "bytes": 10793,
-      "sha256": "93f6fdab6ded9a49650712511d134a07ad78d31fcfaf9073210162c1cfc17eea"
+      "bytes": 10839,
+      "sha256": "b021e510d70e3e0d5e64f7309d0080442754a88a97d5cb2f81eb127de0a614d4"
     },
     {
       "path": "work/SCMS-001.md",
@@ -697,6 +712,11 @@
       "path": "work/SCMS-031.md",
       "bytes": 4257,
       "sha256": "bdd6f5b740481337a939452cf8c7dc630d5196c1a9263a076e7b235800425d44"
+    },
+    {
+      "path": "work/SCMS-032.md",
+      "bytes": 3200,
+      "sha256": "c6b6cb23fc164e2765e21707b803c9a9e48e9aa830589a0f960fca4a49e151fe"
     }
   ]
 }

@@ -1,6 +1,6 @@
 # PROJECT COMPILED CONTEXT
 Generator: 0.5.0
-Source digest: 4f7fcd58ec121a66d685fa3c3b59a4842bda56a7b8b91b318c73d6cb40a90a8f
+Source digest: 7aae019744dfea99e0343db6e3219f5f461836c28e40b60f7c724d0a7ccb851f
 
 > Generated projection. Canonical sources remain authoritative.
 
@@ -240,6 +240,10 @@ jobs:
       - name: Authoring surface and the authority gate (SCMS-031)
         run: node --test test/authoring.test.ts
         working-directory: impl/authoring
+
+      - name: Outbox integrity (SCMS-032 · nothing happens without an emission)
+        run: node --test test/outbox.test.ts
+        working-directory: impl/outbox
 
       - name: End-to-end spine (SCMS-019 · the composed narrow path)
         run: node --test test/spine.test.ts
@@ -1471,7 +1475,7 @@ above its rung.
 | No persistent mutation outside a registered contract | **Implemented + Tested (source-level), and authorized as of SCMS-031** | SCMS-012 write path; SCMS-023 boundary gate with a self-test proving it can fail; SCMS-031 adds the authority gate the write path had been missing entirely (NR-scms-005), and NR-scms-006 corrects that gate after an adversarial pass found it failing OPEN on prototype-chain keys | Runtime capability enforcement, not just source-level |
 | Declared content types are enforced | **Implemented + Tested (where declared)** | SCMS-022: the governed write consults the declared type; opt-in, because types that do not exist are not pretended to exist | A declared type for every content kind in use |
 | R1 live co-authoring | **Partially established** | `required` lane proven (SCMS-012), `bounded` lane proven (SCMS-021); **free lane NOT built** — blocked on P7/P22 | Owner disposition of P7/P22, then the free lane |
-| R2 live propagation | **NOT established** | Nothing built: transport is P10-pending. Consistency *state* is determined (SCMS-017) but nothing moves it | Disposition of P10, then outbox + fan-out + replay |
+| R2 live propagation | **Partially established — emission yes, delivery no** | SCMS-032: the transactional outbox emits inside the journal's landing path, so nothing can change without saying so; replay from every cursor position loses nothing, which is P10's stated criterion. **Nothing is delivered**: no wire, no subscriber, no reconnect | The wire and fan-out (SCMS-033), then replay and `lagged` under real latency (SCMS-034) |
 | R3 live honesty | **Implemented + Tested (semantic core)** | SCMS-017: six states, the drafting/consequential asymmetry, chips that never claim live without a check, presence expiring by construction | Transport-side freshness under real latency |
 | Real content maps into Canon without collapsing what the source keeps | **Implemented + Tested against a real corpus** | SCMS-028: 12 vectors over the actual 215-entry archive — unlisted preserved as itself, private content at owner access, model-generated field kept as a separate `derived` envelope, and the source's own status collapse surfaced as 22 findings rather than inherited | The same against the live Postgres state (SCMS-029) — the reader round-trip is now closed by SCMS-030 |
 | The site can be a reader expression of Canon rather than a content client | **Implemented + Tested over a real corpus** | SCMS-030: the real /writing and /work routes resolve as surfaces over the migrated archive; feed and sitemap derive from the page's own ResolvedSurface, so a feed cannot disagree with its page; unlisted content is reachable by link and in no index | Wiring the declarations into the site's renderer, and a deployment |
@@ -8733,6 +8737,33 @@ export interface Receipt {
   receiptHash: string;
 }
 
+/**
+ * One row of the transactional outbox (DESIGN.md §8.1, P10).
+ *
+ * The outbox is not transport. It is the integrity stream the system already
+ * needs — the audit trail, projections, dead-letter handling and subscribers
+ * are all *consumers* of it. That is why it lives here, inside Canon, rather
+ * than beside it: an emitter that a caller has to remember to invoke is an
+ * emitter that will eventually be forgotten, and "nothing happens without an
+ * emission" then becomes a slogan rather than a property.
+ *
+ * `minimumAccess` is carried on the row so fan-out can decide who may be told
+ * without reading back into Canon. The row names a revision; it never carries
+ * content.
+ */
+export interface OutboxEvent {
+  /** Monotonic and gapless from 0 — the cursor clients replay from. */
+  eventId: number;
+  action: ReceiptAction;
+  subjectId: string;
+  revision: string;
+  priorRevision: string | null;
+  /** Ties this event to its receipt, so the two chains can be checked against each other. */
+  receiptSeq: number;
+  actor: string;
+  minimumAccess: Envelope["minimumAccess"];
+}
+
 export interface JournalEntry {
   envelope: Readonly<Envelope>;
   receiptSeq: number;
@@ -8759,6 +8790,7 @@ export class CanonJournal {
   #entries: JournalEntry[] = [];
   #receipts: Receipt[] = [];
   #byRevision = new Map<string, number>();
+  #outbox: OutboxEvent[] = [];
 
   /** Land a new record. Returns the frozen entry; the envelope is never mutated afterward. */
   append(envelope: Envelope, actor: string): JournalEntry {
@@ -8785,7 +8817,10 @@ export class CanonJournal {
   revoke(revision: string, actor: string): Receipt {
     const idx = this.#requireRevision(revision);
     this.#entries[idx] = { ...this.#entries[idx], revoked: true };
-    return this.#appendReceipt("revoke", this.#entries[idx].envelope.subjectId, revision, revision, actor);
+    const receipt = this.#appendReceipt(
+      "revoke", this.#entries[idx].envelope.subjectId, revision, revision, actor);
+    this.#emit(receipt, this.#entries[idx].envelope);
+    return receipt;
   }
 
   /** Current (non-superseded, non-revoked) entries. */
@@ -8805,6 +8840,25 @@ export class CanonJournal {
 
   receipts(): readonly Receipt[] {
     return this.#receipts;
+  }
+
+  /** The whole emission stream, in commit order. */
+  events(): readonly OutboxEvent[] {
+    return this.#outbox;
+  }
+
+  /**
+   * Events after `lastEventId` — the reconnect path (§8.1: "reconnect replays
+   * from the outbox by last_event_id, with no event loss").
+   *
+   * `null` means "from the beginning", which is a new subscriber's backfill.
+   * A cursor ahead of the stream returns nothing rather than throwing: a client
+   * that has seen more than we have is a client talking to the wrong store, and
+   * silence is the safe answer.
+   */
+  eventsSince(lastEventId: number | null): readonly OutboxEvent[] {
+    if (lastEventId === null) return this.#outbox;
+    return this.#outbox.filter((e) => e.eventId > lastEventId);
   }
 
   /** Recompute the chain; any altered receipt breaks verification (tamper-evident). */
@@ -8835,7 +8889,24 @@ export class CanonJournal {
     });
     this.#byRevision.set(revision, this.#entries.length);
     this.#entries.push(entry);
+    // Same operation as the write, after validation has already passed: a
+    // rejected write throws above and emits nothing, and there is no path that
+    // reaches here without emitting.
+    this.#emit(receipt, landed);
     return entry;
+  }
+
+  #emit(receipt: Receipt, envelope: Envelope): void {
+    this.#outbox.push(Object.freeze({
+      eventId: this.#outbox.length,
+      action: receipt.action,
+      subjectId: receipt.subjectId,
+      revision: receipt.revision,
+      priorRevision: receipt.priorRevision,
+      receiptSeq: receipt.seq,
+      actor: receipt.actor,
+      minimumAccess: envelope.minimumAccess,
+    }));
   }
 
   #requireRevision(revision: string): number {
@@ -11455,6 +11526,274 @@ test("no ambient time or randomness: every clock is an input", async () => {
   const { fileURLToPath } = await import("node:url");
   const src = readFileSync(fileURLToPath(new URL("../src/consistency.ts", import.meta.url)), "utf8");
   assert.ok(!/Date\.now|Math\.random|new Date\(\)/.test(src));
+});
+
+
+========================================================================
+FILE: impl/outbox/package.json
+========================================================================
+
+{
+  "name": "@scms/outbox",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Outbox integrity (SCMS-032, epic E5): verifies P10's 'nothing happens without an emission' as a checkable property rather than a slogan — receipt/event parity, gapless cursors, and no-loss replay.",
+  "scripts": { "test": "node --test test/outbox.test.ts" }
+}
+
+
+========================================================================
+FILE: impl/outbox/src/integrity.ts
+========================================================================
+
+/**
+ * Outbox integrity (SCMS-032, epic E5 · DESIGN.md §8.1, P10).
+ *
+ * P10 states the property as a slogan — *"nothing happens without an
+ * emission"* — and a slogan is only worth as much as the check behind it. These
+ * are the checks.
+ *
+ * The emission itself lives inside `CanonJournal`, not here, and deliberately:
+ * an outbox written by callers is an outbox some caller eventually forgets to
+ * write. What this module does is *verify* the property the journal's structure
+ * is supposed to guarantee, so that if someone later adds a write path that
+ * escapes it, a gate fails rather than a subscriber quietly missing an event.
+ */
+import type { CanonJournal, OutboxEvent, Receipt } from "../../canon/src/journal.ts";
+
+export interface IntegrityFinding {
+  code:
+    | "receipt-without-event"      // something happened and nobody was told
+    | "event-without-receipt"      // a subscriber would see a change Canon cannot explain
+    | "event-id-not-gapless"       // replay by cursor would silently skip
+    | "event-receipt-mismatch"     // the two chains disagree about what happened
+    | "duplicate-emission";        // one change told twice — at-least-once becomes at-least-twice
+  detail: string;
+  at: number;
+}
+
+/**
+ * Every receipt has exactly one event, in the same order, and event ids are
+ * gapless from zero. Gaplessness is not cosmetic: `eventsSince` is a range
+ * query, so a gap is indistinguishable from a delivered event and a client
+ * would replay past a change it never saw.
+ */
+export function verifyEmissionIntegrity(journal: CanonJournal): IntegrityFinding[] {
+  const findings: IntegrityFinding[] = [];
+  const receipts = journal.receipts();
+  const events = journal.events();
+
+  for (let i = 0; i < events.length; i++) {
+    if (events[i].eventId !== i) {
+      findings.push({ code: "event-id-not-gapless", at: i,
+        detail: `event at index ${i} carries id ${events[i].eventId}` });
+    }
+  }
+
+  if (receipts.length !== events.length) {
+    const code = receipts.length > events.length ? "receipt-without-event" : "event-without-receipt";
+    findings.push({ code, at: Math.min(receipts.length, events.length),
+      detail: `${receipts.length} receipts, ${events.length} events` });
+  }
+
+  const seen = new Set<number>();
+  for (let i = 0; i < Math.min(receipts.length, events.length); i++) {
+    const r: Receipt = receipts[i];
+    const e: OutboxEvent = events[i];
+    if (seen.has(e.receiptSeq)) {
+      findings.push({ code: "duplicate-emission", at: i,
+        detail: `receipt ${e.receiptSeq} emitted more than once` });
+    }
+    seen.add(e.receiptSeq);
+    if (e.receiptSeq !== r.seq || e.revision !== r.revision
+        || e.subjectId !== r.subjectId || e.action !== r.action
+        || e.priorRevision !== r.priorRevision) {
+      findings.push({ code: "event-receipt-mismatch", at: i,
+        detail: `event ${e.eventId} and receipt ${r.seq} describe different changes` });
+    }
+  }
+  return findings;
+}
+
+/**
+ * Replay from a cursor loses nothing: the events a client receives, plus the
+ * ones it had already seen, reconstruct the whole stream exactly.
+ *
+ * §8.1 names *no event loss* as an acceptance criterion, so it is checked here
+ * rather than assumed from the range query being obviously correct.
+ */
+export function verifyReplayCompleteness(
+  journal: CanonJournal, lastEventId: number | null,
+): { complete: boolean; missing: number[] } {
+  const delivered = journal.eventsSince(lastEventId).map((e) => e.eventId);
+  const alreadySeen = lastEventId === null
+    ? []
+    : journal.events().filter((e) => e.eventId <= lastEventId).map((e) => e.eventId);
+  const reconstructed = new Set([...alreadySeen, ...delivered]);
+  const missing = journal.events().map((e) => e.eventId).filter((id) => !reconstructed.has(id));
+  return { complete: missing.length === 0, missing };
+}
+
+
+========================================================================
+FILE: impl/outbox/test/outbox.test.ts
+========================================================================
+
+/**
+ * SCMS-032 vectors: "nothing happens without an emission" as a property.
+ */
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { CanonJournal, ValidationError } from "../../canon/src/journal.ts";
+import type { OutboxEvent } from "../../canon/src/journal.ts";
+import type { Envelope } from "../../canon/src/envelope.ts";
+import { migrateAll } from "../../migrate/src/zach-core.ts";
+import type { SourceEntry } from "../../migrate/src/zach-core.ts";
+import { verifyEmissionIntegrity, verifyReplayCompleteness } from "../src/integrity.ts";
+
+const doc = (id: string, title: string, access: "public" | "owner" = "public"): Envelope => ({
+  schemaVersion: "scms-0.1", subjectId: id,
+  compatibility: { protocol: "scms-0.1", subjectSchema: "article@1" },
+  provenance: { kind: "declared", authority: "project.owner", source: "t" },
+  minimumAccess: access,
+  body: { kind: "Content", contentKind: "article", slots: { title: [{ kind: "text", value: title }] } },
+  state: { semanticMaturity: "draft", evidenceState: "unqualified",
+           publicationState: "unpublished", deliveryState: "unpropagated" },
+} as Envelope);
+
+test("every kind of change emits: append, supersede, revoke", () => {
+  const j = new CanonJournal();
+  const a = j.append(doc("d1", "One"), "tester");
+  assert.equal(j.events().length, 1);
+  const b = j.supersede(a.envelope.revision!, doc("d1", "Two"), "tester");
+  assert.equal(j.events().length, 2);
+  j.revoke(b.envelope.revision!, "tester");
+  assert.equal(j.events().length, 3);
+  assert.deepEqual(j.events().map((e) => e.action), ["append", "supersede", "revoke"]);
+  assert.deepEqual(verifyEmissionIntegrity(j), []);
+});
+
+test("a rejected write emits nothing", () => {
+  const j = new CanonJournal();
+  j.append(doc("d1", "One"), "tester");
+  const before = j.events().length;
+  assert.throws(() => j.append({ ...doc("d2", "Bad"), subjectId: "" } as Envelope, "tester"),
+    ValidationError);
+  assert.equal(j.events().length, before, "a refused write must not tell anyone it happened");
+  assert.equal(j.all().length, 1);
+  assert.deepEqual(verifyEmissionIntegrity(j), []);
+});
+
+test("an idempotent re-land emits nothing new — at-least-once is not at-least-twice", () => {
+  const j = new CanonJournal();
+  j.append(doc("d1", "One"), "tester");
+  j.append(doc("d1", "One"), "tester");   // identical content
+  assert.equal(j.all().length, 1);
+  assert.equal(j.events().length, 1, "re-landing identical content is not a change");
+  assert.deepEqual(verifyEmissionIntegrity(j), []);
+});
+
+test("event ids are gapless and monotonic from zero", () => {
+  const j = new CanonJournal();
+  let prev = j.append(doc("d0", "t0"), "tester");
+  for (let i = 1; i < 12; i++) prev = j.supersede(prev.envelope.revision!, doc("d0", `t${i}`), "tester");
+  assert.deepEqual(j.events().map((e) => e.eventId), [...Array(12).keys()]);
+});
+
+test("the event stream and the receipt chain describe the same changes", () => {
+  const j = new CanonJournal();
+  const a = j.append(doc("d1", "One"), "tester");
+  j.supersede(a.envelope.revision!, doc("d1", "Two"), "tester");
+  const receipts = j.receipts();
+  j.events().forEach((e, i) => {
+    assert.equal(e.receiptSeq, receipts[i].seq);
+    assert.equal(e.revision, receipts[i].revision);
+    assert.equal(e.priorRevision, receipts[i].priorRevision);
+  });
+  assert.deepEqual(verifyEmissionIntegrity(j), []);
+});
+
+test("replay from ANY cursor loses nothing", () => {
+  const j = new CanonJournal();
+  let prev = j.append(doc("d0", "t0"), "tester");
+  for (let i = 1; i < 8; i++) prev = j.supersede(prev.envelope.revision!, doc("d0", `t${i}`), "tester");
+
+  // null = a new subscriber's backfill burst, then every mid-stream reconnect.
+  for (const cursor of [null, ...j.events().map((e) => e.eventId)]) {
+    const r = verifyReplayCompleteness(j, cursor);
+    assert.ok(r.complete, `replay from ${cursor} missed ${r.missing.join(",")}`);
+  }
+  assert.equal(j.eventsSince(null).length, 8, "backfill is the whole stream");
+  assert.equal(j.eventsSince(7).length, 0, "a caught-up client gets nothing");
+  assert.equal(j.eventsSince(3).length, 4);
+});
+
+test("a cursor ahead of the stream returns silence, not an error", () => {
+  const j = new CanonJournal();
+  j.append(doc("d1", "One"), "tester");
+  assert.deepEqual([...j.eventsSince(999)], []);
+});
+
+test("events name a revision and carry no content", () => {
+  const j = new CanonJournal();
+  j.append(doc("secret", "A Very Distinctive Title", "owner"), "tester");
+  const e = j.events()[0];
+  assert.equal(e.minimumAccess, "owner", "fan-out can filter without reading Canon back");
+  assert.ok(!JSON.stringify(e).includes("A Very Distinctive Title"),
+    "an event is a notification, not a copy of the record");
+  assert.ok(e.revision.startsWith("sha256:"));
+});
+
+test("the integrity check can fail — otherwise it proves nothing", () => {
+  const j = new CanonJournal();
+  const a = j.append(doc("d1", "One"), "tester");
+  j.supersede(a.envelope.revision!, doc("d1", "Two"), "tester");
+
+  const events = [...j.events()];
+  const stub = (evts: OutboxEvent[]) => ({
+    receipts: () => j.receipts(), events: () => evts,
+    eventsSince: (c: number | null) => (c === null ? evts : evts.filter((e) => e.eventId > c)),
+  }) as unknown as CanonJournal;
+
+  // A write that told nobody.
+  assert.equal(verifyEmissionIntegrity(stub(events.slice(0, 1)))[0].code, "receipt-without-event");
+  // A gap: replay would skip straight past it.
+  assert.equal(
+    verifyEmissionIntegrity(stub([events[0], { ...events[1], eventId: 5 }]))[0].code,
+    "event-id-not-gapless");
+  // Two chains disagreeing about what happened.
+  assert.ok(verifyEmissionIntegrity(stub([events[0], { ...events[1], revision: "sha256:" + "9".repeat(64) }]))
+    .some((f) => f.code === "event-receipt-mismatch"));
+  // One change announced twice.
+  assert.ok(verifyEmissionIntegrity(stub([events[0], { ...events[1], receiptSeq: 0 }]))
+    .some((f) => f.code === "duplicate-emission"));
+});
+
+test("the real corpus emits once per landed record and nothing more", () => {
+  const manifest = JSON.parse(readFileSync(
+    fileURLToPath(new URL("../../../fixtures/zach-core-manifest.json", import.meta.url)), "utf8"),
+  ) as { entries: SourceEntry[] };
+  const migrated = migrateAll(manifest.entries);
+  const j = new CanonJournal();
+  for (const e of [...migrated.content, ...migrated.derived, ...migrated.relations]) j.append(e, "migration");
+
+  assert.equal(j.all().length, 226);
+  assert.equal(j.events().length, 226, "every landed record announced exactly once");
+  assert.deepEqual(verifyEmissionIntegrity(j), []);
+  assert.ok(verifyReplayCompleteness(j, 100).complete);
+
+  // Access travels with the row, so fan-out never has to read content back.
+  const ownerEvents = j.events().filter((e) => e.minimumAccess === "owner");
+  assert.equal(ownerEvents.length, 142, "exactly the private drafts");
+  // The one derived Semantic Article Field belongs to a PUBLIC article, so its
+  // event is public too — derived access follows the parent, and does not
+  // default to restricted just because the material is machine-generated.
+  const derived = j.events().filter((e) => e.subjectId.endsWith("#field"));
+  assert.equal(derived.length, 1);
+  assert.equal(derived[0].minimumAccess, "public");
 });
 
 
@@ -18274,7 +18613,7 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-029 | Reconcile the corpus against live Postgres (seed-time vs current) | E8 | **Blocked** — needs owner-authorized credentials (protected action) | — |
 | SCMS-030 | The site as a reader expression of Canon (round-trip out) | E8 | Done — real reader routes resolve; NR-scms-004 recorded; awaiting owner verification | records/evidence.jsonl · scms-evidence-030 |
 | SCMS-031 | The authoring surface, and the authority gate it exposed | E12 | Done — SH-8 first slice; NR-scms-005 fixed; scms-blocker-003 raised; awaiting owner verification | records/evidence.jsonl · scms-evidence-031 |
-| SCMS-032 | The transactional outbox: nothing happens without an emission (R2) | E5 | Ready — P10 accepted; §8.1 transport clause is the acceptance spec | — |
+| SCMS-032 | The transactional outbox: nothing happens without an emission (R2) | E5 | Done — emission proven; delivery is SCMS-033; awaiting owner verification | records/evidence.jsonl · scms-evidence-032 |
 | SCMS-033 | Subscription lenses and fan-out over the wire (R2) | E5 | Ready — depends on SCMS-032 | — |
 | SCMS-034 | Replay by last_event_id, no event loss, lagged disclosure (R2) | E5 | Ready — depends on SCMS-033 | — |
 | SCMS-035 | The provenance chip driven by a real transport (R2 meets R3) | E6 | Ready — depends on SCMS-034 | — |
@@ -20015,4 +20354,65 @@ authority question for the owner, not one for an implementer to invent. Register
 
 **Done — the editor cannot offer what nothing implements, and can no longer be mistaken for the
 thing that decides what may happen.**
+
+
+========================================================================
+FILE: work/SCMS-032.md
+========================================================================
+
+# SCMS-032 — The transactional outbox: nothing happens without an emission
+
+**Intent ref:** PROJECT_INTENT.md · **Epic:** E5 · **Effect class:** E1
+**Assigned by:** coordinator goal under owner sign-off; unblocked by P10's acceptance.
+**State:** Ready → Claimed → Done (closing state at bottom)
+
+## The gap
+
+R2 live propagation is the only realtime obligation with **nothing built**. Consistency state is
+computed (SCMS-017) and then nothing moves it. P10's acceptance made the transport lawful and,
+better, specified it: §8.1 names the transactional outbox as the sole emission source, with
+*"nothing happens without an emission"* as the property and *no event loss* as an acceptance
+criterion.
+
+## The design decision that carries the weight
+
+**The outbox lives inside `CanonJournal`, not beside it.**
+
+The obvious build is an emitter the write path calls after landing a record. That is the shape
+this project has now failed at three times: an obligation every implementer must remember is an
+obligation someone eventually forgets (NR-scms-005 on authorization, NR-scms-006 on the gate that
+replaced it). An emitter that can be skipped turns the property into a slogan.
+
+Putting emission inside `#land` means there is no code path that lands a record without emitting,
+because the emission is not a separate step a caller performs — it is part of what landing *is*.
+Validation throws before it, so a rejected write emits nothing, and the idempotent re-land path
+returns before it, so re-landing identical content is correctly not a change.
+
+This does not couple Canon to transport. The outbox holds rows, not connections. §8.1's own
+justification is the argument: the audit trail, projections, dead-letter handling and subscribers
+are all *consumers* of the stream the system already needed for its own integrity. The stream is
+integrity substrate; the wire comes later (SCMS-033).
+
+## Ready predicate
+
+- **Scope:** the outbox row, emission inside the journal, cursor-based replay, and the integrity
+  checks that make the property verifiable.
+- **Exclusions:** no wire, no subscribers, no fan-out (SCMS-033), no lagged disclosure (SCMS-034),
+  no persistence. Durability and real transactions remain SH-1.
+- **Acceptance:** every append, supersede and revoke emits; a rejected write emits nothing; an
+  idempotent re-land emits nothing new; event ids are gapless and monotonic; the event stream and
+  the receipt chain agree; replay from *every* cursor position loses nothing; a cursor ahead of
+  the stream returns silence rather than an error; events name a revision and carry no content;
+  the integrity check can fail; and the real 226-record corpus emits exactly once per record.
+
+## What this does NOT establish
+
+Emission, not delivery. Nothing is transported, nothing is subscribed, and no client has ever
+reconnected. The in-memory "transaction" is a single synchronous operation, which is the right
+*semantics* but is not a database transaction — durability and concurrent commit remain open
+under SH-1. R2 moves from *not established* to *partially established*, and the register says so.
+
+## Closing state
+
+**Done — the system can no longer change without saying so.**
 

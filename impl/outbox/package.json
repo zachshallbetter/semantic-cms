@@ -1,0 +1,8 @@
+{
+  "name": "@scms/outbox",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Outbox integrity (SCMS-032, epic E5): verifies P10's 'nothing happens without an emission' as a checkable property rather than a slogan — receipt/event parity, gapless cursors, and no-loss replay.",
+  "scripts": { "test": "node --test test/outbox.test.ts" }
+}

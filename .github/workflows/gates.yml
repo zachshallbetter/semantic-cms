@@ -92,6 +92,10 @@ jobs:
         run: node --test test/authoring.test.ts
         working-directory: impl/authoring
 
+      - name: Outbox integrity (SCMS-032 · nothing happens without an emission)
+        run: node --test test/outbox.test.ts
+        working-directory: impl/outbox
+
       - name: End-to-end spine (SCMS-019 · the composed narrow path)
         run: node --test test/spine.test.ts
         working-directory: impl/e2e

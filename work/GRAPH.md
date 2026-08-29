@@ -46,7 +46,7 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-029 | Reconcile the corpus against live Postgres (seed-time vs current) | E8 | **Blocked** — needs owner-authorized credentials (protected action) | — |
 | SCMS-030 | The site as a reader expression of Canon (round-trip out) | E8 | Done — real reader routes resolve; NR-scms-004 recorded; awaiting owner verification | records/evidence.jsonl · scms-evidence-030 |
 | SCMS-031 | The authoring surface, and the authority gate it exposed | E12 | Done — SH-8 first slice; NR-scms-005 fixed; scms-blocker-003 raised; awaiting owner verification | records/evidence.jsonl · scms-evidence-031 |
-| SCMS-032 | The transactional outbox: nothing happens without an emission (R2) | E5 | Ready — P10 accepted; §8.1 transport clause is the acceptance spec | — |
+| SCMS-032 | The transactional outbox: nothing happens without an emission (R2) | E5 | Done — emission proven; delivery is SCMS-033; awaiting owner verification | records/evidence.jsonl · scms-evidence-032 |
 | SCMS-033 | Subscription lenses and fan-out over the wire (R2) | E5 | Ready — depends on SCMS-032 | — |
 | SCMS-034 | Replay by last_event_id, no event loss, lagged disclosure (R2) | E5 | Ready — depends on SCMS-033 | — |
 | SCMS-035 | The provenance chip driven by a real transport (R2 meets R3) | E6 | Ready — depends on SCMS-034 | — |
