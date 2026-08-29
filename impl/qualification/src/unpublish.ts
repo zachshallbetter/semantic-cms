@@ -27,6 +27,7 @@ import { CONTENT_PROMOTE } from "./promote.ts";
 export const CONTENT_UNPUBLISH: ContractDefinition = {
   id: "icp:interaction/content.unpublish",
   version: "1.0.0",
+  minAuthority: "owner",
   effectClass: "E2",
   reversibility: "reversible",
   resourceType: "content",

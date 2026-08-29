@@ -6,7 +6,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { CanonJournal } from "../../canon/src/journal.ts";
 import type { Envelope, RecordState } from "../../canon/src/envelope.ts";
-import { narrowPathRegistry, receiptDigest, CONTENT_REVISE } from "../src/runtime.ts";
+import { narrowPathRegistry, receiptDigest, CONTENT_REVISE, ContractRegistry, reviseHandler } from "../src/runtime.ts";
 import type { ExecutionRequest } from "../src/runtime.ts";
 import { INSTANCE_STATES, OUTCOME_CLASSES, RECOVERY_ACTIONS } from "../src/icp.ts";
 
@@ -32,7 +32,7 @@ function setup() {
   return { journal, registry: narrowPathRegistry(), seed };
 }
 
-const ctx = { occurredAt: "2026-08-28T12:00:00Z", instanceId: "int_0001" };
+const ctx = { occurredAt: "2026-08-28T12:00:00Z", instanceId: "int_0001", authority: "owner" as const };
 
 function request(input: Record<string, unknown>, contract = "icp:interaction/content.revise@1.0.0"): ExecutionRequest {
   return { contract, requestId: "req_0001", actor: { id: "usr_1", role: "editor" }, input };
@@ -194,4 +194,53 @@ test("layering: the contracts package does not import the schema package", async
   const src = readFileSync(fileURLToPath(new URL("../src/runtime.ts", import.meta.url)), "utf8");
   assert.ok(!/from ".*schema\/src/.test(src),
     "conformance is injected as a function; contracts must not depend on schema");
+});
+
+// ── The authority gate (NR-scms-005) ────────────────────────────────────────
+// Before this gate existed, every handler recorded the acting party in its
+// receipt and no handler checked it: provenance was mistaken for authorization.
+// These vectors hold the correction in place.
+
+test("a contract that does not declare its authority cannot be registered", () => {
+  const r = new ContractRegistry();
+  assert.throws(
+    () => r.register({ ...CONTENT_REVISE, minAuthority: undefined } as never, reviseHandler),
+    /must declare a valid minAuthority/);
+  assert.throws(
+    () => r.register({ ...CONTENT_REVISE, minAuthority: "superuser" } as never, reviseHandler),
+    /must declare a valid minAuthority/);
+  // Types are stripped and not checked at runtime, so this must be a runtime
+  // refusal or it is nothing.
+});
+
+test("an under-authorized caller is refused before the handler runs", () => {
+  const { journal: j, registry } = setup();
+  const before = j.all().length;
+  const res = registry.execute(j, {
+    contract: "icp:interaction/content.revise@1.0.0",
+    requestId: "r-lowauth", actor: { id: "reader", role: "reader" },
+    input: {} as never,
+  }, { ...ctx, instanceId: "int_lowauth", authority: "public" });
+
+  assert.equal(res.outcome, "blocked");
+  assert.match(res.detail ?? "", /requires owner authority; caller holds public/);
+  // Refused on authority, NOT on input: the input is empty, so a handler that
+  // ran at all would have reported invalid_input instead. The distinction is the
+  // whole point — a check that passes for the wrong reason proves nothing.
+  assert.notEqual(res.outcome, "invalid_input");
+  assert.deepEqual(res.recovery, [{ action: "request_access", data: {
+    required: "owner", held: "public", contract: "icp:interaction/content.revise" } }]);
+  assert.equal(j.all().length, before, "nothing landed");
+});
+
+test("a context with no proven authority fails closed", () => {
+  const { journal: j, registry } = setup();
+  const before = j.all().length;
+  const res = registry.execute(j, {
+    contract: "icp:interaction/content.revise@1.0.0",
+    requestId: "r-noauth", actor: { id: "x", role: "x" }, input: {} as never,
+  }, { occurredAt: "2026-08-29T00:00:00Z", instanceId: "int_noauth" } as never);
+  assert.equal(res.outcome, "blocked");
+  assert.match(res.detail ?? "", /no proven authority/);
+  assert.equal(j.all().length, before);
 });

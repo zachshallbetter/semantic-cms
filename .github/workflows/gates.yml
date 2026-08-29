@@ -88,6 +88,10 @@ jobs:
         run: node --test test/reader.test.ts
         working-directory: impl/reader
 
+      - name: Authoring surface and the authority gate (SCMS-031)
+        run: node --test test/authoring.test.ts
+        working-directory: impl/authoring
+
       - name: End-to-end spine (SCMS-019 · the composed narrow path)
         run: node --test test/spine.test.ts
         working-directory: impl/e2e

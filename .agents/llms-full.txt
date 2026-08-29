@@ -1,6 +1,6 @@
 # PROJECT COMPILED CONTEXT
 Generator: 0.5.0
-Source digest: 2951d698962b4c35352c44b1d1af3f447d106307a0a1cb9d74240e3193ab5280
+Source digest: 3501543510a136e87aee9003ae6ca9060b9733614807a43cc1292a5ddaf889ca
 
 > Generated projection. Canonical sources remain authoritative.
 
@@ -236,6 +236,10 @@ jobs:
       - name: Reader routes over the real corpus (SCMS-030 · the round-trip out)
         run: node --test test/reader.test.ts
         working-directory: impl/reader
+
+      - name: Authoring surface and the authority gate (SCMS-031)
+        run: node --test test/authoring.test.ts
+        working-directory: impl/authoring
 
       - name: End-to-end spine (SCMS-019 · the composed narrow path)
         run: node --test test/spine.test.ts
@@ -1445,6 +1449,7 @@ decision record) — never by deletion.
 | ~~SH-9~~ | **RESOLVED — for the seed corpus** | Import/migration | *Closed by SCMS-028:* `impl/migrate` maps the real 215-entry zach-core archive into Canon, CI-verified against the corpus itself rather than a fixture. Owner-authored content needs no admission gate — it lands as `declared` provenance under project.owner authority. Two residuals, recorded not hidden: (a) the corpus is the **seed-time** markdown state, and reconciliation against the live Neon Postgres system of record needs owner-authorized credentials (SCMS-029, blocked); (b) P1's Admission plane stays undispositioned and becomes required when third-party content arrives (E9, the friends site). | — |
 | SH-10 | THIN | Backup & recovery | No RPO/RTO; no operational promises exist yet, so the promise register (P15) has nothing to check. | Declare with the E1 slice: nightly logical backup, RPO 24h → 1h post-MVP, RTO 4h; each promise entered in the register with its verifying artifact. |
 | SH-11 | CAVEAT | GPL boundary | open-knowledge consumed as a service (P25) — process-boundary isolation believed sufficient; not yet reviewed by counsel. | Keep strict service boundary (no linking, no vendoring); counsel review before any distribution of a combined work. |
+| SH-13 | **GAP — security** | Attestation provenance | Attestations are caller-supplied: `disposition: QUALIFIED` is trusted because it was passed in, and nothing binds an attestation to an evaluator. The evidence gate accepts evidence from the party being gated. Anonymous exploitation is closed by SCMS-031's authority gate; owner self-certification is not. | Options recorded in scms-blocker-003 — signed attestations bound to a named evaluator, or attestations read from Canon by revision and never accepted from input. Needs owner disposition. |
 | ~~SH-12~~ | **RESOLVED** | Wire protocol concretes | *Closed by SCMS-024:* `schemas/scms/envelope.schema.json` (closed, hash-pattern-typed, freshness rule encoded conditionally) and `schemas/scms/golden/canonicalization.json` (4 positive vectors + 1 negative proving the check can fail). Residual limitation, recorded not hidden: no JSON-Schema library is available under the zero-dependency policy, so the schema document is not meta-validated and schema/runtime agreement is asserted case-wise. |
 
 ## Claim register
@@ -1461,14 +1466,15 @@ above its rung.
 | Dependencies are pinned and consumable | **Documented + hash-locked** | All pins content-digested (alignment record); SES and FPB re-pinned upstream-first | Admission scans (P17) per pin; UD-8/UD-9 closed |
 | Surface resolution is access-safe | **Implemented + Tested** | SCMS-008/014: hidden state never enters a dependency set, and cannot move an output, trace, or invalidation (byte-identical results) | Adversarial review of the access boundary by an independent party |
 | One surface can be expressed two materially different ways | **S3 conformance (narrow path)** | SCMS-009: 10 vectors, six preserved properties, morphology provably differing | S4 — and S4 must run **outside** this repository (SCMS-010) |
-| Publishing is qualification **plus** promotion, never a boolean | **Implemented + Tested** | SCMS-013/020: promotion refuses non-qualified, under-verified, unauthorised, and mismatched candidates; compensation exists and round-trips | Real evidence collection and evaluator independence |
-| No persistent mutation outside a registered contract | **Implemented + Tested (source-level)** | SCMS-012 write path; SCMS-023 boundary gate with a self-test proving it can fail | Runtime capability enforcement, not just source-level |
+| Publishing is qualification **plus** promotion, never a boolean | **Implemented + Tested — with one claim corrected and one gap open** | SCMS-013/020: promotion refuses non-qualified, under-verified, and mismatched candidates; compensation exists and round-trips. **This row previously also claimed 'unauthorised'. That was false** — NR-scms-005 showed no handler authorized anything, and an anonymous caller could promote an owner-private draft. Authorization now exists (SCMS-031) and is tested by reason, not just by outcome | Attestations that a caller cannot write for themselves (scms-blocker-003 / SH-13) |
+| No persistent mutation outside a registered contract | **Implemented + Tested (source-level), and authorized as of SCMS-031** | SCMS-012 write path; SCMS-023 boundary gate with a self-test proving it can fail; SCMS-031 adds the authority gate the write path had been missing entirely (NR-scms-005) | Runtime capability enforcement, not just source-level |
 | Declared content types are enforced | **Implemented + Tested (where declared)** | SCMS-022: the governed write consults the declared type; opt-in, because types that do not exist are not pretended to exist | A declared type for every content kind in use |
 | R1 live co-authoring | **Partially established** | `required` lane proven (SCMS-012), `bounded` lane proven (SCMS-021); **free lane NOT built** — blocked on P7/P22 | Owner disposition of P7/P22, then the free lane |
 | R2 live propagation | **NOT established** | Nothing built: transport is P10-pending. Consistency *state* is determined (SCMS-017) but nothing moves it | Disposition of P10, then outbox + fan-out + replay |
 | R3 live honesty | **Implemented + Tested (semantic core)** | SCMS-017: six states, the drafting/consequential asymmetry, chips that never claim live without a check, presence expiring by construction | Transport-side freshness under real latency |
 | Real content maps into Canon without collapsing what the source keeps | **Implemented + Tested against a real corpus** | SCMS-028: 12 vectors over the actual 215-entry archive — unlisted preserved as itself, private content at owner access, model-generated field kept as a separate `derived` envelope, and the source's own status collapse surfaced as 22 findings rather than inherited | The same against the live Postgres state (SCMS-029) — the reader round-trip is now closed by SCMS-030 |
 | The site can be a reader expression of Canon rather than a content client | **Implemented + Tested over a real corpus** | SCMS-030: the real /writing and /work routes resolve as surfaces over the migrated archive; feed and sitemap derive from the page's own ResolvedSurface, so a feed cannot disagree with its page; unlisted content is reachable by link and in no index | Wiring the declarations into the site's renderer, and a deployment |
+| An editor cannot offer an affordance nothing implements | **Implemented + Tested** | SCMS-031: operations are derived from the live contract registry, unimplemented intents are withheld with a stated reason, and a compensatable operation is not offered while its compensation is unregistered | A rendered editor, and the visual half of SH-8 |
 | The published artifacts match their canonical sources | **Tested** | scripts/check-projection-sync.py in CI, with a self-test | — |
 | The system is empirically useful | **NOT established** — but no longer untested against reality | SCMS-028: a real 215-entry corpus maps into Canon and resolves, and the mapping found a genuine modelling collapse in the owner's live data (dual-vocabulary `status`, 22 findings). That establishes the *mapping*, not usefulness: nothing is deployed, no human has used the result, rcp-001 remains an active obligation | A person doing real work through it — which needs the authoring surface (E12/SH-8) and a deployment |
 
@@ -8140,6 +8146,340 @@ FILE: fixtures/zach-core-manifest.json
 }
 
 ========================================================================
+FILE: impl/authoring/package.json
+========================================================================
+
+{
+  "name": "@scms/authoring",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "The authoring surface (SCMS-031, epic E12): the editor as a ResolvedSurface whose operations are derived from the live contract registry, so it cannot offer an affordance nothing implements — and offering never grants permission.",
+  "scripts": { "test": "node --test test/authoring.test.ts" }
+}
+
+
+========================================================================
+FILE: impl/authoring/src/editor.ts
+========================================================================
+
+/**
+ * The authoring surface (SCMS-031, epic E12 · closes SH-8's first slice).
+ *
+ * The owner named the gap plainly: there is no UI. This slice builds the half of
+ * a UI that can be specified before any visual decision — **what the editor is
+ * allowed to offer, to whom** — and leaves the visual language open.
+ *
+ * The editor is not an application that talks to the CMS. It is a
+ * ResolvedSurface with a `purpose: "edit"` and a set of operations, per the
+ * owner's ratification that agent and authoring slices are ResolvedSurfaces
+ * (DESIGN.md §11). Two rules do the work:
+ *
+ * 1. **The editor offers only what the registry implements.** Operations are
+ *    DERIVED from the live ContractRegistry, never listed by hand. A button for
+ *    an unimplemented contract is the declaration-without-a-consumer failure
+ *    (NR-scms-004) rendered as an affordance — the worst form, because a person
+ *    acts on it. Deriving them makes the gap unrepresentable instead of
+ *    forbidden.
+ *
+ * 2. **Offering is not permission.** Exposure and authority are separate
+ *    (SSS-INV-010): the surface says what a person may be shown, the registry
+ *    decides what may happen. A withheld operation is not merely hidden — it is
+ *    still refused if invoked directly, because the surface was never the guard.
+ *
+ * One consequence worth stating: a consequential operation may not be offered
+ * with the same weight as a reversible one. `content.promote` is E3 and
+ * compensatable; `content.revise` is E1 and reversible. The surface carries that
+ * difference so an expression cannot present publishing as saving, and refuses
+ * to offer a compensatable operation whose compensation is absent — you do not
+ * get to offer the door without the way back.
+ */
+import type { ContractRegistry, ContractDefinition } from "../../contracts/src/runtime.ts";
+import type { AccessLevel, SurfaceRequest, OperationDeclaration } from "../../surface-resolver/src/types.ts";
+
+/** Authoring intent, in the vocabulary a person uses — mapped to contracts, not invented. */
+export type AuthoringIntent = "revise" | "promote" | "unpublish";
+
+const INTENT_CONTRACTS: Record<AuthoringIntent, string> = {
+  revise: "icp:interaction/content.revise",
+  promote: "icp:interaction/content.promote",
+  unpublish: "icp:interaction/content.unpublish",
+};
+
+/** Authoring is owner work; the minimum access is stated once, here. */
+const INTENT_MIN_ACCESS: Record<AuthoringIntent, AccessLevel> = {
+  revise: "owner", promote: "owner", unpublish: "owner",
+};
+
+export interface OfferedOperation {
+  intent: AuthoringIntent;
+  contract: string;
+  /** From the contract's own declaration — the editor does not re-classify effects. */
+  effectClass: string;
+  reversibility: string;
+  /** Present when the contract declares one; a compensatable op without it is not offered. */
+  compensation?: string;
+  minAccess: AccessLevel;
+}
+
+export interface AuthoringOffer {
+  operations: OfferedOperation[];
+  /** Intents deliberately not offered, with the reason — a gap must be legible. */
+  withheld: Array<{ intent: AuthoringIntent; reason: "unimplemented" | "missing-compensation" }>;
+}
+
+/**
+ * Derive what an editor may offer from what the registry actually implements.
+ * Nothing here consults access: this is the *catalogue*, and gating happens at
+ * resolution, where the reader's access lives.
+ */
+export function deriveOffer(registry: ContractRegistry): AuthoringOffer {
+  const byId = new Map<string, ContractDefinition>();
+  for (const def of registry.list()) byId.set(def.id, def);
+
+  const operations: OfferedOperation[] = [];
+  const withheld: AuthoringOffer["withheld"] = [];
+
+  for (const intent of Object.keys(INTENT_CONTRACTS) as AuthoringIntent[]) {
+    const def = byId.get(INTENT_CONTRACTS[intent]);
+    if (!def) {
+      // The editor may not offer what nothing implements.
+      withheld.push({ intent, reason: "unimplemented" });
+      continue;
+    }
+    if (def.reversibility === "compensatable" && !byId.has(def.compensationInteraction ?? "")) {
+      // A compensatable operation whose compensation is absent is a one-way door
+      // wearing a two-way label. Withhold it rather than offer a promise the
+      // system cannot keep.
+      withheld.push({ intent, reason: "missing-compensation" });
+      continue;
+    }
+    operations.push({
+      intent, contract: def.id,
+      effectClass: def.effectClass, reversibility: def.reversibility,
+      ...(def.compensationInteraction === undefined ? {} : { compensation: def.compensationInteraction }),
+      minAccess: INTENT_MIN_ACCESS[intent],
+    });
+  }
+  return { operations, withheld: withheld.sort((a, b) => a.intent.localeCompare(b.intent)) };
+}
+
+/**
+ * The editor surface request for one subject. `purpose: "edit"` is the SSS
+ * vocabulary term, so the resolver's own purpose rules apply — the editor gets
+ * no private resolution path.
+ */
+export function editorRequest(
+  subject: string, access: AccessLevel, offer: AuthoringOffer,
+): SurfaceRequest {
+  const operations: OperationDeclaration[] = offer.operations.map((op) => ({
+    id: op.contract,
+    exposure: "available",
+    minAccess: op.minAccess,
+  }));
+  return {
+    profile: "focus", purpose: "edit", subject, access,
+    lens: { traversal: { radius: 1 } },
+    operations,
+  };
+}
+
+
+========================================================================
+FILE: impl/authoring/test/authoring.test.ts
+========================================================================
+
+/**
+ * SCMS-031 vectors: what an editor may offer, to whom, over the owner's real archive.
+ */
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { migrateAll } from "../../migrate/src/zach-core.ts";
+import type { SourceEntry } from "../../migrate/src/zach-core.ts";
+import { CanonJournal } from "../../canon/src/journal.ts";
+import { freeze } from "../../canon/src/freeze.ts";
+import { ContractRegistry, narrowPathRegistry, CONTENT_REVISE, reviseHandler } from "../../contracts/src/runtime.ts";
+import { CONTENT_PROMOTE, promoteHandler } from "../../qualification/src/promote.ts";
+import { CONTENT_UNPUBLISH, unpublishHandler } from "../../qualification/src/unpublish.ts";
+import { resolveSurface } from "../../surface-resolver/src/resolver.ts";
+import { isFailure } from "../../surface-resolver/src/types.ts";
+import type { ResolvedSurface } from "../../surface-resolver/src/types.ts";
+import { deriveOffer, editorRequest } from "../src/editor.ts";
+
+const manifest = JSON.parse(
+  readFileSync(fileURLToPath(new URL("../../../fixtures/zach-core-manifest.json", import.meta.url)), "utf8"),
+) as { entries: SourceEntry[] };
+const migrated = migrateAll(manifest.entries);
+const journal = new CanonJournal();
+for (const e of [...migrated.content, ...migrated.relations]) journal.append(e, "migration");
+const snapshot = freeze(journal, "authoring-wave-0");
+
+const somePrivate = migrated.content.find((e) => e.minimumAccess === "owner")!.subjectId;
+const somePublic = migrated.content.find((e) => e.minimumAccess === "public")!.subjectId;
+
+/** The full registry: every contract this system has actually implemented. */
+function fullRegistry(): ContractRegistry {
+  const r = new ContractRegistry();
+  r.register(CONTENT_REVISE, reviseHandler);
+  r.register(CONTENT_PROMOTE, promoteHandler as never);
+  r.register(CONTENT_UNPUBLISH, unpublishHandler as never);
+  return r;
+}
+
+test("the editor offers only what the registry implements", () => {
+  const offer = deriveOffer(fullRegistry());
+  const implemented = new Set(fullRegistry().list().map((d) => d.id));
+  for (const op of offer.operations) {
+    assert.ok(implemented.has(op.contract), `offered an unimplemented contract: ${op.contract}`);
+  }
+  assert.deepEqual(offer.operations.map((o) => o.intent).sort(), ["promote", "revise", "unpublish"]);
+  assert.deepEqual(offer.withheld, []);
+});
+
+test("an unimplemented intent is withheld with a legible reason, not silently absent", () => {
+  // The narrow-path registry implements revise only.
+  const offer = deriveOffer(narrowPathRegistry());
+  assert.deepEqual(offer.operations.map((o) => o.intent), ["revise"]);
+  assert.deepEqual(offer.withheld, [
+    { intent: "promote", reason: "unimplemented" },
+    { intent: "unpublish", reason: "unimplemented" },
+  ]);
+  // A gap the editor can name is a gap someone can close; a gap it hides is not.
+});
+
+test("a compensatable operation is not offered without its compensation", () => {
+  // Promote declares content.unpublish as its compensation. Register promote
+  // WITHOUT it: the door exists, the way back does not.
+  const r = new ContractRegistry();
+  r.register(CONTENT_REVISE, reviseHandler);
+  r.register(CONTENT_PROMOTE, promoteHandler as never);
+  const offer = deriveOffer(r);
+  assert.ok(!offer.operations.some((o) => o.intent === "promote"),
+    "promote must not be offered while its compensation is unimplemented");
+  assert.deepEqual(offer.withheld.find((w) => w.intent === "promote"),
+    { intent: "promote", reason: "missing-compensation" });
+});
+
+test("the editor does not re-classify effects — it carries the contract's own declaration", () => {
+  const offer = deriveOffer(fullRegistry());
+  const revise = offer.operations.find((o) => o.intent === "revise")!;
+  const promote = offer.operations.find((o) => o.intent === "promote")!;
+  assert.equal(revise.effectClass, "E1");
+  assert.equal(revise.reversibility, "reversible");
+  assert.equal(promote.effectClass, "E3");
+  assert.equal(promote.reversibility, "compensatable");
+  assert.equal(promote.compensation, "icp:interaction/content.unpublish");
+  // The difference is carried, so an expression cannot present publishing as saving.
+  assert.notEqual(revise.effectClass, promote.effectClass);
+});
+
+test("the owner's editor surface resolves a private draft and exposes its operations", () => {
+  const offer = deriveOffer(fullRegistry());
+  const surface = resolveSurface(snapshot as never, editorRequest(somePrivate, "owner", offer));
+  assert.ok(!isFailure(surface));
+  const ops = (surface as ResolvedSurface).operations;
+  assert.equal(ops.length, 3);
+  assert.ok(ops.every((o) => o.exposure === "available"));
+});
+
+test("a public reader gets no authoring operation, and no editor surface on private content", () => {
+  const offer = deriveOffer(fullRegistry());
+
+  // On public content the surface resolves — reading is allowed — but every
+  // authoring operation is withheld.
+  const onPublic = resolveSurface(snapshot as never, editorRequest(somePublic, "public", offer));
+  assert.ok(!isFailure(onPublic));
+  const ops = (onPublic as ResolvedSurface).operations;
+  assert.equal(ops.length, 3);
+  assert.ok(ops.every((o) => o.exposure === "withheld"),
+    "authoring operations must be withheld from a public reader");
+
+  // On private content there is no surface at all.
+  const onPrivate = resolveSurface(snapshot as never, editorRequest(somePrivate, "public", offer));
+  assert.ok(isFailure(onPrivate));
+});
+
+test("offering is not permission: the surface was never the guard (NR-scms-005)", () => {
+  // The public reader saw every authoring operation `withheld`. This bypasses
+  // the surface entirely and invokes the contract directly, with input crafted
+  // to clear every gate the handler itself applies: a QUALIFIED attestation the
+  // caller wrote, a profile demanding no verification, and a promotionAuthority
+  // string naming the caller as the authority.
+  //
+  // That input DID succeed before the authority gate existed — an anonymous
+  // caller promoted an owner-private draft to `promoted`. Every gate the handler
+  // owned was satisfiable by the party being gated, because authority arrived in
+  // the payload. It now arrives on the execution context instead, established by
+  // whatever authenticated the request, and no payload can assert it.
+  const registry = fullRegistry();
+  const j = new CanonJournal();
+  j.append(migrated.content.find((e) => e.subjectId === somePrivate)!, "migration");
+  const revision = j.current()[0].envelope.revision!;
+  const before = j.all().length;
+
+  const result = registry.execute(j, {
+    contract: "icp:interaction/content.promote@1.0.0",
+    requestId: "r-bypass", actor: { id: "attacker", role: "anonymous" },
+    input: {
+      subjectId: somePrivate, candidateRevision: revision,
+      attestation: { disposition: "QUALIFIED", candidateRevision: revision, outcomes: [] },
+      profile: { id: "p", promotionVerification: "none" },
+      verificationPerformed: "none",
+      promotionAuthority: "attacker-says-so",
+    } as never,
+  }, { occurredAt: "2026-08-29T00:00:00Z", instanceId: "i-bypass", authority: "public" });
+
+  assert.equal(result.outcome, "blocked");
+  assert.match(result.detail ?? "", /requires owner authority; caller holds public/,
+    "refused on authority — not on the input, which was crafted to satisfy every handler gate");
+
+  const after = j.current().find((e) => e.envelope.subjectId === somePrivate)!;
+  assert.equal(after.envelope.state.publicationState, "unpublished", "the draft stayed unpublished");
+  assert.equal(after.envelope.minimumAccess, "owner");
+  assert.equal(j.all().length, before, "nothing landed");
+});
+
+test("the same request from a proven owner is not blocked on authority", () => {
+  // The control: without this, the vector above would pass on a system that
+  // refuses everything.
+  const registry = fullRegistry();
+  const j = new CanonJournal();
+  j.append(migrated.content.find((e) => e.subjectId === somePrivate)!, "migration");
+  const revision = j.current()[0].envelope.revision!;
+
+  const result = registry.execute(j, {
+    contract: "icp:interaction/content.promote@1.0.0",
+    requestId: "r-owner", actor: { id: "owner", role: "owner" },
+    input: {
+      subjectId: somePrivate, candidateRevision: revision,
+      attestation: { disposition: "QUALIFIED", candidateRevision: revision, outcomes: [] },
+      profile: { id: "p", promotionVerification: "none" },
+      verificationPerformed: "none", promotionAuthority: "project.owner",
+    } as never,
+  }, { occurredAt: "2026-08-29T00:00:00Z", instanceId: "i-owner", authority: "owner" });
+
+  assert.doesNotMatch(result.detail ?? "", /requires owner authority/,
+    "a proven owner passes the authority gate; what happens next is the handler's business");
+});
+
+test("an unregistered contract cannot mutate anything, however it is invoked", () => {
+  const registry = fullRegistry();
+  const j = new CanonJournal();
+  for (const e of migrated.content) j.append(e, "migration");
+  const before = j.all().length;
+  const result = registry.execute(j, {
+    contract: "icp:interaction/content.delete@1.0.0", input: {},
+  } as never, {
+    instanceId: "i-ghost", actor: { id: "owner", class: "owner" }, access: "owner",
+  } as never);
+  assert.equal(result.outcome, "not_found");
+  assert.equal(j.all().length, before);
+});
+
+
+========================================================================
 FILE: impl/canon/package.json
 ========================================================================
 
@@ -8891,11 +9231,30 @@ import type {
   ChangeReceipt, EffectClass, InstanceState, OutcomeClass, Recovery, Reversibility, VerificationLevel,
 } from "./icp.ts";
 import { VERIFICATION_FOR_EFFECT } from "./icp.ts";
+import type { AccessLevel } from "../../surface-resolver/src/types.ts";
+
+/**
+ * Authority ordering. Identical to the resolver's access ordering on purpose:
+ * one vocabulary for "who is this", used for both what may be SEEN and what may
+ * be DONE, so the two can never quietly disagree.
+ */
+const ACCESS_RANK: Record<AccessLevel, number> = { public: 0, member: 1, owner: 2, admin: 3 };
 
 export interface ContractDefinition {
   /** ICP identity grammar: stable id + semver. */
   id: string;
   version: string;
+  /**
+   * The minimum PROVEN authority an actor must hold for this contract to run.
+   *
+   * Required, and checked at registration: a contract that does not state its
+   * authority cannot be registered at all. Per-handler authorization is what
+   * failed before (NR-scms-005) — every handler recorded the actor in its
+   * receipt and no handler checked it, so provenance was mistaken for a gate.
+   * Stating it on the definition and enforcing it in one place makes the
+   * omission unrepresentable rather than merely discouraged.
+   */
+  minAuthority: AccessLevel;
   effectClass: EffectClass;
   reversibility: Reversibility;
   resourceType: string;
@@ -8942,6 +9301,16 @@ export interface ExecutionContext {
   occurredAt: string;
   instanceId: string;
   /**
+   * The authority the CALLER has actually proven, established by whatever
+   * authenticated the request.
+   *
+   * It lives on the context and not in `req.input` deliberately: input is
+   * supplied by the party being authorized, so an authority read from it is a
+   * claim, not a fact. NR-scms-005 is exactly that mistake — promotion accepted
+   * a `promotionAuthority` string the caller wrote about themselves.
+   */
+  authority: AccessLevel;
+  /**
    * Optional conformance hook (SCMS-022). When supplied, a governed write
    * validates the resulting body against its declared content type and refuses
    * non-conformant content. Passed as a FUNCTION so this package never depends
@@ -8957,6 +9326,13 @@ export class ContractRegistry {
   #defs = new Map<string, { def: ContractDefinition; handler: Handler }>();
 
   register(def: ContractDefinition, handler: Handler): void {
+    // Types are stripped, not checked, at runtime — so the requirement is
+    // enforced here or not at all.
+    if (!(def.minAuthority in ACCESS_RANK)) {
+      throw new Error(
+        `contract '${def.id}' must declare a valid minAuthority before it can be registered`,
+      );
+    }
     this.#defs.set(`${def.id}@${def.version}`, { def, handler });
   }
 
@@ -8975,6 +9351,27 @@ export class ContractRegistry {
         terminalReason: `no registered contract '${req.contract}'`,
       };
     }
+    // AUTHORIZE — one gate, before any handler runs. A handler cannot forget
+    // this check, because a handler never gets the chance to make it.
+    if (!(ctx.authority in ACCESS_RANK)) {
+      return {
+        instanceId: ctx.instanceId, outcome: "blocked", states: [...states, "blocked"],
+        verification: "none",
+        recovery: [{ action: "reauthenticate", data: { need: "a proven authority" } }],
+        detail: "execution context carries no proven authority; refusing rather than assuming one",
+      };
+    }
+    if (ACCESS_RANK[ctx.authority] < ACCESS_RANK[entry.def.minAuthority]) {
+      return {
+        instanceId: ctx.instanceId, outcome: "blocked", states: [...states, "blocked"],
+        verification: "none",
+        recovery: [{ action: "request_access", data: {
+          required: entry.def.minAuthority, held: ctx.authority, contract: entry.def.id,
+        } }],
+        detail: `'${entry.def.id}' requires ${entry.def.minAuthority} authority; caller holds ${ctx.authority}`,
+      };
+    }
+
     return entry.handler(journal, req, entry.def, ctx);
   }
 }
@@ -8988,6 +9385,7 @@ export function receiptDigest(r: Omit<ChangeReceipt, "integrity">): string {
 export const CONTENT_REVISE: ContractDefinition = {
   id: "icp:interaction/content.revise",
   version: "1.0.0",
+  minAuthority: "owner",
   effectClass: "E1",            // reversible draft mutation
   reversibility: "reversible",
   resourceType: "content",
@@ -9102,7 +9500,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { CanonJournal } from "../../canon/src/journal.ts";
 import type { Envelope, RecordState } from "../../canon/src/envelope.ts";
-import { narrowPathRegistry, receiptDigest, CONTENT_REVISE } from "../src/runtime.ts";
+import { narrowPathRegistry, receiptDigest, CONTENT_REVISE, ContractRegistry, reviseHandler } from "../src/runtime.ts";
 import type { ExecutionRequest } from "../src/runtime.ts";
 import { INSTANCE_STATES, OUTCOME_CLASSES, RECOVERY_ACTIONS } from "../src/icp.ts";
 
@@ -9128,7 +9526,7 @@ function setup() {
   return { journal, registry: narrowPathRegistry(), seed };
 }
 
-const ctx = { occurredAt: "2026-08-28T12:00:00Z", instanceId: "int_0001" };
+const ctx = { occurredAt: "2026-08-28T12:00:00Z", instanceId: "int_0001", authority: "owner" as const };
 
 function request(input: Record<string, unknown>, contract = "icp:interaction/content.revise@1.0.0"): ExecutionRequest {
   return { contract, requestId: "req_0001", actor: { id: "usr_1", role: "editor" }, input };
@@ -9292,6 +9690,55 @@ test("layering: the contracts package does not import the schema package", async
     "conformance is injected as a function; contracts must not depend on schema");
 });
 
+// ── The authority gate (NR-scms-005) ────────────────────────────────────────
+// Before this gate existed, every handler recorded the acting party in its
+// receipt and no handler checked it: provenance was mistaken for authorization.
+// These vectors hold the correction in place.
+
+test("a contract that does not declare its authority cannot be registered", () => {
+  const r = new ContractRegistry();
+  assert.throws(
+    () => r.register({ ...CONTENT_REVISE, minAuthority: undefined } as never, reviseHandler),
+    /must declare a valid minAuthority/);
+  assert.throws(
+    () => r.register({ ...CONTENT_REVISE, minAuthority: "superuser" } as never, reviseHandler),
+    /must declare a valid minAuthority/);
+  // Types are stripped and not checked at runtime, so this must be a runtime
+  // refusal or it is nothing.
+});
+
+test("an under-authorized caller is refused before the handler runs", () => {
+  const { journal: j, registry } = setup();
+  const before = j.all().length;
+  const res = registry.execute(j, {
+    contract: "icp:interaction/content.revise@1.0.0",
+    requestId: "r-lowauth", actor: { id: "reader", role: "reader" },
+    input: {} as never,
+  }, { ...ctx, instanceId: "int_lowauth", authority: "public" });
+
+  assert.equal(res.outcome, "blocked");
+  assert.match(res.detail ?? "", /requires owner authority; caller holds public/);
+  // Refused on authority, NOT on input: the input is empty, so a handler that
+  // ran at all would have reported invalid_input instead. The distinction is the
+  // whole point — a check that passes for the wrong reason proves nothing.
+  assert.notEqual(res.outcome, "invalid_input");
+  assert.deepEqual(res.recovery, [{ action: "request_access", data: {
+    required: "owner", held: "public", contract: "icp:interaction/content.revise" } }]);
+  assert.equal(j.all().length, before, "nothing landed");
+});
+
+test("a context with no proven authority fails closed", () => {
+  const { journal: j, registry } = setup();
+  const before = j.all().length;
+  const res = registry.execute(j, {
+    contract: "icp:interaction/content.revise@1.0.0",
+    requestId: "r-noauth", actor: { id: "x", role: "x" }, input: {} as never,
+  }, { occurredAt: "2026-08-29T00:00:00Z", instanceId: "int_noauth" } as never);
+  assert.equal(res.outcome, "blocked");
+  assert.match(res.detail ?? "", /no proven authority/);
+  assert.equal(j.all().length, before);
+});
+
 
 ========================================================================
 FILE: impl/e2e/package.json
@@ -9346,7 +9793,7 @@ const STATE: RecordState = {
   semanticMaturity: "draft", evidenceState: "unqualified",
   publicationState: "unpublished", deliveryState: "unpropagated",
 };
-const CTX = { occurredAt: "2026-08-28T12:00:00Z", instanceId: "int_e2e" };
+const CTX = { occurredAt: "2026-08-28T12:00:00Z", instanceId: "int_e2e", authority: "owner" as const };
 const ACTOR = { id: "editor-1", role: "editor" };
 
 function envelope(id: string, access: Envelope["minimumAccess"], body: Record<string, unknown>): Envelope {
@@ -11376,6 +11823,7 @@ import type { ConsequenceProfile } from "./eqp.ts";
 export const CONTENT_PROMOTE: ContractDefinition = {
   id: "icp:interaction/content.promote",
   version: "1.0.0",
+  minAuthority: "owner",
   effectClass: "E3",                 // consequential external commitment
   reversibility: "compensatable",
   resourceType: "content",
@@ -11657,6 +12105,7 @@ import { CONTENT_PROMOTE } from "./promote.ts";
 export const CONTENT_UNPUBLISH: ContractDefinition = {
   id: "icp:interaction/content.unpublish",
   version: "1.0.0",
+  minAuthority: "owner",
   effectClass: "E2",
   reversibility: "reversible",
   resourceType: "content",
@@ -11803,7 +12252,9 @@ function setup() {
   return { journal, registry, rev: seed.envelope.revision! };
 }
 
-const ctx = { occurredAt: "2026-08-28T12:00:00Z", instanceId: "int_p1" };
+// Authority is the CALLER's, proven by whatever authenticated the request —
+// never read from input (NR-scms-005).
+const ctx = { occurredAt: "2026-08-28T12:00:00Z", instanceId: "int_p1", authority: "owner" as const };
 const promoteReq = (input: Record<string, unknown>) => ({
   contract: "icp:interaction/content.promote@1.0.0", requestId: "req_p1",
   actor: { id: "usr_1", role: "editor" }, input,
@@ -17671,6 +18122,7 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-028 | Map the zach-core corpus into Canon (first real workload) | E8 | Done — 215 real entries map, 22 source-collapse findings raised; awaiting owner verification | records/evidence.jsonl · scms-evidence-028 |
 | SCMS-029 | Reconcile the corpus against live Postgres (seed-time vs current) | E8 | **Blocked** — needs owner-authorized credentials (protected action) | — |
 | SCMS-030 | The site as a reader expression of Canon (round-trip out) | E8 | Done — real reader routes resolve; NR-scms-004 recorded; awaiting owner verification | records/evidence.jsonl · scms-evidence-030 |
+| SCMS-031 | The authoring surface, and the authority gate it exposed | E12 | Done — SH-8 first slice; NR-scms-005 fixed; scms-blocker-003 raised; awaiting owner verification | records/evidence.jsonl · scms-evidence-031 |
 | SCMS-018 | R1 live co-authoring — **free lane only** (convergent merge) | E1 | **Blocked** — awaiting disposition of P7/P22 on PR #28 | records/blockers · scms-blocker-001 |
 | SCMS-010 | S4 cross-domain portability: a materially unrelated project (outside this repository, per owner doctrine 2026-08-28) consumes @semantic-systems/surface unmodified | external | Backlog — executes outside scms; scms records the conformance result | — |
 
@@ -19323,4 +19775,82 @@ guarantee.
 
 **Done — the round-trip closes: real content in, real reader routes out, with the feed unable
 to disagree with the page.**
+
+
+========================================================================
+FILE: work/SCMS-031.md
+========================================================================
+
+# SCMS-031 — The authoring surface, and the authority gate it exposed
+
+**Intent ref:** PROJECT_INTENT.md · **Epic:** E12 · **Effect class:** E1
+**Assigned by:** owner directive — *"We don't have a UI for the cms yet, so we'll need to figure that out."*
+**State:** Ready → Claimed → Done (closing state at bottom)
+
+## The gap
+
+SH-8 has stood open since the register began: governance is specified exhaustively and what an
+author actually sees is not. This slice builds the half of a UI that can be specified before any
+visual decision — **what the editor may offer, to whom** — and leaves the visual language open,
+per the owner's ratification that authoring slices are ResolvedSurfaces (DESIGN.md §11).
+
+## Ready predicate
+
+- **Scope:** derive the editor's operations from the live contract registry; declare the editor
+  surface as `purpose: "edit"`; prove exposure gating and the exposure/authority separation.
+- **Exclusions:** no visual design, no rendering, no deploy, no new contracts.
+- **Acceptance:** the editor offers only implemented contracts; unimplemented intents are withheld
+  with a legible reason; a compensatable operation is not offered without its compensation; effect
+  class comes from the contract, not the editor; the owner's editor resolves a private draft while
+  a public reader gets neither the operations nor the surface; and **offering is not permission**.
+
+## What this slice actually found
+
+The last acceptance criterion was written expecting to confirm existing behaviour. It found a
+security defect instead, recorded as **NR-scms-005**.
+
+The first version of that vector passed. It should not have been believed: it invoked promotion
+with a stub input and asserted only that the outcome was not success. Checking *why* it was
+refused showed it had blocked on a missing attestation — not on authorization. Reading the
+handlers then showed the real state of affairs: **`req.actor` was recorded in every receipt and
+consulted by no handler, and no handler read the caller's access at all.** Provenance was being
+mistaken for a gate.
+
+The reproduction: an anonymous caller at `public` access promoted an owner-private draft to
+`promoted`, by supplying a self-written `QUALIFIED` attestation, a profile demanding no
+verification, and a `promotionAuthority` string naming itself. Every gate the handler owned was
+satisfiable by the party being gated, because authority arrived in the payload.
+
+## The correction
+
+Authority is now declared on the contract and enforced in one place:
+
+- `ContractDefinition.minAuthority` is **required**, and checked at *registration* — a contract
+  that does not state its authority cannot be registered. Types are stripped and not checked at
+  runtime here, so this is a runtime refusal or it is nothing.
+- `ExecutionContext.authority` is the authority the caller has **proven**, established by whatever
+  authenticated the request. It is on the context and not in the input deliberately: input is
+  written by the party being authorized, so an authority read from it is a claim, not a fact.
+- `ContractRegistry.execute` refuses before dispatch, and refuses a context carrying no authority
+  at all — fail closed.
+
+Per-handler checking is what failed, so the fix does not add per-handler checks. A handler cannot
+forget the gate because a handler never gets the chance to make it.
+
+**27 previously-passing write vectors began failing the moment the gate landed.** Every one had
+been executing writes with no authorization whatsoever. They now declare a proven authority.
+
+## What remains open (not fixed here)
+
+The attestation is still **caller-supplied and unverified**: `disposition: "QUALIFIED"` is trusted
+because it was passed in. The authority gate means only an owner can exploit that today, which
+lowers severity but does not close it — the evidence gate still accepts evidence from the party
+being gated. Closing it needs a decision about who issues and signs attestations, which is an
+authority question for the owner, not one for an implementer to invent. Registered as
+**scms-blocker-003** and **SH-13**.
+
+## Closing state
+
+**Done — the editor cannot offer what nothing implements, and can no longer be mistaken for the
+thing that decides what may happen.**
 

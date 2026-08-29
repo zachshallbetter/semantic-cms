@@ -19,11 +19,30 @@ import type {
   ChangeReceipt, EffectClass, InstanceState, OutcomeClass, Recovery, Reversibility, VerificationLevel,
 } from "./icp.ts";
 import { VERIFICATION_FOR_EFFECT } from "./icp.ts";
+import type { AccessLevel } from "../../surface-resolver/src/types.ts";
+
+/**
+ * Authority ordering. Identical to the resolver's access ordering on purpose:
+ * one vocabulary for "who is this", used for both what may be SEEN and what may
+ * be DONE, so the two can never quietly disagree.
+ */
+const ACCESS_RANK: Record<AccessLevel, number> = { public: 0, member: 1, owner: 2, admin: 3 };
 
 export interface ContractDefinition {
   /** ICP identity grammar: stable id + semver. */
   id: string;
   version: string;
+  /**
+   * The minimum PROVEN authority an actor must hold for this contract to run.
+   *
+   * Required, and checked at registration: a contract that does not state its
+   * authority cannot be registered at all. Per-handler authorization is what
+   * failed before (NR-scms-005) — every handler recorded the actor in its
+   * receipt and no handler checked it, so provenance was mistaken for a gate.
+   * Stating it on the definition and enforcing it in one place makes the
+   * omission unrepresentable rather than merely discouraged.
+   */
+  minAuthority: AccessLevel;
   effectClass: EffectClass;
   reversibility: Reversibility;
   resourceType: string;
@@ -70,6 +89,16 @@ export interface ExecutionContext {
   occurredAt: string;
   instanceId: string;
   /**
+   * The authority the CALLER has actually proven, established by whatever
+   * authenticated the request.
+   *
+   * It lives on the context and not in `req.input` deliberately: input is
+   * supplied by the party being authorized, so an authority read from it is a
+   * claim, not a fact. NR-scms-005 is exactly that mistake — promotion accepted
+   * a `promotionAuthority` string the caller wrote about themselves.
+   */
+  authority: AccessLevel;
+  /**
    * Optional conformance hook (SCMS-022). When supplied, a governed write
    * validates the resulting body against its declared content type and refuses
    * non-conformant content. Passed as a FUNCTION so this package never depends
@@ -85,6 +114,13 @@ export class ContractRegistry {
   #defs = new Map<string, { def: ContractDefinition; handler: Handler }>();
 
   register(def: ContractDefinition, handler: Handler): void {
+    // Types are stripped, not checked, at runtime — so the requirement is
+    // enforced here or not at all.
+    if (!(def.minAuthority in ACCESS_RANK)) {
+      throw new Error(
+        `contract '${def.id}' must declare a valid minAuthority before it can be registered`,
+      );
+    }
     this.#defs.set(`${def.id}@${def.version}`, { def, handler });
   }
 
@@ -103,6 +139,27 @@ export class ContractRegistry {
         terminalReason: `no registered contract '${req.contract}'`,
       };
     }
+    // AUTHORIZE — one gate, before any handler runs. A handler cannot forget
+    // this check, because a handler never gets the chance to make it.
+    if (!(ctx.authority in ACCESS_RANK)) {
+      return {
+        instanceId: ctx.instanceId, outcome: "blocked", states: [...states, "blocked"],
+        verification: "none",
+        recovery: [{ action: "reauthenticate", data: { need: "a proven authority" } }],
+        detail: "execution context carries no proven authority; refusing rather than assuming one",
+      };
+    }
+    if (ACCESS_RANK[ctx.authority] < ACCESS_RANK[entry.def.minAuthority]) {
+      return {
+        instanceId: ctx.instanceId, outcome: "blocked", states: [...states, "blocked"],
+        verification: "none",
+        recovery: [{ action: "request_access", data: {
+          required: entry.def.minAuthority, held: ctx.authority, contract: entry.def.id,
+        } }],
+        detail: `'${entry.def.id}' requires ${entry.def.minAuthority} authority; caller holds ${ctx.authority}`,
+      };
+    }
+
     return entry.handler(journal, req, entry.def, ctx);
   }
 }
@@ -116,6 +173,7 @@ export function receiptDigest(r: Omit<ChangeReceipt, "integrity">): string {
 export const CONTENT_REVISE: ContractDefinition = {
   id: "icp:interaction/content.revise",
   version: "1.0.0",
+  minAuthority: "owner",
   effectClass: "E1",            // reversible draft mutation
   reversibility: "reversible",
   resourceType: "content",

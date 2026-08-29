@@ -43,7 +43,9 @@ function setup() {
   return { journal, registry, rev: seed.envelope.revision! };
 }
 
-const ctx = { occurredAt: "2026-08-28T12:00:00Z", instanceId: "int_p1" };
+// Authority is the CALLER's, proven by whatever authenticated the request —
+// never read from input (NR-scms-005).
+const ctx = { occurredAt: "2026-08-28T12:00:00Z", instanceId: "int_p1", authority: "owner" as const };
 const promoteReq = (input: Record<string, unknown>) => ({
   contract: "icp:interaction/content.promote@1.0.0", requestId: "req_p1",
   actor: { id: "usr_1", role: "editor" }, input,

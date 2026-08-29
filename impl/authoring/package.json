@@ -1,0 +1,8 @@
+{
+  "name": "@scms/authoring",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "The authoring surface (SCMS-031, epic E12): the editor as a ResolvedSurface whose operations are derived from the live contract registry, so it cannot offer an affordance nothing implements — and offering never grants permission.",
+  "scripts": { "test": "node --test test/authoring.test.ts" }
+}

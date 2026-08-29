@@ -33,7 +33,7 @@ const STATE: RecordState = {
   semanticMaturity: "draft", evidenceState: "unqualified",
   publicationState: "unpublished", deliveryState: "unpropagated",
 };
-const CTX = { occurredAt: "2026-08-28T12:00:00Z", instanceId: "int_e2e" };
+const CTX = { occurredAt: "2026-08-28T12:00:00Z", instanceId: "int_e2e", authority: "owner" as const };
 const ACTOR = { id: "editor-1", role: "editor" };
 
 function envelope(id: string, access: Envelope["minimumAccess"], body: Record<string, unknown>): Envelope {

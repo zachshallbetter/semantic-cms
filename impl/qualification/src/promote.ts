@@ -21,6 +21,7 @@ import type { ConsequenceProfile } from "./eqp.ts";
 export const CONTENT_PROMOTE: ContractDefinition = {
   id: "icp:interaction/content.promote",
   version: "1.0.0",
+  minAuthority: "owner",
   effectClass: "E3",                 // consequential external commitment
   reversibility: "compensatable",
   resourceType: "content",
