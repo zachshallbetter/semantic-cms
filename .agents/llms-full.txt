@@ -1,6 +1,6 @@
 # PROJECT COMPILED CONTEXT
 Generator: 0.5.0
-Source digest: b3e7a5fe663714539cc3ad7acd50e0466c8a68e17cc25983f47ab778ee0b0db6
+Source digest: ce7890c0b552aa9afd6f585847773d7bd7b72498054538741432483ffa28a0b8
 
 > Generated projection. Canonical sources remain authoritative.
 
@@ -10592,6 +10592,83 @@ export function editorIndex(
 
 
 ========================================================================
+FILE: impl/editor/test/build-preview-fixture.ts
+========================================================================
+
+/**
+ * Builds the editor preview's embedded dataset (SCMS-040).
+ *
+ * This lives under `test/` because that is what it honestly is: a **fixture
+ * builder**, not a production path. It seeds a journal by direct append, which
+ * the Canon write-boundary gate correctly flagged when the file sat in `web/`
+ * — real content entering Canon must cross a registered contract (DESIGN.md
+ * §5), and a preview generator is not an exception to that, it is simply not
+ * production. The gate's own stated exemption is for fixture construction, so
+ * the file is placed where that status is visible rather than granted a new
+ * exemption carved to fit it.
+ *
+ * Importing a corpus for real is exactly the governed path SCMS-041 exercises.
+ *
+ * PUBLIC ENTRIES ONLY. The preview is published where it can be looked at, so
+ * it carries the 73 public entries and nothing else: no private draft, not even
+ * its title. States the public corpus does not exercise (conflicted, revoked)
+ * are shown with clearly-labelled synthetic entries rather than by borrowing a
+ * real private one.
+ */
+import { readFileSync, writeFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { CanonJournal } from "../../canon/src/journal.ts";
+import { ContractRegistry, CONTENT_REVISE, reviseHandler } from "../../contracts/src/runtime.ts";
+import { CONTENT_PROMOTE, promoteHandler } from "../../qualification/src/promote.ts";
+import { CONTENT_UNPUBLISH, unpublishHandler } from "../../qualification/src/unpublish.ts";
+import { deriveOffer } from "../../authoring/src/editor.ts";
+import { migrateAll } from "../../migrate/src/zach-core.ts";
+import type { SourceEntry } from "../../migrate/src/zach-core.ts";
+import { editorView, editorIndex } from "../src/viewmodel.ts";
+
+const manifest = JSON.parse(readFileSync(
+  fileURLToPath(new URL("../../../fixtures/zach-core-manifest.json", import.meta.url)), "utf8"),
+) as { entries: SourceEntry[] };
+const migrated = migrateAll(manifest.entries);
+
+const journal = new CanonJournal();
+for (const e of migrated.content.filter((c) => c.minimumAccess === "public")) {
+  journal.append(e, "migration");
+}
+
+const registry = new ContractRegistry();
+registry.register(CONTENT_REVISE, reviseHandler);
+registry.register(CONTENT_PROMOTE, promoteHandler as never);
+registry.register(CONTENT_UNPUBLISH, unpublishHandler as never);
+const offer = deriveOffer(registry);
+
+const freshness = { nowMs: 1_000_000, lastCheckedMs: 1_000_000 - 4000, snapshotLabel: "Aug 29" };
+const index = editorIndex(journal, "owner", migrated.findings);
+
+const views: Record<string, unknown> = {};
+for (const row of index) {
+  const entry = journal.current().find((e) => e.envelope.subjectId === row.subject)!;
+  views[row.subject] = editorView({
+    journal, subject: row.subject, access: "owner", offer,
+    baseline: {
+      subjectId: row.subject, atRevision: entry.envelope.revision!, hasLocalEdits: false,
+      observedCanonEntries: journal.all().length, baselineEstablished: true,
+    },
+    freshness,
+    findings: migrated.findings.filter(
+      (f) => f.entry.replace(/^.*\//, "").replace(/\.md$/, "") === row.subject),
+    // Nothing in the corpus carries a real attestation yet, which is itself
+    // honest: publishing is blocked until evidence exists.
+    qualified: false,
+  } as never);
+}
+
+const out = { index, views, generatedFrom: "zach-core public entries only", count: index.length };
+writeFileSync(fileURLToPath(new URL("../web/data.json", import.meta.url)), JSON.stringify(out));
+console.log(`built ${index.length} public entries`);
+
+
+========================================================================
 FILE: impl/editor/test/editor.test.ts
 ========================================================================
 
@@ -10761,72 +10838,6 @@ test("a public actor's index contains no private entry, and their editor cannot 
   } as never);
   assert.ok("notFound" in v, "a public actor must not open a private entry in the editor");
 });
-
-
-========================================================================
-FILE: impl/editor/web/build-data.ts
-========================================================================
-
-/**
- * Builds the editor preview's embedded dataset (SCMS-040).
- *
- * PUBLIC ENTRIES ONLY. The preview is published where it can be looked at, so
- * it carries the 73 public entries and nothing else: no private draft, not even
- * its title. States the public corpus does not exercise (conflicted, revoked)
- * are shown with clearly-labelled synthetic entries rather than by borrowing a
- * real private one.
- */
-import { readFileSync, writeFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-import { CanonJournal } from "../../canon/src/journal.ts";
-import { ContractRegistry, CONTENT_REVISE, reviseHandler } from "../../contracts/src/runtime.ts";
-import { CONTENT_PROMOTE, promoteHandler } from "../../qualification/src/promote.ts";
-import { CONTENT_UNPUBLISH, unpublishHandler } from "../../qualification/src/unpublish.ts";
-import { deriveOffer } from "../../authoring/src/editor.ts";
-import { migrateAll } from "../../migrate/src/zach-core.ts";
-import type { SourceEntry } from "../../migrate/src/zach-core.ts";
-import { editorView, editorIndex } from "../src/viewmodel.ts";
-
-const manifest = JSON.parse(readFileSync(
-  fileURLToPath(new URL("../../../fixtures/zach-core-manifest.json", import.meta.url)), "utf8"),
-) as { entries: SourceEntry[] };
-const migrated = migrateAll(manifest.entries);
-
-const journal = new CanonJournal();
-for (const e of migrated.content.filter((c) => c.minimumAccess === "public")) {
-  journal.append(e, "migration");
-}
-
-const registry = new ContractRegistry();
-registry.register(CONTENT_REVISE, reviseHandler);
-registry.register(CONTENT_PROMOTE, promoteHandler as never);
-registry.register(CONTENT_UNPUBLISH, unpublishHandler as never);
-const offer = deriveOffer(registry);
-
-const freshness = { nowMs: 1_000_000, lastCheckedMs: 1_000_000 - 4000, snapshotLabel: "Aug 29" };
-const index = editorIndex(journal, "owner", migrated.findings);
-
-const views: Record<string, unknown> = {};
-for (const row of index) {
-  const entry = journal.current().find((e) => e.envelope.subjectId === row.subject)!;
-  views[row.subject] = editorView({
-    journal, subject: row.subject, access: "owner", offer,
-    baseline: {
-      subjectId: row.subject, atRevision: entry.envelope.revision!, hasLocalEdits: false,
-      observedCanonEntries: journal.all().length, baselineEstablished: true,
-    },
-    freshness,
-    findings: migrated.findings.filter(
-      (f) => f.entry.replace(/^.*\//, "").replace(/\.md$/, "") === row.subject),
-    // Nothing in the corpus carries a real attestation yet, which is itself
-    // honest: publishing is blocked until evidence exists.
-    qualified: false,
-  } as never);
-}
-
-const out = { index, views, generatedFrom: "zach-core public entries only", count: index.length };
-writeFileSync(fileURLToPath(new URL("./data.json", import.meta.url)), JSON.stringify(out));
-console.log(`built ${index.length} public entries`);
 
 
 ========================================================================
@@ -21329,6 +21340,18 @@ subject exists.
 Separately, two early vectors were asserting nothing: the first public entry in the corpus is
 already promoted, so "publishing is refused without qualification" was passing on an entry that
 could not be published anyway. Corrected to select a public *unpublished* entry.
+
+## What the write-boundary gate caught
+
+The preview's data builder seeded a journal by direct `append`, and the Canon write-boundary gate
+refused it. The gate was right: real content entering Canon must cross a registered contract
+(§5), and "it is only for a preview" is not an exception to that — it is simply not production.
+The file was moved to `test/` where its actual status as a **fixture builder** is visible, rather
+than given a new exemption carved to fit it. Weakening a gate to stop it complaining is how a
+gate becomes decoration.
+
+It also names the real work precisely: importing a corpus *for real* has to go through the
+governed path, which is what SCMS-041 exercises.
 
 ## Preview scope
 

@@ -1,6 +1,17 @@
 /**
  * Builds the editor preview's embedded dataset (SCMS-040).
  *
+ * This lives under `test/` because that is what it honestly is: a **fixture
+ * builder**, not a production path. It seeds a journal by direct append, which
+ * the Canon write-boundary gate correctly flagged when the file sat in `web/`
+ * — real content entering Canon must cross a registered contract (DESIGN.md
+ * §5), and a preview generator is not an exception to that, it is simply not
+ * production. The gate's own stated exemption is for fixture construction, so
+ * the file is placed where that status is visible rather than granted a new
+ * exemption carved to fit it.
+ *
+ * Importing a corpus for real is exactly the governed path SCMS-041 exercises.
+ *
  * PUBLIC ENTRIES ONLY. The preview is published where it can be looked at, so
  * it carries the 73 public entries and nothing else: no private draft, not even
  * its title. States the public corpus does not exercise (conflicted, revoked)
@@ -56,5 +67,5 @@ for (const row of index) {
 }
 
 const out = { index, views, generatedFrom: "zach-core public entries only", count: index.length };
-writeFileSync(fileURLToPath(new URL("./data.json", import.meta.url)), JSON.stringify(out));
+writeFileSync(fileURLToPath(new URL("../web/data.json", import.meta.url)), JSON.stringify(out));
 console.log(`built ${index.length} public entries`);

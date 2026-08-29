@@ -1,6 +1,6 @@
 # Project Context Index
 > Generator: 0.5.0
-> Source digest: `b3e7a5fe663714539cc3ad7acd50e0466c8a68e17cc25983f47ab778ee0b0db6`
+> Source digest: `ce7890c0b552aa9afd6f585847773d7bd7b72498054538741432483ffa28a0b8`
 
 > Generated projection. Canonical sources remain authoritative.
 
@@ -59,8 +59,8 @@
 - `impl/e2e/test/spine.test.ts` | 23101 bytes | `5a339efd504afe02ec7b1dee2dbf0ade32b6ed9630009d32d94d24a5719d3a26`
 - `impl/editor/package.json` | 449 bytes | `9ee677f704cea98277442d667f983a1a06c0e1f31e92b0e180fddd9dae4b5909`
 - `impl/editor/src/viewmodel.ts` | 9552 bytes | `aa9d4e4ca906af1b3e6787998e051c270a5b2c4d0edde2fb6c4543e723871a84`
+- `impl/editor/test/build-preview-fixture.ts` | 3557 bytes | `2c8804698eaadaef8bc9dcd74eda33cfda79d86b9ab0224987df85009ca22fff`
 - `impl/editor/test/editor.test.ts` | 8234 bytes | `116946032ac4699a71c1e2c521950bead18836802526afeb2e61a9da0de911a4`
-- `impl/editor/web/build-data.ts` | 2885 bytes | `ad81518008937e59f5b3783a232358263f2835752ad24daa4ed885d77d9f6404`
 - `impl/editor/web/data.json` | 111726 bytes | `44fd224f2c476b9c473c9e535100f2120b9a6e7c2307f582bab4715b855936da`
 - `impl/merge/package.json` | 529 bytes | `9926da608e2d8699b2aa28e23c03e2ab9dad83bda18152e5f1a94f0fae723832`
 - `impl/merge/src/bounded.ts` | 6054 bytes | `49e462ecfc190f2a32cd88c92ff5dd8b35746319fc27cba88afb1dca4bb2830d`
@@ -150,4 +150,4 @@
 - `work/SCMS-030.md` | 3703 bytes | `d310ce1175be526a23c63b8ba95b6f7e189d2ee21ca36e82292c9ff7760fd018`
 - `work/SCMS-031.md` | 4257 bytes | `bdd6f5b740481337a939452cf8c7dc630d5196c1a9263a076e7b235800425d44`
 - `work/SCMS-032.md` | 3200 bytes | `c6b6cb23fc164e2765e21707b803c9a9e48e9aa830589a0f960fca4a49e151fe`
-- `work/SCMS-040.md` | 3510 bytes | `9ce946711da367dc945ad3d157bfbb17b053fe966d3ad6c92ef8c34a6376ea4a`
+- `work/SCMS-040.md` | 4199 bytes | `2c68202afe9fad9a3e00ac8a2e737cbff6ab39824ebd47b82eb7d3ae2d7cf66f`

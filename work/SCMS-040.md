@@ -51,6 +51,18 @@ Separately, two early vectors were asserting nothing: the first public entry in 
 already promoted, so "publishing is refused without qualification" was passing on an entry that
 could not be published anyway. Corrected to select a public *unpublished* entry.
 
+## What the write-boundary gate caught
+
+The preview's data builder seeded a journal by direct `append`, and the Canon write-boundary gate
+refused it. The gate was right: real content entering Canon must cross a registered contract
+(§5), and "it is only for a preview" is not an exception to that — it is simply not production.
+The file was moved to `test/` where its actual status as a **fixture builder** is visible, rather
+than given a new exemption carved to fit it. Weakening a gate to stop it complaining is how a
+gate becomes decoration.
+
+It also names the real work precisely: importing a corpus *for real* has to go through the
+governed path, which is what SCMS-041 exercises.
+
 ## Preview scope
 
 Published at https://claude.ai/code/artifact/1201416c-78ec-4145-9149-bdfccb9af68a — **73 public
