@@ -1,6 +1,6 @@
 # PROJECT COMPILED CONTEXT
 Generator: 0.5.0
-Source digest: 73ada23914a75968c87b07406ad67dd7ab60659cc27248cd22df465516295f26
+Source digest: 9b385d76719a9d52692a53f5574fe790cfe155ac7ec983bdf4f99f392ae2877a
 
 > Generated projection. Canonical sources remain authoritative.
 
@@ -1487,6 +1487,7 @@ above its rung.
 | An editor cannot offer an affordance nothing implements | **Implemented + Tested** | SCMS-031: operations are derived from the live contract registry, unimplemented intents are withheld with a stated reason, and a compensatable operation is not offered while its compensation is unregistered | A rendered editor, and the visual half of SH-8 |
 | An author can see the system's honesty, not just be told about it | **Implemented + Tested** | SCMS-040: the chip flips to `local · unsent` on the first keystroke, publishing stays refused with its reason visible while no attestation covers the revision, and conflict keeps typing open while freezing publication | A person actually using it (SCMS-041) |
 | Content can only come into existence through a contract | **Implemented + Tested** | SCMS-041: `content.create@1` exists, the whole corpus enters through it with zero direct appends, the import is idempotent, and a created record cannot arrive published or qualified however the input is shaped | The same under concurrency, and a persistence engine (SH-1) |
+| Editing content does not destroy it | **Implemented + Tested** | SCMS-042 / NR-scms-008: a slot-level edit preserves its siblings, removal is explicit rather than by omission, and the receipt names the exact field that moved. Before this, editing an article's body silently deleted its title and summary while reporting success | Vectors for every write path against realistically-nested bodies, not flat fixtures |
 | The published artifacts match their canonical sources | **Tested** | scripts/check-projection-sync.py in CI, with a self-test | — |
 | The system is empirically useful | **NOT established** — but no longer untested against reality | SCMS-028: a real 215-entry corpus maps into Canon and resolves, and the mapping found a genuine modelling collapse in the owner's live data (dual-vocabulary `status`, 22 findings). That establishes the *mapping*, not usefulness: nothing is deployed, no human has used the result, rcp-001 remains an active obligation | A person doing real work through it — which needs the authoring surface (E12/SH-8) and a deployment |
 
@@ -9522,6 +9523,67 @@ export const CONTENT_REVISE: ContractDefinition = {
  * Effect class E1: a created record is unpublished by construction, so it makes
  * no external commitment and nothing needs compensating.
  */
+/**
+ * Apply a change set to a body.
+ *
+ * Plain objects merge recursively; everything else replaces. The recursion is
+ * the whole point: an earlier version spread the change set over the body at the
+ * top level only, so a change to one slot replaced the entire `slots` map and
+ * **silently deleted every sibling slot** — editing an article's body destroyed
+ * its title and summary, and the write reported `completed` (NR-scms-008).
+ *
+ * Two deliberate choices:
+ *
+ * - **Arrays replace wholesale.** A slot's parts are authored as a unit; merging
+ *   two versions of a value array positionally is exactly the silent-winner
+ *   behaviour §8.5 forbids outside the free lane.
+ * - **Removal is explicit.** An unmentioned key is left alone; `null` removes.
+ *   Deleting by omission would make every partial edit a potential deletion,
+ *   which is how this defect happened in the first place.
+ */
+export function mergeChanges(
+  before: Record<string, unknown>, changes: Record<string, unknown>,
+): Record<string, unknown> {
+  const out: Record<string, unknown> = { ...before };
+  for (const [k, v] of Object.entries(changes)) {
+    if (v === null) { delete out[k]; continue; }
+    const prior = out[k];
+    if (isPlainObject(v) && isPlainObject(prior)) {
+      out[k] = mergeChanges(prior as Record<string, unknown>, v as Record<string, unknown>);
+    } else {
+      out[k] = v;
+    }
+  }
+  return out;
+}
+
+function isPlainObject(v: unknown): boolean {
+  return typeof v === "object" && v !== null && !Array.isArray(v);
+}
+
+/** Leaf paths that differ between two bodies, in sorted order. */
+function changedPaths(before: Record<string, unknown>, after: Record<string, unknown>): string[] {
+  const paths = new Set<string>();
+  const walk = (a: unknown, b: unknown, prefix: string) => {
+    if (isPlainObject(a) && isPlainObject(b)) {
+      const keys = new Set([...Object.keys(a as object), ...Object.keys(b as object)]);
+      for (const k of keys) {
+        walk((a as Record<string, unknown>)[k], (b as Record<string, unknown>)[k],
+             prefix ? `${prefix}/${k}` : k);
+      }
+      return;
+    }
+    if (JSON.stringify(a) !== JSON.stringify(b)) paths.add(prefix);
+  };
+  walk(before, after, "");
+  return [...paths].sort();
+}
+
+function valueAt(obj: unknown, path: string): unknown {
+  return path.split("/").reduce<unknown>(
+    (acc, k) => (isPlainObject(acc) ? (acc as Record<string, unknown>)[k] : undefined), obj);
+}
+
 export const CONTENT_CREATE: ContractDefinition = {
   id: "icp:interaction/content.create",
   version: "1.0.0",
@@ -9653,7 +9715,7 @@ export const reviseHandler: Handler = (journal, req, def, ctx) => {
   // PROCESS — supersede appends; the predecessor stays readable as history.
   states.push("processing");
   const before = prior.envelope.body as Record<string, unknown>;
-  const nextBody = { ...before, ...input.changes };
+  const nextBody = mergeChanges(before, input.changes);
 
   // Declared types are load-bearing: where a content type is declared, a
   // governed write may not land content that violates it (SCMS-022).
@@ -9670,8 +9732,11 @@ export const reviseHandler: Handler = (journal, req, def, ctx) => {
   const next: Envelope = { ...prior.envelope, body: nextBody as Envelope["body"], revision: undefined };
   const landed = journal.supersede(input.expectedRevision, next, req.actor.id);
 
-  const changes = Object.keys(input.changes).sort().map((k) => ({
-    path: `/body/${k}`, before: before[k], after: (input.changes as Record<string, unknown>)[k],
+  // The receipt reports what actually changed, at the granularity it changed.
+  // Reporting `/body/slots` for a body edit would say "the slots changed" and
+  // hide which one, which is the same loss of resolution the shallow merge had.
+  const changes = changedPaths(before, nextBody).map((path) => ({
+    path: `/body/${path}`, before: valueAt(before, path), after: valueAt(nextBody, path),
   }));
   const base: Omit<ChangeReceipt, "integrity"> = {
     id: `rcpt_${ctx.instanceId}`,
@@ -10101,6 +10166,88 @@ test("the legitimate owner path still works — the gate is not refusing everyth
   }, { ...ctx, instanceId: "int-ok", authority: "owner" });
   assert.equal(res.outcome, "completed");
   assert.equal(j.all().length, 2);
+});
+
+// ── Slot-level edits must not delete their siblings (NR-scms-008) ──────────
+// A shallow spread of the change set over the body replaced the whole `slots`
+// map, so editing an article's body silently destroyed its title and summary —
+// and the write reported `completed`. Existing vectors missed it because they
+// all used flat bodies, where a shallow merge is indistinguishable from a deep
+// one. Data loss in the one write path that is supposed to be safe.
+
+function seededRich() {
+  const journal = new CanonJournal();
+  const registry = narrowPathRegistry();
+  registry.execute(journal, {
+    contract: "icp:interaction/content.create@1.0.0", requestId: "r-rich",
+    actor: { id: "owner", role: "owner" },
+    input: { subjectId: "rich", contentKind: "article", minimumAccess: "public", source: "test",
+      body: { slots: {
+        title: [{ kind: "text", value: "Real Title" }],
+        summary: [{ kind: "text", value: "Real summary" }],
+        body: [{ kind: "prose", value: "Original prose" }],
+      }, tags: ["a", "b"], attrs: { listed: true } } },
+  }, { ...ctx, instanceId: "int-rich" });
+  return { journal, registry, rev: journal.current()[0].envelope.revision! };
+}
+const slotsOf = (j: CanonJournal) =>
+  (j.current()[0].envelope.body as never as { slots: Record<string, Array<{ value: string }>> }).slots;
+
+test("editing one slot leaves its siblings intact", () => {
+  const { journal, registry, rev } = seededRich();
+  const r = registry.execute(journal, request({
+    subjectId: "rich", expectedRevision: rev,
+    changes: { slots: { body: [{ kind: "prose", value: "Edited prose" }] } },
+  }), { ...ctx, instanceId: "int-slot" });
+
+  assert.equal(r.outcome, "completed");
+  const slots = slotsOf(journal);
+  assert.equal(slots.body[0].value, "Edited prose");
+  assert.equal(slots.title[0].value, "Real Title", "the title survived the body edit");
+  assert.equal(slots.summary[0].value, "Real summary", "so did the summary");
+  assert.deepEqual((journal.current()[0].envelope.body as never as { tags: string[] }).tags, ["a", "b"]);
+});
+
+test("the receipt names the exact field that changed, not its container", () => {
+  const { journal, registry, rev } = seededRich();
+  const r = registry.execute(journal, request({
+    subjectId: "rich", expectedRevision: rev,
+    changes: { slots: { body: [{ kind: "prose", value: "Edited prose" }] } },
+  }), { ...ctx, instanceId: "int-path" });
+  assert.deepEqual(r.receipt!.changes.map((c) => c.path), ["/body/slots/body"],
+    "reporting /body/slots would say the slots changed and hide which");
+});
+
+test("removal is explicit: an unmentioned field is kept, an explicit null deletes", () => {
+  const { journal, registry, rev } = seededRich();
+  const r = registry.execute(journal, request({
+    subjectId: "rich", expectedRevision: rev, changes: { slots: { summary: null } },
+  }), { ...ctx, instanceId: "int-del" });
+  assert.equal(r.outcome, "completed");
+  const slots = slotsOf(journal);
+  assert.equal(slots.summary, undefined, "an explicit null removes");
+  assert.equal(slots.title[0].value, "Real Title", "and touches nothing else");
+  // Deleting by omission would make every partial edit a potential deletion,
+  // which is exactly how the original defect happened.
+});
+
+test("a slot's value array replaces wholesale rather than merging positionally", () => {
+  const { journal, registry, rev } = seededRich();
+  registry.execute(journal, request({
+    subjectId: "rich", expectedRevision: rev,
+    changes: { slots: { body: [{ kind: "prose", value: "One" }, { kind: "prose", value: "Two" }] } },
+  }), { ...ctx, instanceId: "int-arr1" });
+  const rev2 = journal.current()[0].envelope.revision!;
+  registry.execute(journal, request({
+    subjectId: "rich", expectedRevision: rev2,
+    changes: { slots: { body: [{ kind: "prose", value: "Only" }] } },
+  }), { ...ctx, instanceId: "int-arr2" });
+
+  const body = slotsOf(journal).body;
+  assert.equal(body.length, 1, "a slot's parts are authored as a unit");
+  assert.equal(body[0].value, "Only");
+  // Merging value arrays positionally is the silent-winner behaviour §8.5
+  // forbids outside the free lane.
 });
 
 
@@ -10550,6 +10697,195 @@ FILE: impl/editor/package.json
   "type": "module",
   "description": "The editor's view-model (SCMS-040, epic E12): what an author sees, as testable data — publish weighted differently from save, withheld operations carrying their reason, the chip reused rather than reimplemented, and migration findings surfaced where a person can resolve them.",
   "scripts": { "test": "node --test test/editor.test.ts" }
+}
+
+
+========================================================================
+FILE: impl/editor/src/session.ts
+========================================================================
+
+/**
+ * An editing session (SCMS-042, epic E12 · the instrument P7 needs).
+ *
+ * The owner's instruction was to settle P7 — divergence-first branching versus
+ * convergent merge for prose — *by migrating content through the editor*. That
+ * is the right way to settle it, and it means this module's job is to make real
+ * editing possible and observable, **not** to simulate editing and call the
+ * result evidence. Synthetic edits would answer the question with data I made
+ * up, which is the failure this project exists to avoid.
+ *
+ * So: a session lands edits through `content.revise@1` like any other write, and
+ * records what actually happened in a form P7 can be decided from. The decision
+ * stays open until real edits accumulate. §8.5's deferral asked for exactly this
+ * — *"a real editing workload rather than a fixture"*.
+ *
+ * What is recorded per edit, and why each bears on P7:
+ *
+ * - `lane` — which invariance class the touched fields fall in. P7 only governs
+ *   the `free` lane; edits to bounded or required fields are already settled.
+ * - `overlapped` — whether another session had landed a change to the *same*
+ *   slot since this session's baseline. Convergent merge is only ever tested by
+ *   overlap; non-overlapping edits merge correctly under any model, so counting
+ *   them would inflate the case for convergence.
+ * - `outcome` — what the contract did. A conflict that was surfaced is a data
+ *   point *for* divergence; a silent convergence that produced text neither
+ *   author wrote is the case *against* it.
+ */
+import type { CanonJournal } from "../../canon/src/journal.ts";
+import type { ContractRegistry, ExecutionContext } from "../../contracts/src/runtime.ts";
+
+/** DESIGN.md §8.5 — invariance decides the concurrency discipline. */
+export type Lane = "free" | "bounded" | "required";
+
+const REQUIRED_FIELDS = new Set(["subjectId", "compatibility", "minimumAccess", "state", "provenance"]);
+const BOUNDED_FIELDS = new Set(["slots", "tags", "attrs"]);
+/** Prose bodies are the only genuinely free field in the narrow path. */
+const FREE_SLOTS = new Set(["body", "summary"]);
+
+export function laneFor(changedPaths: string[]): Lane {
+  if (changedPaths.some((p) => REQUIRED_FIELDS.has(p.split("/")[0]))) return "required";
+  const slotNames = changedPaths
+    .filter((p) => p.startsWith("slots/"))
+    .map((p) => p.split("/")[1]);
+  if (slotNames.length > 0 && slotNames.every((n) => FREE_SLOTS.has(n))) return "free";
+  if (changedPaths.some((p) => BOUNDED_FIELDS.has(p.split("/")[0]))) return "bounded";
+  return "bounded";
+}
+
+export interface P7Observation {
+  subjectId: string;
+  session: string;
+  lane: Lane;
+  changedPaths: string[];
+  /** Another session landed a change to one of these same paths since baseline. */
+  overlapped: boolean;
+  outcome: string;
+  /** Present on conflict: what the session held versus what Canon holds. */
+  expected?: string;
+  actual?: string;
+  occurredAt: string;
+}
+
+export interface EditResult {
+  outcome: string;
+  observation: P7Observation;
+  /** The revision this session should now hold, when the edit landed. */
+  revision?: string;
+}
+
+export interface EditSessionInput {
+  journal: CanonJournal;
+  registry: ContractRegistry;
+  subjectId: string;
+  session: string;
+  /** The revision this session last read — its baseline. */
+  baselineRevision: string;
+  /** Slot-level changes, as the editor produces them. */
+  changes: Record<string, unknown>;
+  context: Omit<ExecutionContext, "instanceId">;
+  actor: { id: string; role: string };
+}
+
+/**
+ * Land one edit and observe it.
+ *
+ * Overlap is computed against Canon *before* the write is attempted, because
+ * afterwards the answer is unrecoverable: a conflict tells you the revision
+ * moved but not whether it moved on the fields you touched, and that difference
+ * is the whole of what P7 turns on.
+ */
+export function landEdit(input: EditSessionInput): EditResult {
+  const changedPaths = pathsOf(input.changes);
+  const lane = laneFor(changedPaths);
+
+  const current = input.journal.current().find((e) => e.envelope.subjectId === input.subjectId);
+  const baseline = input.journal.get(input.baselineRevision);
+  const overlapped = current !== undefined && baseline !== undefined
+    && current.envelope.revision !== input.baselineRevision
+    && touchesSame(baseline.envelope.body as Record<string, unknown>,
+                   current.envelope.body as Record<string, unknown>, changedPaths);
+
+  const result = input.registry.execute(input.journal, {
+    contract: "icp:interaction/content.revise@1.0.0",
+    requestId: `edit-${input.session}`,
+    actor: input.actor,
+    input: { subjectId: input.subjectId, expectedRevision: input.baselineRevision, changes: input.changes },
+  } as never, { ...input.context, instanceId: `edit-${input.session}` });
+
+  const landedRevision = result.outcome === "completed"
+    ? input.journal.current().find((e) => e.envelope.subjectId === input.subjectId)?.envelope.revision
+    : undefined;
+
+  return {
+    outcome: result.outcome,
+    ...(landedRevision === undefined ? {} : { revision: landedRevision }),
+    observation: {
+      subjectId: input.subjectId, session: input.session, lane, changedPaths, overlapped,
+      outcome: result.outcome,
+      ...(result.outcome === "conflict"
+        ? { expected: input.baselineRevision, actual: current?.envelope.revision ?? "none" }
+        : {}),
+      occurredAt: input.context.occurredAt,
+    },
+  };
+}
+
+function pathsOf(changes: Record<string, unknown>, prefix = ""): string[] {
+  const out: string[] = [];
+  for (const [k, v] of Object.entries(changes)) {
+    const path = prefix ? `${prefix}/${k}` : k;
+    if (v && typeof v === "object" && !Array.isArray(v)) out.push(...pathsOf(v as Record<string, unknown>, path));
+    else out.push(path);
+  }
+  return out;
+}
+
+function touchesSame(
+  baseline: Record<string, unknown>, current: Record<string, unknown>, paths: string[],
+): boolean {
+  return paths.some((p) => JSON.stringify(at(baseline, p)) !== JSON.stringify(at(current, p)));
+}
+
+function at(obj: unknown, path: string): unknown {
+  return path.split("/").reduce<unknown>(
+    (acc, k) => (acc && typeof acc === "object" ? (acc as Record<string, unknown>)[k] : undefined), obj);
+}
+
+/**
+ * What the accumulated observations say about P7 — and, deliberately, how much
+ * they are worth. A recommendation from three edits is not a recommendation.
+ */
+export interface P7Summary {
+  totalEdits: number;
+  freeLaneEdits: number;
+  overlappingFreeLaneEdits: number;
+  conflictsSurfaced: number;
+  /** Honest reading of whether this is enough to decide on. */
+  sufficient: boolean;
+  reading: string;
+}
+
+/** The floor below which no recommendation is offered. Stated, not implied. */
+export const P7_EVIDENCE_FLOOR = 30;
+
+export function summarizeP7(observations: P7Observation[]): P7Summary {
+  const free = observations.filter((o) => o.lane === "free");
+  const overlapping = free.filter((o) => o.overlapped);
+  const conflicts = observations.filter((o) => o.outcome === "conflict");
+  const sufficient = overlapping.length >= P7_EVIDENCE_FLOOR;
+
+  return {
+    totalEdits: observations.length,
+    freeLaneEdits: free.length,
+    overlappingFreeLaneEdits: overlapping.length,
+    conflictsSurfaced: conflicts.length,
+    sufficient,
+    reading: sufficient
+      ? `${overlapping.length} overlapping free-lane edits observed — enough to characterise how often real prose editing actually collides.`
+      : `${overlapping.length} overlapping free-lane edits observed, floor is ${P7_EVIDENCE_FLOOR}. `
+        + "P7 remains undecided: non-overlapping edits merge correctly under any model, so they say nothing "
+        + "about convergence, and deciding from them would be deciding from a fixture by another name.",
+  };
 }
 
 
@@ -11027,6 +11363,125 @@ test("a public actor's index contains no private entry, and their editor cannot 
     baseline: baselineFor(privateSubject), freshness,
   } as never);
   assert.ok("notFound" in v, "a public actor must not open a private entry in the editor");
+});
+
+// ── Editing sessions and the P7 instrument (SCMS-042) ──────────────────────
+
+import { narrowPathRegistry } from "../../contracts/src/runtime.ts";
+import { governedImport } from "../../migrate/src/governed.ts";
+import { landEdit, laneFor, summarizeP7, P7_EVIDENCE_FLOOR } from "../src/session.ts";
+import type { P7Observation } from "../src/session.ts";
+
+const editCtx = { occurredAt: "2026-08-29T01:00:00Z", authority: "owner" as const };
+const editActor = { id: "project.owner", role: "owner" };
+
+function seeded() {
+  const j = new CanonJournal();
+  const registry = narrowPathRegistry();
+  governedImport({
+    journal: j, registry, envelopes: migrated.content.slice(0, 5),
+    context: editCtx, actor: editActor,
+  });
+  const subjectId = j.current()[0].envelope.subjectId;
+  return { j, registry, subjectId, rev: j.current()[0].envelope.revision! };
+}
+
+test("an edit from the editor lands through the contract path", () => {
+  const { j, registry, subjectId, rev } = seeded();
+  const before = j.all().length;
+  const r = landEdit({
+    journal: j, registry, subjectId, session: "s1", baselineRevision: rev,
+    changes: { slots: { summary: [{ kind: "text", value: "Rewritten." }] } },
+    context: editCtx, actor: editActor,
+  });
+  assert.equal(r.outcome, "completed");
+  assert.equal(j.all().length, before + 1, "a revision was appended, not an edit in place");
+  assert.equal(j.events().length, 5 + 1, "and it announced itself");
+});
+
+test("prose edits fall in the free lane; structure and identity do not", () => {
+  assert.equal(laneFor(["slots/body/0/value"]), "free");
+  assert.equal(laneFor(["slots/summary/0/value"]), "free");
+  assert.equal(laneFor(["slots/title/0/value"]), "bounded", "a title is not prose");
+  assert.equal(laneFor(["tags/0"]), "bounded");
+  assert.equal(laneFor(["minimumAccess"]), "required");
+  assert.equal(laneFor(["slots/body/0/value", "minimumAccess"]), "required",
+    "the strictest touched field decides — a mixed edit is not free");
+});
+
+test("a stale edit conflicts, writes nothing, and is recorded as an overlap", () => {
+  const { j, registry, subjectId, rev } = seeded();
+  // First session lands.
+  landEdit({
+    journal: j, registry, subjectId, session: "s1", baselineRevision: rev,
+    changes: { slots: { body: [{ kind: "prose", value: "First author." }] } },
+    context: editCtx, actor: editActor,
+  });
+  const afterFirst = j.all().length;
+
+  // Second session still holds the original baseline and touches the same slot.
+  const second = landEdit({
+    journal: j, registry, subjectId, session: "s2", baselineRevision: rev,
+    changes: { slots: { body: [{ kind: "prose", value: "Second author." }] } },
+    context: editCtx, actor: editActor,
+  });
+
+  assert.equal(second.outcome, "conflict");
+  assert.equal(j.all().length, afterFirst, "the loser wrote nothing — no silent overwrite");
+  assert.equal(second.observation.overlapped, true, "and the overlap was seen");
+  assert.equal(second.observation.lane, "free");
+  assert.ok(second.observation.expected && second.observation.actual);
+});
+
+test("a stale edit that touches a DIFFERENT field is not counted as an overlap", () => {
+  const { j, registry, subjectId, rev } = seeded();
+  landEdit({
+    journal: j, registry, subjectId, session: "s1", baselineRevision: rev,
+    changes: { slots: { body: [{ kind: "prose", value: "Body change." }] } },
+    context: editCtx, actor: editActor,
+  });
+  const second = landEdit({
+    journal: j, registry, subjectId, session: "s2", baselineRevision: rev,
+    changes: { slots: { summary: [{ kind: "text", value: "Summary change." }] } },
+    context: editCtx, actor: editActor,
+  });
+  // Still a conflict — optimistic concurrency is per record — but NOT an
+  // overlap. The distinction is the whole of what P7 turns on: edits that do
+  // not touch the same text merge correctly under any model, so counting them
+  // would inflate the case for convergence.
+  assert.equal(second.outcome, "conflict");
+  assert.equal(second.observation.overlapped, false);
+});
+
+test("P7 refuses to be decided from too little, and says so", () => {
+  const thin: P7Observation[] = [
+    { subjectId: "a", session: "s1", lane: "free", changedPaths: ["slots/body"], overlapped: true,
+      outcome: "conflict", occurredAt: "t" },
+  ];
+  const s = summarizeP7(thin);
+  assert.equal(s.overlappingFreeLaneEdits, 1);
+  assert.equal(s.sufficient, false);
+  assert.match(s.reading, /remains undecided/);
+  assert.match(s.reading, new RegExp(String(P7_EVIDENCE_FLOOR)));
+});
+
+test("the summary counts only what bears on the question", () => {
+  const mixed: P7Observation[] = [
+    ...Array.from({ length: 40 }, (_, i) => ({
+      subjectId: `a${i}`, session: "s", lane: "free" as const, changedPaths: ["slots/body"],
+      overlapped: true, outcome: "conflict", occurredAt: "t" })),
+    ...Array.from({ length: 100 }, (_, i) => ({
+      subjectId: `b${i}`, session: "s", lane: "free" as const, changedPaths: ["slots/body"],
+      overlapped: false, outcome: "completed", occurredAt: "t" })),
+    ...Array.from({ length: 50 }, (_, i) => ({
+      subjectId: `c${i}`, session: "s", lane: "required" as const, changedPaths: ["minimumAccess"],
+      overlapped: true, outcome: "conflict", occurredAt: "t" })),
+  ];
+  const s = summarizeP7(mixed);
+  assert.equal(s.totalEdits, 190);
+  assert.equal(s.freeLaneEdits, 140);
+  assert.equal(s.overlappingFreeLaneEdits, 40, "required-lane overlaps do not count toward P7");
+  assert.equal(s.sufficient, true);
 });
 
 
@@ -19840,7 +20295,7 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-039 | Recommended dispositions for the 25 open proposals on PR #28 | E0 | Ready — recommendations only; ratification is owner authority and will NOT be exercised | — |
 | SCMS-040 | The editor in preview: a usable authoring surface over real content | E12 | Done — SH-8 closed; preview published; awaiting owner verification | records/evidence.jsonl · scms-evidence-040 |
 | SCMS-041 | Migrate the corpus through the governed path (content.create@1) | E8+E12 | Done — creation is governed at last; SH-15 raised; awaiting owner verification | records/evidence.jsonl · scms-evidence-041 |
-| SCMS-042 | Disposition P7 from the observed workload, not from a fixture | E1 | Ready — depends on SCMS-041; recommendation to owner, grounded in what real edits did | — |
+| SCMS-042 | The editing session and the P7 instrument | E12 | Done — instrument built, NR-scms-008 fixed; **P7 stays open pending real edits** | records/evidence.jsonl · scms-evidence-042 |
 | SCMS-018 | R1 live co-authoring — **free lane only** (convergent merge) | E1 | **Blocked** — awaiting disposition of P7/P22 on PR #28 | records/blockers · scms-blocker-001 |
 | SCMS-010 | S4 cross-domain portability: a materially unrelated project (outside this repository, per owner doctrine 2026-08-28) consumes @semantic-systems/surface unmodified | external | Backlog — executes outside scms; scms records the conformance result | — |
 
@@ -21775,4 +22230,65 @@ rather than settled quietly in either direction.
 
 **Done — content can now come into existence lawfully, and the corpus arrives through the front
 door. What it does not arrive with is a publication status it did not earn.**
+
+
+========================================================================
+FILE: work/SCMS-042.md
+========================================================================
+
+# SCMS-042 — The editing session, and the instrument P7 needs
+
+**Intent ref:** PROJECT_INTENT.md · **Epic:** E12 · **Effect class:** E1
+**Assigned by:** owner directive — *"handle P7 by migrating my content using the editor in preview."*
+**State:** Ready → Claimed → Done (closing state at bottom)
+
+## What this item deliberately does not do
+
+It does not decide P7, and it does not simulate the workload that would decide it.
+
+The owner's instruction is the right method: settle divergence-first branching versus convergent
+prose merge by *actually editing*, which is what §8.5's deferral asked for — *"a real editing
+workload rather than a fixture."* Fabricating edits and reporting a conclusion from them would
+answer the question with data I invented, dressed as evidence. That is the precise failure this
+project exists to prevent, and it would be a worse version of it than any yet recorded, because it
+would look like diligence.
+
+So this item builds the **instrument**: real edits land through the contract path and are observed
+in a form P7 can be decided from later. `summarizeP7` refuses to offer a reading below a stated
+floor of 30 overlapping free-lane edits, and says why rather than hedging.
+
+## What is observed, and why each thing bears on the question
+
+- **Lane.** P7 governs only the `free` lane. Bounded and required concurrency are already settled,
+  so counting their conflicts toward P7 would answer a different question. A mixed edit takes the
+  strictest lane it touches: an edit that changes prose *and* access is not a prose edit.
+- **Overlap.** Whether another session changed *the same field* since this session's baseline.
+  This is the crux. Edits that do not touch the same text merge correctly under any model, so
+  counting them would inflate the case for convergence. Overlap is computed **before** the write is
+  attempted, because afterwards it is unrecoverable — a conflict tells you the revision moved, not
+  whether it moved on the fields you touched.
+
+## What building it found: silent data loss (NR-scms-008)
+
+The overlap detector reported an overlap where there should have been none, and it was right —
+about something worse than it was looking for.
+
+`content.revise` spread the change set over the body at the top level only. So a change to one slot
+**replaced the entire `slots` map**, silently deleting every sibling. Editing an article's body
+destroyed its title and summary, and the write reported `completed`. Data loss in the one write
+path that is supposed to be safe.
+
+Every existing vector missed it because they all used flat bodies, where a shallow merge and a deep
+one are indistinguishable. The defect was reachable only by editing realistically-shaped content —
+which is what happens the first time you point a system at real work.
+
+Fixed with a recursive merge in which arrays replace wholesale (a slot's parts are authored as a
+unit) and removal is explicit via `null` (deleting by omission is how this happened). The receipt
+now names `/body/slots/body` rather than `/body/slots`, because reporting the container hides which
+field moved — the same loss of resolution in a different place.
+
+## Closing state
+
+**Done — the editor writes, real editing is observable, and P7 stays open on purpose. The corpus
+also stopped destroying itself when edited.**
 

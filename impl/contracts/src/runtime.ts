@@ -231,6 +231,67 @@ export const CONTENT_REVISE: ContractDefinition = {
  * Effect class E1: a created record is unpublished by construction, so it makes
  * no external commitment and nothing needs compensating.
  */
+/**
+ * Apply a change set to a body.
+ *
+ * Plain objects merge recursively; everything else replaces. The recursion is
+ * the whole point: an earlier version spread the change set over the body at the
+ * top level only, so a change to one slot replaced the entire `slots` map and
+ * **silently deleted every sibling slot** — editing an article's body destroyed
+ * its title and summary, and the write reported `completed` (NR-scms-008).
+ *
+ * Two deliberate choices:
+ *
+ * - **Arrays replace wholesale.** A slot's parts are authored as a unit; merging
+ *   two versions of a value array positionally is exactly the silent-winner
+ *   behaviour §8.5 forbids outside the free lane.
+ * - **Removal is explicit.** An unmentioned key is left alone; `null` removes.
+ *   Deleting by omission would make every partial edit a potential deletion,
+ *   which is how this defect happened in the first place.
+ */
+export function mergeChanges(
+  before: Record<string, unknown>, changes: Record<string, unknown>,
+): Record<string, unknown> {
+  const out: Record<string, unknown> = { ...before };
+  for (const [k, v] of Object.entries(changes)) {
+    if (v === null) { delete out[k]; continue; }
+    const prior = out[k];
+    if (isPlainObject(v) && isPlainObject(prior)) {
+      out[k] = mergeChanges(prior as Record<string, unknown>, v as Record<string, unknown>);
+    } else {
+      out[k] = v;
+    }
+  }
+  return out;
+}
+
+function isPlainObject(v: unknown): boolean {
+  return typeof v === "object" && v !== null && !Array.isArray(v);
+}
+
+/** Leaf paths that differ between two bodies, in sorted order. */
+function changedPaths(before: Record<string, unknown>, after: Record<string, unknown>): string[] {
+  const paths = new Set<string>();
+  const walk = (a: unknown, b: unknown, prefix: string) => {
+    if (isPlainObject(a) && isPlainObject(b)) {
+      const keys = new Set([...Object.keys(a as object), ...Object.keys(b as object)]);
+      for (const k of keys) {
+        walk((a as Record<string, unknown>)[k], (b as Record<string, unknown>)[k],
+             prefix ? `${prefix}/${k}` : k);
+      }
+      return;
+    }
+    if (JSON.stringify(a) !== JSON.stringify(b)) paths.add(prefix);
+  };
+  walk(before, after, "");
+  return [...paths].sort();
+}
+
+function valueAt(obj: unknown, path: string): unknown {
+  return path.split("/").reduce<unknown>(
+    (acc, k) => (isPlainObject(acc) ? (acc as Record<string, unknown>)[k] : undefined), obj);
+}
+
 export const CONTENT_CREATE: ContractDefinition = {
   id: "icp:interaction/content.create",
   version: "1.0.0",
@@ -362,7 +423,7 @@ export const reviseHandler: Handler = (journal, req, def, ctx) => {
   // PROCESS — supersede appends; the predecessor stays readable as history.
   states.push("processing");
   const before = prior.envelope.body as Record<string, unknown>;
-  const nextBody = { ...before, ...input.changes };
+  const nextBody = mergeChanges(before, input.changes);
 
   // Declared types are load-bearing: where a content type is declared, a
   // governed write may not land content that violates it (SCMS-022).
@@ -379,8 +440,11 @@ export const reviseHandler: Handler = (journal, req, def, ctx) => {
   const next: Envelope = { ...prior.envelope, body: nextBody as Envelope["body"], revision: undefined };
   const landed = journal.supersede(input.expectedRevision, next, req.actor.id);
 
-  const changes = Object.keys(input.changes).sort().map((k) => ({
-    path: `/body/${k}`, before: before[k], after: (input.changes as Record<string, unknown>)[k],
+  // The receipt reports what actually changed, at the granularity it changed.
+  // Reporting `/body/slots` for a body edit would say "the slots changed" and
+  // hide which one, which is the same loss of resolution the shallow merge had.
+  const changes = changedPaths(before, nextBody).map((path) => ({
+    path: `/body/${path}`, before: valueAt(before, path), after: valueAt(nextBody, path),
   }));
   const base: Omit<ChangeReceipt, "integrity"> = {
     id: `rcpt_${ctx.instanceId}`,

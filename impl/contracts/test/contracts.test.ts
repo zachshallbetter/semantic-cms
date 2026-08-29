@@ -391,3 +391,85 @@ test("the legitimate owner path still works — the gate is not refusing everyth
   assert.equal(res.outcome, "completed");
   assert.equal(j.all().length, 2);
 });
+
+// ── Slot-level edits must not delete their siblings (NR-scms-008) ──────────
+// A shallow spread of the change set over the body replaced the whole `slots`
+// map, so editing an article's body silently destroyed its title and summary —
+// and the write reported `completed`. Existing vectors missed it because they
+// all used flat bodies, where a shallow merge is indistinguishable from a deep
+// one. Data loss in the one write path that is supposed to be safe.
+
+function seededRich() {
+  const journal = new CanonJournal();
+  const registry = narrowPathRegistry();
+  registry.execute(journal, {
+    contract: "icp:interaction/content.create@1.0.0", requestId: "r-rich",
+    actor: { id: "owner", role: "owner" },
+    input: { subjectId: "rich", contentKind: "article", minimumAccess: "public", source: "test",
+      body: { slots: {
+        title: [{ kind: "text", value: "Real Title" }],
+        summary: [{ kind: "text", value: "Real summary" }],
+        body: [{ kind: "prose", value: "Original prose" }],
+      }, tags: ["a", "b"], attrs: { listed: true } } },
+  }, { ...ctx, instanceId: "int-rich" });
+  return { journal, registry, rev: journal.current()[0].envelope.revision! };
+}
+const slotsOf = (j: CanonJournal) =>
+  (j.current()[0].envelope.body as never as { slots: Record<string, Array<{ value: string }>> }).slots;
+
+test("editing one slot leaves its siblings intact", () => {
+  const { journal, registry, rev } = seededRich();
+  const r = registry.execute(journal, request({
+    subjectId: "rich", expectedRevision: rev,
+    changes: { slots: { body: [{ kind: "prose", value: "Edited prose" }] } },
+  }), { ...ctx, instanceId: "int-slot" });
+
+  assert.equal(r.outcome, "completed");
+  const slots = slotsOf(journal);
+  assert.equal(slots.body[0].value, "Edited prose");
+  assert.equal(slots.title[0].value, "Real Title", "the title survived the body edit");
+  assert.equal(slots.summary[0].value, "Real summary", "so did the summary");
+  assert.deepEqual((journal.current()[0].envelope.body as never as { tags: string[] }).tags, ["a", "b"]);
+});
+
+test("the receipt names the exact field that changed, not its container", () => {
+  const { journal, registry, rev } = seededRich();
+  const r = registry.execute(journal, request({
+    subjectId: "rich", expectedRevision: rev,
+    changes: { slots: { body: [{ kind: "prose", value: "Edited prose" }] } },
+  }), { ...ctx, instanceId: "int-path" });
+  assert.deepEqual(r.receipt!.changes.map((c) => c.path), ["/body/slots/body"],
+    "reporting /body/slots would say the slots changed and hide which");
+});
+
+test("removal is explicit: an unmentioned field is kept, an explicit null deletes", () => {
+  const { journal, registry, rev } = seededRich();
+  const r = registry.execute(journal, request({
+    subjectId: "rich", expectedRevision: rev, changes: { slots: { summary: null } },
+  }), { ...ctx, instanceId: "int-del" });
+  assert.equal(r.outcome, "completed");
+  const slots = slotsOf(journal);
+  assert.equal(slots.summary, undefined, "an explicit null removes");
+  assert.equal(slots.title[0].value, "Real Title", "and touches nothing else");
+  // Deleting by omission would make every partial edit a potential deletion,
+  // which is exactly how the original defect happened.
+});
+
+test("a slot's value array replaces wholesale rather than merging positionally", () => {
+  const { journal, registry, rev } = seededRich();
+  registry.execute(journal, request({
+    subjectId: "rich", expectedRevision: rev,
+    changes: { slots: { body: [{ kind: "prose", value: "One" }, { kind: "prose", value: "Two" }] } },
+  }), { ...ctx, instanceId: "int-arr1" });
+  const rev2 = journal.current()[0].envelope.revision!;
+  registry.execute(journal, request({
+    subjectId: "rich", expectedRevision: rev2,
+    changes: { slots: { body: [{ kind: "prose", value: "Only" }] } },
+  }), { ...ctx, instanceId: "int-arr2" });
+
+  const body = slotsOf(journal).body;
+  assert.equal(body.length, 1, "a slot's parts are authored as a unit");
+  assert.equal(body[0].value, "Only");
+  // Merging value arrays positionally is the silent-winner behaviour §8.5
+  // forbids outside the free lane.
+});

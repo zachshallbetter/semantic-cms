@@ -164,3 +164,122 @@ test("a public actor's index contains no private entry, and their editor cannot 
   } as never);
   assert.ok("notFound" in v, "a public actor must not open a private entry in the editor");
 });
+
+// ── Editing sessions and the P7 instrument (SCMS-042) ──────────────────────
+
+import { narrowPathRegistry } from "../../contracts/src/runtime.ts";
+import { governedImport } from "../../migrate/src/governed.ts";
+import { landEdit, laneFor, summarizeP7, P7_EVIDENCE_FLOOR } from "../src/session.ts";
+import type { P7Observation } from "../src/session.ts";
+
+const editCtx = { occurredAt: "2026-08-29T01:00:00Z", authority: "owner" as const };
+const editActor = { id: "project.owner", role: "owner" };
+
+function seeded() {
+  const j = new CanonJournal();
+  const registry = narrowPathRegistry();
+  governedImport({
+    journal: j, registry, envelopes: migrated.content.slice(0, 5),
+    context: editCtx, actor: editActor,
+  });
+  const subjectId = j.current()[0].envelope.subjectId;
+  return { j, registry, subjectId, rev: j.current()[0].envelope.revision! };
+}
+
+test("an edit from the editor lands through the contract path", () => {
+  const { j, registry, subjectId, rev } = seeded();
+  const before = j.all().length;
+  const r = landEdit({
+    journal: j, registry, subjectId, session: "s1", baselineRevision: rev,
+    changes: { slots: { summary: [{ kind: "text", value: "Rewritten." }] } },
+    context: editCtx, actor: editActor,
+  });
+  assert.equal(r.outcome, "completed");
+  assert.equal(j.all().length, before + 1, "a revision was appended, not an edit in place");
+  assert.equal(j.events().length, 5 + 1, "and it announced itself");
+});
+
+test("prose edits fall in the free lane; structure and identity do not", () => {
+  assert.equal(laneFor(["slots/body/0/value"]), "free");
+  assert.equal(laneFor(["slots/summary/0/value"]), "free");
+  assert.equal(laneFor(["slots/title/0/value"]), "bounded", "a title is not prose");
+  assert.equal(laneFor(["tags/0"]), "bounded");
+  assert.equal(laneFor(["minimumAccess"]), "required");
+  assert.equal(laneFor(["slots/body/0/value", "minimumAccess"]), "required",
+    "the strictest touched field decides — a mixed edit is not free");
+});
+
+test("a stale edit conflicts, writes nothing, and is recorded as an overlap", () => {
+  const { j, registry, subjectId, rev } = seeded();
+  // First session lands.
+  landEdit({
+    journal: j, registry, subjectId, session: "s1", baselineRevision: rev,
+    changes: { slots: { body: [{ kind: "prose", value: "First author." }] } },
+    context: editCtx, actor: editActor,
+  });
+  const afterFirst = j.all().length;
+
+  // Second session still holds the original baseline and touches the same slot.
+  const second = landEdit({
+    journal: j, registry, subjectId, session: "s2", baselineRevision: rev,
+    changes: { slots: { body: [{ kind: "prose", value: "Second author." }] } },
+    context: editCtx, actor: editActor,
+  });
+
+  assert.equal(second.outcome, "conflict");
+  assert.equal(j.all().length, afterFirst, "the loser wrote nothing — no silent overwrite");
+  assert.equal(second.observation.overlapped, true, "and the overlap was seen");
+  assert.equal(second.observation.lane, "free");
+  assert.ok(second.observation.expected && second.observation.actual);
+});
+
+test("a stale edit that touches a DIFFERENT field is not counted as an overlap", () => {
+  const { j, registry, subjectId, rev } = seeded();
+  landEdit({
+    journal: j, registry, subjectId, session: "s1", baselineRevision: rev,
+    changes: { slots: { body: [{ kind: "prose", value: "Body change." }] } },
+    context: editCtx, actor: editActor,
+  });
+  const second = landEdit({
+    journal: j, registry, subjectId, session: "s2", baselineRevision: rev,
+    changes: { slots: { summary: [{ kind: "text", value: "Summary change." }] } },
+    context: editCtx, actor: editActor,
+  });
+  // Still a conflict — optimistic concurrency is per record — but NOT an
+  // overlap. The distinction is the whole of what P7 turns on: edits that do
+  // not touch the same text merge correctly under any model, so counting them
+  // would inflate the case for convergence.
+  assert.equal(second.outcome, "conflict");
+  assert.equal(second.observation.overlapped, false);
+});
+
+test("P7 refuses to be decided from too little, and says so", () => {
+  const thin: P7Observation[] = [
+    { subjectId: "a", session: "s1", lane: "free", changedPaths: ["slots/body"], overlapped: true,
+      outcome: "conflict", occurredAt: "t" },
+  ];
+  const s = summarizeP7(thin);
+  assert.equal(s.overlappingFreeLaneEdits, 1);
+  assert.equal(s.sufficient, false);
+  assert.match(s.reading, /remains undecided/);
+  assert.match(s.reading, new RegExp(String(P7_EVIDENCE_FLOOR)));
+});
+
+test("the summary counts only what bears on the question", () => {
+  const mixed: P7Observation[] = [
+    ...Array.from({ length: 40 }, (_, i) => ({
+      subjectId: `a${i}`, session: "s", lane: "free" as const, changedPaths: ["slots/body"],
+      overlapped: true, outcome: "conflict", occurredAt: "t" })),
+    ...Array.from({ length: 100 }, (_, i) => ({
+      subjectId: `b${i}`, session: "s", lane: "free" as const, changedPaths: ["slots/body"],
+      overlapped: false, outcome: "completed", occurredAt: "t" })),
+    ...Array.from({ length: 50 }, (_, i) => ({
+      subjectId: `c${i}`, session: "s", lane: "required" as const, changedPaths: ["minimumAccess"],
+      overlapped: true, outcome: "conflict", occurredAt: "t" })),
+  ];
+  const s = summarizeP7(mixed);
+  assert.equal(s.totalEdits, 190);
+  assert.equal(s.freeLaneEdits, 140);
+  assert.equal(s.overlappingFreeLaneEdits, 40, "required-lane overlaps do not count toward P7");
+  assert.equal(s.sufficient, true);
+});
