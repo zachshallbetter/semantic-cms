@@ -80,6 +80,12 @@ jobs:
         run: node --test test/spine.test.ts
         working-directory: impl/e2e
 
+      - name: Canon write boundary — self-test (gate can fail)
+        run: python3 scripts/check-canon-write-boundary.py --self-test
+
+      - name: Canon write boundary (DESIGN.md §5)
+        run: python3 scripts/check-canon-write-boundary.py
+
       - name: Projection sync — self-test (gate can fail)
         run: python3 scripts/check-projection-sync.py --self-test
 

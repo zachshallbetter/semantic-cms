@@ -1,6 +1,6 @@
 # PROJECT COMPILED CONTEXT
 Generator: 0.5.0
-Source digest: 16c9c9d8256903cb17475d8269204bd5a0de3d5374b46d9ded684c37c892da04
+Source digest: 6f21647e5bb4b1140f30e781808de83ce9b6a3f9eaa906b7f1f15a9c9612fad6
 
 > Generated projection. Canonical sources remain authoritative.
 
@@ -228,6 +228,12 @@ jobs:
       - name: End-to-end spine (SCMS-019 · the composed narrow path)
         run: node --test test/spine.test.ts
         working-directory: impl/e2e
+
+      - name: Canon write boundary — self-test (gate can fail)
+        run: python3 scripts/check-canon-write-boundary.py --self-test
+
+      - name: Canon write boundary (DESIGN.md §5)
+        run: python3 scripts/check-canon-write-boundary.py
 
       - name: Projection sync — self-test (gate can fail)
         run: python3 scripts/check-projection-sync.py --self-test
@@ -10694,6 +10700,92 @@ FILE: schemas/work-disposition.schema.json
 
 
 ========================================================================
+FILE: scripts/check-canon-write-boundary.py
+========================================================================
+
+#!/usr/bin/env python3
+"""Gate: no Canon mutation outside the contract runtime.
+
+DESIGN.md §5 — "No persistent mutation executes outside a registered contract."
+This asserts the rule at source level: the Canon mutators (`append`,
+`supersede`, `revoke`) may be called only from
+
+  * impl/canon/         — the journal implementing them, and
+  * impl/contracts/, impl/qualification/  — the registered contract handlers
+                          that hold the governed write path.
+
+Test files are exempt **by an explicit rule, not by accident**: constructing a
+fixture is not a production write path. The exemption is stated here so a
+reader can disagree with it deliberately.
+
+Honest limitation: this is a source-level boundary. A determined caller can
+still import CanonJournal and mutate it; runtime capability enforcement is not
+implemented (it would churn every fixture for no additional guarantee at this
+maturity). The gate catches the realistic failure — a new production module
+quietly bypassing contracts.
+
+Exit 0 = boundary holds. Exit 1 = violation. --self-test proves it can fail.
+"""
+from __future__ import annotations
+
+import re
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+IMPL = ROOT / "impl"
+ALLOWED_PREFIXES = ("canon/", "contracts/", "qualification/")
+MUTATORS = re.compile(r"\.(append|supersede|revoke)\s*\(")
+
+
+def violations(extra: list[tuple[str, int, str]] | None = None) -> list[str]:
+    found: list[str] = []
+    for path in sorted(IMPL.rglob("*.ts")):
+        rel = path.relative_to(IMPL).as_posix()
+        if "/test/" in f"/{rel}" or rel.endswith(".test.ts"):
+            continue                      # fixtures are not a production write path
+        if rel.startswith(ALLOWED_PREFIXES):
+            continue
+        for n, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+            if line.lstrip().startswith(("*", "//")):
+                continue                  # a comment mentioning a mutator is not a call
+            m = MUTATORS.search(line)
+            if m and "journal" in line.lower():
+                found.append(f"impl/{rel}:{n}: calls .{m.group(1)}() on a journal "
+                             f"outside the contract runtime")
+    for rel, n, mutator in extra or []:
+        found.append(f"impl/{rel}:{n}: calls .{mutator}() on a journal outside the contract runtime")
+    return found
+
+
+def self_test() -> int:
+    # A synthetic violation must be detected; otherwise the gate is decoration.
+    found = violations(extra=[("surface-resolver/src/resolver.ts", 1, "append")])
+    if not found:
+        print("SELF-TEST FAILED: gate did not flag a synthetic violation", file=sys.stderr)
+        return 1
+    print(f"self-test ok: gate flagged {len(found)} synthetic violation(s)")
+    return 0
+
+
+def main() -> int:
+    if "--self-test" in sys.argv:
+        return self_test()
+    found = violations()
+    for v in found:
+        print(f"BOUNDARY VIOLATION: {v}", file=sys.stderr)
+    if found:
+        print("Canon mutation belongs behind a registered contract (DESIGN.md §5).", file=sys.stderr)
+        return 1
+    print("canon write boundary ok")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+
+
+========================================================================
 FILE: scripts/check-projection-sync.py
 ========================================================================
 
@@ -11279,6 +11371,7 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-020 | content.unpublish@1: make the declared compensation real | E1 | Done — awaiting owner verification | records/evidence.jsonl · scms-evidence-020 |
 | SCMS-021 | The bounded merge lane: merge, then validate (§14 step 3, partial) | E1 | Done — awaiting owner verification | records/evidence.jsonl · scms-evidence-021 |
 | SCMS-022 | Declared schemas become load-bearing in the write path | E1 | Done — awaiting owner verification | records/evidence.jsonl · scms-evidence-022 |
+| SCMS-023 | Constitutional gate: no Canon mutation outside the contract runtime | E1 | Done — awaiting owner verification | records/evidence.jsonl · scms-evidence-023 |
 | SCMS-018 | R1 live co-authoring — **free lane only** (convergent merge) | E1 | **Blocked** — awaiting disposition of P7/P22 on PR #28 | records/blockers · scms-blocker-001 |
 | SCMS-010 | S4 cross-domain portability: a materially unrelated project (outside this repository, per owner doctrine 2026-08-28) consumes @semantic-systems/surface unmodified | external | Backlog — executes outside scms; scms records the conformance result | — |
 
@@ -12525,4 +12618,54 @@ pattern this project names as a cautionary tale, committed by this project.
 
 **Done — Implemented + Tested; declared types are enforced where declared.**
 Evidence: records/evidence.jsonl · scms-evidence-022. Claim released.
+
+
+========================================================================
+FILE: work/SCMS-023.md
+========================================================================
+
+# SCMS-023 — Constitutional gate: no Canon mutation outside the contract runtime
+
+**Intent ref:** PROJECT_INTENT.md · **Epic:** E2 · **Effect class:** E1
+**Assigned by:** coordinator goal, on re-deriving the frontier.
+**State:** Ready → Claimed → Done (closing state at bottom)
+
+## The gap
+
+DESIGN.md §5 opens: *"No persistent mutation executes outside a registered contract."*
+Nothing enforces it. `CanonJournal.append/supersede/revoke` are callable by any module, so the
+rule is doctrine without a checker — the pattern SCMS-004 named as the uniform cautionary tale,
+and the same family as the two defects just closed (SCMS-020, SCMS-022).
+
+## Ready predicate
+
+- **Scope:** `scripts/check-canon-write-boundary.py` — a source-level gate asserting that Canon
+  mutators are called only from (a) the canon package itself, and (b) the contract handlers
+  authorised to hold the write path (`impl/contracts`, `impl/qualification`). Test files may
+  construct fixtures directly: that is legitimate fixture construction, not a production write
+  path, and the gate says so explicitly rather than pretending otherwise. Wired into CI with a
+  **self-test proving the gate can fail** (a gate that cannot fail is a finding).
+- **Exclusions:** no runtime capability tokens or private-field enforcement — that would churn
+  every fixture for no additional guarantee at this maturity; the honest limitation is recorded.
+  No new contracts. No DESIGN.md change.
+- **Dependencies (satisfied):** SCMS-011 canon, SCMS-012/013/020 contract handlers.
+- **Acceptance:**
+  1. The gate passes on the current tree.
+  2. The gate **fails** when a violation is introduced (self-test with a synthetic violation).
+  3. Violations name the file, line, and mutator.
+  4. Test files are exempt by an explicit, documented rule — not by accident.
+  5. CI runs both the gate and its self-test.
+- **Evidence requirements:** gate output in scms-evidence-023 at **Implemented + Tested**.
+  NOT established: runtime enforcement — a determined caller can still import the journal
+  directly; this is a source-level boundary, and the record says so.
+- **Target:** `scripts/check-canon-write-boundary.py`, `.github/workflows/gates.yml`,
+  `records/*`, `work/GRAPH.md`.
+- **Stop conditions:** (a) enforcement would require churning fixtures for no added guarantee →
+  prefer the source-level gate and record the limitation; (b) the gate cannot be made to fail →
+  stop, it is not a gate.
+
+## Closing state
+
+**Done — Implemented + Tested; the §5 rule now has a checker that can fail.**
+Evidence: records/evidence.jsonl · scms-evidence-023. Claim released.
 

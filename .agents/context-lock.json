@@ -9,14 +9,14 @@
     "repositories": [
       {
         "path": ".",
-        "commit": "a3b3a56fbea06fbb2977218b7f0e7823ce922cb1",
+        "commit": "fc71aacdd8e67797b08959ac1f7ea53e8866fb6f",
         "branch": "main",
         "dirty": true,
         "remote": "https://github.com/zachshallbetter/semantic-cms.git"
       }
     ]
   },
-  "aggregateSourceDigest": "16c9c9d8256903cb17475d8269204bd5a0de3d5374b46d9ded684c37c892da04",
+  "aggregateSourceDigest": "6f21647e5bb4b1140f30e781808de83ce9b6a3f9eaa906b7f1f15a9c9612fad6",
   "sources": [
     {
       "path": ".agents/skills/compile-context/SKILL.md",
@@ -55,8 +55,8 @@
     },
     {
       "path": ".github/workflows/gates.yml",
-      "bytes": 3056,
-      "sha256": "fc538b8c2e18ed05500a459303db31441d154cfd6ee0d9841b540e1d4f391d30"
+      "bytes": 3304,
+      "sha256": "15e364e16bb64febf9fa531eb949f6259141a793cc632bc7628ac6b62cd1f204"
     },
     {
       "path": "AGENTS.md",
@@ -454,6 +454,11 @@
       "sha256": "a0426bb2095e37891627c5b3de78266863522bf36e5305dc0ba525e9617d2987"
     },
     {
+      "path": "scripts/check-canon-write-boundary.py",
+      "bytes": 3233,
+      "sha256": "b9873a1a0d1e923db2801fed29d2e5c8fc8bfebb47202f618dca0351e663f66c"
+    },
+    {
       "path": "scripts/check-projection-sync.py",
       "bytes": 3585,
       "sha256": "cceb026b05da54d231f6bbb2da42ff1cc9cb4fb785c3218631653105e61b1c06"
@@ -475,8 +480,8 @@
     },
     {
       "path": "work/GRAPH.md",
-      "bytes": 6722,
-      "sha256": "caef64f3c17031b35b27181879684a2abe8ea1669d626bd6c7fa55e48bc9bbbf"
+      "bytes": 6895,
+      "sha256": "451865db640ff8746666c26d95091111175fc8c7b367c4214ef9b022add31bf4"
     },
     {
       "path": "work/SCMS-001.md",
@@ -577,6 +582,11 @@
       "path": "work/SCMS-022.md",
       "bytes": 2582,
       "sha256": "b50e8d577ebdf015d703bf5049970950c73f75aaf7cce6c4fa4e125af73d3281"
+    },
+    {
+      "path": "work/SCMS-023.md",
+      "bytes": 2642,
+      "sha256": "561a68746db0ef1896ca4651da34c3cd5a472635ba6f7528849a1635b1136555"
     }
   ]
 }
