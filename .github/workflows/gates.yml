@@ -72,6 +72,10 @@ jobs:
         run: node --test test/s3.test.ts
         working-directory: impl/surface-expression
 
+      - name: Bounded merge lane (SCMS-021 · merge then validate)
+        run: node --test test/bounded.test.ts
+        working-directory: impl/merge
+
       - name: End-to-end spine (SCMS-019 · the composed narrow path)
         run: node --test test/spine.test.ts
         working-directory: impl/e2e

@@ -1,0 +1,8 @@
+{
+  "name": "@scms/merge",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "The bounded merge lane (SCMS-021): three-way structural merge of socket occupancy validated against the declared composition schema, surfacing conflicted rather than choosing a silent winner. Free lane and merge justification are out of scope (P7/P22 pending). Pure — landing goes through content.revise@1. Zero runtime dependencies; requires Node >= 22.6.",
+  "scripts": { "test": "node --test test/bounded.test.ts" }
+}

@@ -1,6 +1,6 @@
 # PROJECT COMPILED CONTEXT
 Generator: 0.5.0
-Source digest: 2339c7b147ffd5c8f8155374d4cf4ecb1c08a815ce0a60fe8f353e0ddd948961
+Source digest: 50bfc0909b6bcf3a677431ea014ad57951c46cd31bd1b2256c061434d6ab78aa
 
 > Generated projection. Canonical sources remain authoritative.
 
@@ -220,6 +220,10 @@ jobs:
       - name: Cross-expression S3 vectors (SCMS-009)
         run: node --test test/s3.test.ts
         working-directory: impl/surface-expression
+
+      - name: Bounded merge lane (SCMS-021 · merge then validate)
+        run: node --test test/bounded.test.ts
+        working-directory: impl/merge
 
       - name: End-to-end spine (SCMS-019 · the composed narrow path)
         run: node --test test/spine.test.ts
@@ -4436,6 +4440,294 @@ test("composite invariant: no hidden subject appears anywhere in the whole run",
   assert.ok(!everythingVisible.includes("Secret"), "nor its content");
   // The gate can fail: the same assertion over a subject that IS visible finds it.
   assert.ok(everythingVisible.includes("art-2"), "control: a visible subject does appear");
+});
+
+
+========================================================================
+FILE: impl/merge/package.json
+========================================================================
+
+{
+  "name": "@scms/merge",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "The bounded merge lane (SCMS-021): three-way structural merge of socket occupancy validated against the declared composition schema, surfacing conflicted rather than choosing a silent winner. Free lane and merge justification are out of scope (P7/P22 pending). Pure — landing goes through content.revise@1. Zero runtime dependencies; requires Node >= 22.6.",
+  "scripts": { "test": "node --test test/bounded.test.ts" }
+}
+
+
+========================================================================
+FILE: impl/merge/src/bounded.ts
+========================================================================
+
+/**
+ * The bounded merge lane (SCMS-021).
+ *
+ * DESIGN.md §8.5: concurrency discipline is derived from SES typed invariance.
+ * A `bounded` field may be merged — but the merged result must then satisfy the
+ * declared structural invariants, and a violation surfaces as `conflicted`
+ * rather than a silently chosen winner. That refusal is the whole point: the
+ * design's rule is that silent merge is a *granted* behaviour, granted only
+ * where meaning is not at stake.
+ *
+ * Deliberately absent: the `free` lane (convergent/CRDT merge) and merge
+ * justification as a decision map — P7/P22 are pending on PR #28 and would
+ * reshape both (scms-blocker-001). The `required` lane lives in the contract
+ * runtime, where it belongs.
+ *
+ * This module is pure: it never writes to Canon. Landing a merged composition
+ * still crosses `content.revise@1`.
+ */
+import { checkComposition } from "../../schema/src/schema.ts";
+import type { CompositionSchema, CompositionInstance, ConformanceFinding } from "../../schema/src/schema.ts";
+
+export interface SocketOccupant { block: string; ref: string }
+
+export interface CompositionState {
+  compositionId: string;
+  /** socket name → occupants, in declared order. */
+  sockets: Record<string, SocketOccupant[]>;
+}
+
+export type MergeOutcome =
+  | { outcome: "merged"; result: CompositionState; contributions: MergeContribution[] }
+  | { outcome: "conflicted"; reason: "invariant-violated"; findings: ConformanceFinding[]; candidate: CompositionState; contributions: MergeContribution[] }
+  | { outcome: "conflicted"; reason: "contended-slot"; contentions: SlotContention[]; contributions: MergeContribution[] };
+
+export interface MergeContribution { actor: "a" | "b"; socket: string; added: string[]; removed: string[] }
+
+/**
+ * Contention is a *replacement* disagreement, not a positional one: both sides
+ * removed the same occupant and put different things in its socket. Two actors
+ * appending different items are NOT contending — that is the disjoint case the
+ * bounded lane exists to merge.
+ */
+export interface SlotContention {
+  socket: string;
+  /** The occupant both sides removed. */
+  base: SocketOccupant;
+  /** What each side put in its place; neither is chosen. */
+  a: SocketOccupant | null;
+  b: SocketOccupant | null;
+}
+
+const key = (o: SocketOccupant) => `${o.block}:${o.ref}`;
+
+function diff(base: SocketOccupant[], side: SocketOccupant[]) {
+  const baseKeys = new Set(base.map(key));
+  const sideKeys = new Set(side.map(key));
+  return {
+    added: side.filter((o) => !baseKeys.has(key(o))),
+    removed: base.filter((o) => !sideKeys.has(key(o))),
+  };
+}
+
+/**
+ * Three-way structural merge of socket occupancy, then validation.
+ *
+ * @returns `merged` only when the union both avoids contention AND satisfies
+ *          the declared composition schema. Otherwise `conflicted`, carrying
+ *          what a reviewer needs — never a resolution.
+ */
+export function mergeBounded(
+  base: CompositionState,
+  a: CompositionState,
+  b: CompositionState,
+  schema: CompositionSchema,
+): MergeOutcome {
+  const sockets = [...new Set([
+    ...Object.keys(base.sockets), ...Object.keys(a.sockets), ...Object.keys(b.sockets),
+  ])].sort();
+
+  const contributions: MergeContribution[] = [];
+  const contentions: SlotContention[] = [];
+  const merged: Record<string, SocketOccupant[]> = {};
+
+  for (const socket of sockets) {
+    const baseOcc = base.sockets[socket] ?? [];
+    const aOcc = a.sockets[socket] ?? [];
+    const bOcc = b.sockets[socket] ?? [];
+    const da = diff(baseOcc, aOcc);
+    const db = diff(baseOcc, bOcc);
+
+    contributions.push({ actor: "a", socket, added: da.added.map(key), removed: da.removed.map(key) });
+    contributions.push({ actor: "b", socket, added: db.added.map(key), removed: db.removed.map(key) });
+
+    // Contention: both sides removed the SAME occupant and replaced it with
+    // different content. The merge does not choose — it reports, preserving
+    // both contributions for deliberate resolution.
+    const bRemovedKeys = new Set(db.removed.map(key));
+    const bothRemoved = da.removed.filter((o) => bRemovedKeys.has(key(o)));
+    const aAddedKeys = da.added.map(key).sort().join(",");
+    const bAddedKeys = db.added.map(key).sort().join(",");
+    if (bothRemoved.length > 0 && (da.added.length > 0 || db.added.length > 0) && aAddedKeys !== bAddedKeys) {
+      for (const removed of bothRemoved) {
+        contentions.push({ socket, base: removed, a: da.added[0] ?? null, b: db.added[0] ?? null });
+      }
+    }
+
+    // Union merge: base minus both removals, plus both additions, order-stable.
+    const removedKeys = new Set([...da.removed, ...db.removed].map(key));
+    const kept = baseOcc.filter((o) => !removedKeys.has(key(o)));
+    const additions: SocketOccupant[] = [];
+    for (const add of [...da.added, ...db.added]) {
+      if (!kept.some((o) => key(o) === key(add)) && !additions.some((o) => key(o) === key(add))) {
+        additions.push(add);
+      }
+    }
+    merged[socket] = [...kept, ...additions];
+  }
+
+  if (contentions.length > 0) {
+    return { outcome: "conflicted", reason: "contended-slot", contentions, contributions };
+  }
+
+  const candidate: CompositionState = { compositionId: base.compositionId, sockets: merged };
+
+  // Validate the MERGED result against the declared invariants. A bounded
+  // field may move within declared bounds — never past them.
+  const instance: CompositionInstance = {
+    compositionId: candidate.compositionId,
+    sockets: Object.fromEntries(
+      Object.entries(candidate.sockets).map(([s, occ]) => [s, occ.map((o) => ({ block: o.block }))]),
+    ),
+  };
+  const findings = checkComposition(instance, schema);
+  if (findings.length > 0) {
+    // No merged value is produced. Refusing to pick a winner is the behaviour
+    // the design requires; the caller reviews with both contributions in hand.
+    return { outcome: "conflicted", reason: "invariant-violated", findings, candidate, contributions };
+  }
+  return { outcome: "merged", result: candidate, contributions };
+}
+
+
+========================================================================
+FILE: impl/merge/test/bounded.test.ts
+========================================================================
+
+/**
+ * SCMS-021 vectors: the bounded lane merges within declared bounds and refuses
+ * past them — never choosing a silent winner.
+ */
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { mergeBounded } from "../src/bounded.ts";
+import type { CompositionState } from "../src/bounded.ts";
+import { HOME_COMPOSITION } from "../../schema/src/schema.ts";
+
+const base: CompositionState = {
+  compositionId: "home",
+  sockets: { hero: [{ block: "article-card", ref: "art-1" }], rail: [{ block: "note-card", ref: "note-1" }] },
+};
+
+const withRail = (refs: string[]): CompositionState => ({
+  compositionId: "home",
+  sockets: {
+    hero: [{ block: "article-card", ref: "art-1" }],
+    rail: refs.map((r) => ({ block: "note-card", ref: r })),
+  },
+});
+
+test("disjoint edits merge cleanly and the result validates", () => {
+  const a = withRail(["note-1", "note-2"]);          // editor A adds note-2
+  const b = withRail(["note-1", "note-3"]);          // editor B adds note-3
+  const r = mergeBounded(base, a, b, HOME_COMPOSITION);
+
+  assert.equal(r.outcome, "merged");
+  if (r.outcome !== "merged") return;
+  assert.deepEqual(r.result.sockets.rail.map((o) => o.ref), ["note-1", "note-2", "note-3"]);
+  assert.deepEqual(r.result.sockets.hero.map((o) => o.ref), ["art-1"]);
+  // Both contributions are recorded even on success.
+  assert.ok(r.contributions.some((c) => c.actor === "a" && c.added.includes("note-card:note-2")));
+  assert.ok(r.contributions.some((c) => c.actor === "b" && c.added.includes("note-card:note-3")));
+});
+
+test("a merge that would exceed declared cardinality is conflicted, with no winner chosen", () => {
+  // rail admits 0..6. A adds three, B adds three more → union of seven.
+  const a = withRail(["note-1", "n2", "n3", "n4"]);
+  const b = withRail(["note-1", "n5", "n6", "n7"]);
+  const r = mergeBounded(base, a, b, HOME_COMPOSITION);
+
+  assert.equal(r.outcome, "conflicted");
+  if (r.outcome !== "conflicted" || r.reason !== "invariant-violated") {
+    return assert.fail("expected an invariant violation");
+  }
+  assert.equal(r.findings[0].code, "socket-cardinality");
+  assert.equal(r.findings[0].at, "rail");
+  assert.match(r.findings[0].detail, /0\.\.6, got 7/);
+  // The candidate is shown for review, but no merged RESULT is produced:
+  // the outcome carries no `result` field at all.
+  assert.ok(!("result" in r), "a conflicted merge produces no merged value");
+  assert.equal(r.candidate.sockets.rail.length, 7, "the candidate is available to review");
+});
+
+test("a merge admitting a forbidden block is conflicted on the admission rule", () => {
+  const a: CompositionState = {
+    compositionId: "home",
+    sockets: { ...base.sockets, hero: [{ block: "note-card", ref: "note-9" }] },
+  };
+  const r = mergeBounded(base, a, base, HOME_COMPOSITION);
+  assert.equal(r.outcome, "conflicted");
+  if (r.outcome !== "conflicted" || r.reason !== "invariant-violated") return assert.fail("expected violation");
+  assert.equal(r.findings[0].code, "socket-block-not-admitted");
+  assert.equal(r.findings[0].at, "hero");
+});
+
+test("concurrent edits to the same slot are reported, not resolved", () => {
+  const a: CompositionState = {
+    compositionId: "home", sockets: { ...base.sockets, hero: [{ block: "article-card", ref: "art-A" }] },
+  };
+  const b: CompositionState = {
+    compositionId: "home", sockets: { ...base.sockets, hero: [{ block: "article-card", ref: "art-B" }] },
+  };
+  const r = mergeBounded(base, a, b, HOME_COMPOSITION);
+
+  assert.equal(r.outcome, "conflicted");
+  if (r.outcome !== "conflicted" || r.reason !== "contended-slot") return assert.fail("expected contention");
+  assert.equal(r.contentions.length, 1);
+  const c = r.contentions[0];
+  assert.equal(c.socket, "hero");
+  assert.equal(c.a!.ref, "art-A");
+  assert.equal(c.b!.ref, "art-B");
+  assert.equal(c.base!.ref, "art-1", "the common ancestor is preserved for review");
+  assert.ok(!("result" in r), "the merge refuses to pick");
+});
+
+test("a conflicted result is reviewable, not an error", () => {
+  const a = withRail(["note-1", "n2", "n3", "n4"]);
+  const b = withRail(["note-1", "n5", "n6", "n7"]);
+  const r = mergeBounded(base, a, b, HOME_COMPOSITION);
+  if (r.outcome !== "conflicted") return assert.fail("expected conflict");
+  // Both sides' contributions survive so a human can resolve deliberately.
+  assert.ok(r.contributions.some((c) => c.actor === "a" && c.added.length === 3));
+  assert.ok(r.contributions.some((c) => c.actor === "b" && c.added.length === 3));
+});
+
+test("removals from both sides compose without resurrecting content", () => {
+  const start: CompositionState = {
+    compositionId: "home",
+    sockets: {
+      hero: [{ block: "article-card", ref: "art-1" }],
+      rail: [{ block: "note-card", ref: "n1" }, { block: "note-card", ref: "n2" }, { block: "note-card", ref: "n3" }],
+    },
+  };
+  const a: CompositionState = { compositionId: "home", sockets: { ...start.sockets, rail: [{ block: "note-card", ref: "n2" }, { block: "note-card", ref: "n3" }] } };
+  const b: CompositionState = { compositionId: "home", sockets: { ...start.sockets, rail: [{ block: "note-card", ref: "n1" }, { block: "note-card", ref: "n2" }] } };
+  const r = mergeBounded(start, a, b, HOME_COMPOSITION);
+  assert.equal(r.outcome, "merged");
+  if (r.outcome !== "merged") return;
+  // A removed n1, B removed n3 — neither returns.
+  assert.deepEqual(r.result.sockets.rail.map((o) => o.ref), ["n2"]);
+});
+
+test("the merge is pure: it writes nothing and holds no state", async () => {
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const src = readFileSync(fileURLToPath(new URL("../src/bounded.ts", import.meta.url)), "utf8");
+  assert.ok(!/CanonJournal|\.append\(|\.supersede\(|Date\.now|Math\.random/.test(src),
+    "the bounded lane must not touch Canon or ambient state; landing goes through content.revise@1");
 });
 
 
@@ -10891,6 +11183,7 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-017 | Consistency states, disclosure, expiring presence (E6 narrow slice) | E1 | Done — §14 step 7 closed semantically; awaiting owner verification | records/evidence.jsonl · scms-evidence-017 |
 | SCMS-019 | The narrowest end-to-end path, proven as one run (E7) | E1 | Done — spine composes; awaiting owner verification | records/evidence.jsonl · scms-evidence-019 |
 | SCMS-020 | content.unpublish@1: make the declared compensation real | E1 | Done — awaiting owner verification | records/evidence.jsonl · scms-evidence-020 |
+| SCMS-021 | The bounded merge lane: merge, then validate (§14 step 3, partial) | E1 | Done — awaiting owner verification | records/evidence.jsonl · scms-evidence-021 |
 | SCMS-018 | R1 live co-authoring — **free lane only** (convergent merge) | E1 | **Blocked** — awaiting disposition of P7/P22 on PR #28 | records/blockers · scms-blocker-001 |
 | SCMS-010 | S4 cross-domain portability: a materially unrelated project (outside this repository, per owner doctrine 2026-08-28) consumes @semantic-systems/surface unmodified | external | Backlog — executes outside scms; scms records the conformance result | — |
 
@@ -12016,4 +12309,75 @@ Claimed by agent-under-owner-direction 2026-08-28; released at closing state bel
 
 **Done — Implemented + Tested; the declared compensation is real.**
 Evidence: records/evidence.jsonl · scms-evidence-020. Claim released.
+
+
+========================================================================
+FILE: work/SCMS-021.md
+========================================================================
+
+# SCMS-021 — The bounded merge lane: merge, then validate (§14 step 3, partial)
+
+**Intent ref:** PROJECT_INTENT.md · **Epic:** E1/E2 · **Advances:** DESIGN.md §14 step 3
+**Assigned by:** coordinator goal, on re-deriving the frontier. §14 step 3 has three lanes;
+blocking all three was too coarse.
+**Effect class:** E1 — a pure merge/validate library; writes still cross SCMS-012's contract.
+**State:** Ready → Claimed → (closing state at bottom)
+
+## Why this is lawful now
+
+DESIGN.md §8.5 (canonical v1, on main) specifies three concurrency lanes derived from SES
+typed invariance:
+
+| Lane | Rule | Status |
+|---|---|---|
+| `required` | serialized through a contract; loser gets `conflict` + recovery | **Proven** — SCMS-012 |
+| `bounded` | merge, then validate against admission/cardinality; violation → `conflicted`, **never a silent fallback winner** | **This item** |
+| `free` | convergent merge | **Blocked** — P7/P22 would reshape it (scms-blocker-001) |
+
+The bounded lane depends on neither pending proposal: P7 adds a divergence-first *branching*
+lane and P22 changes how merges are *justified*; neither redefines "merge then validate
+against declared invariants." The validator it needs already exists (SCMS-016 socket admission
+and cardinality). Implementing it pre-empts nothing.
+
+## Ready predicate
+
+- **Scope:** `impl/merge/` — (1) `mergeBounded(base, a, b, schema)` performing a structural
+  three-way merge of a composition's socket occupancy, then validating the result against the
+  declared composition schema; (2) outcome typing: `merged` when the union validates,
+  `conflicted` when it does not — carrying the violated invariant and both contributions, never
+  choosing a winner; (3) disjoint edits merge, overlapping edits on the same socket position
+  are reported rather than resolved.
+- **Exclusions:** **no free lane** (convergent/CRDT text merge) — blocked; no decision-map
+  justification (P22 pending); no branching (P7 pending); no change to the required lane; no
+  transport; no DESIGN.md change.
+- **Dependencies (satisfied):** SCMS-016 composition schema + validator; SCMS-011 Canon;
+  SCMS-012 contract path; ses pin (typed invariance semantics).
+- **Acceptance:**
+  1. Disjoint socket edits by two actors merge cleanly and the result validates.
+  2. A merge that would exceed declared cardinality yields `conflicted` naming the socket and
+     the violated bound — and **no** merged value is produced (no silent winner).
+  3. A merge admitting a block the socket forbids yields `conflicted` naming the admission
+     rule.
+  4. Concurrent edits to the *same* socket slot are reported as a contention with both
+     contributions preserved; the function refuses to pick.
+  5. A `conflicted` result is not an error: it carries enough to review and resolve.
+  6. The merge function is pure — no Canon writes; landing a merged result still goes through
+     `content.revise@1`.
+- **Evidence requirements:** `node --test` in scms-evidence-021 at **Implemented + Tested**
+  for the bounded lane only. Explicitly NOT: the free lane, and therefore NOT §14 step 3 as a
+  whole.
+- **Permissions / effect class:** E1; project-mutation authority per bindings.
+- **Target:** `impl/merge/` (new), `.github/workflows/gates.yml`, `records/*`, `work/GRAPH.md`.
+- **Budget:** one work cycle; no spend; no credentials.
+- **Stop conditions:** (a) the bounded lane cannot be expressed without deciding the free
+  lane's shape → stop, that is the blocked part; (b) a vector would require P7/P22 → stop.
+
+## Claim
+
+Claimed by agent-under-owner-direction 2026-08-28; released at closing state below.
+
+## Closing state
+
+**Done — Implemented + Tested for the bounded lane; §14 step 3 remains partially blocked.**
+Evidence: records/evidence.jsonl · scms-evidence-021. Claim released.
 
