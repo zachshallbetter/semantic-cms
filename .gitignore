@@ -1,2 +1,7 @@
 __pycache__/
 .DS_Store
+# The user-global excludes file ignores .agents/ everywhere; this project's
+# compiled context is a REQUIRED operating artifact (FPB: digest-valid,
+# committed, never hand-edited) and CI's B1/C0 gates read it. Re-include.
+!.agents/
+!.agents/**
