@@ -1,6 +1,6 @@
 # PROJECT COMPILED CONTEXT
 Generator: 0.5.0
-Source digest: f925713758be2fe3733165e71f2f7ac1d1b194cc779903e5ec24772d243ba482
+Source digest: 0f4cb95b2f492172cd02d8a79ca9b052c40f510abec06d39e446d8514c6fefda
 
 > Generated projection. Canonical sources remain authoritative.
 
@@ -256,6 +256,12 @@ jobs:
       - name: End-to-end spine (SCMS-019 · the composed narrow path)
         run: node --test test/spine.test.ts
         working-directory: impl/e2e
+
+      - name: Record ids — self-test (gate can fail)
+        run: python3 scripts/next-id.py --self-test
+
+      - name: No duplicate record ids
+        run: python3 scripts/next-id.py --check
 
       - name: Canon write boundary — self-test (gate can fail)
         run: python3 scripts/check-canon-write-boundary.py --self-test
@@ -1488,7 +1494,7 @@ above its rung.
 | Declared content types are enforced | **Implemented + Tested (where declared)** | SCMS-022: the governed write consults the declared type; opt-in, because types that do not exist are not pretended to exist | A declared type for every content kind in use |
 | R1 live co-authoring | **Partially established** | `required` lane proven (SCMS-012), `bounded` lane proven (SCMS-021); **free lane NOT built** — blocked on P7/P22 | Owner disposition of P7/P22, then the free lane |
 | R2 live propagation | **Implemented + Tested — semantic core, in memory** | SCMS-032 emission inside the journal's landing path; SCMS-033/034 delivery: backfill-then-live, replay from every cursor with no loss, `lagged` disclosure measured in the subscriber's own stream rather than global write volume, and executable catch-up-then-live | A network, durability, real latency, reconnection over a dropped socket, and the budgets SH-6 still lacks |
-| R3 live honesty | **Implemented + Tested (semantic core), and now derived rather than asserted** | SCMS-017: six states, the drafting/consequential asymmetry, presence expiring by construction. SCMS-035: the chip's freshness is derived from actual transport deliveries — a client with no delivery cannot render `live`. **NR-scms-009 corrected the editor, which had been claiming `live · checked 0s ago` while holding no subscription at all** | Freshness under real latency on a real connection; and SH-17, since a lagged client can still publish |
+| R3 live honesty | **Implemented + Tested (semantic core), and now derived rather than asserted** | SCMS-017: six states, the drafting/consequential asymmetry, presence expiring by construction. SCMS-035: the chip's freshness is derived from actual transport deliveries — a client with no delivery cannot render `live`. **NR-scms-010 corrected the editor, which had been claiming `live · checked 0s ago` while holding no subscription at all** | Freshness under real latency on a real connection; and SH-17, since a lagged client can still publish |
 | Real content maps into Canon without collapsing what the source keeps | **Implemented + Tested against a real corpus** | SCMS-028: 12 vectors over the actual 215-entry archive — unlisted preserved as itself, private content at owner access, model-generated field kept as a separate `derived` envelope, and the source's own status collapse surfaced as 22 findings rather than inherited | The same against the live Postgres state (SCMS-029) — the reader round-trip is now closed by SCMS-030 |
 | The site can be a reader expression of Canon rather than a content client | **Implemented + Tested over a real corpus** | SCMS-030: the real /writing and /work routes resolve as surfaces over the migrated archive; feed and sitemap derive from the page's own ResolvedSurface, so a feed cannot disagree with its page; unlisted content is reachable by link and in no index | Wiring the declarations into the site's renderer, and a deployment |
 | An editor cannot offer an affordance nothing implements | **Implemented + Tested** | SCMS-031: operations are derived from the live contract registry, unimplemented intents are withheld with a stated reason, and a compensatable operation is not offered while its compensation is unregistered | A rendered editor, and the visual half of SH-8 |
@@ -17401,6 +17407,84 @@ FILE: impl/transport/package.json
 
 
 ========================================================================
+FILE: impl/transport/src/freshness.ts
+========================================================================
+
+/**
+ * Freshness derived from the transport, not asserted by the caller (SCMS-035,
+ * epic E6 · R2 meets R3).
+ *
+ * DESIGN.md §8.3 states the rule: the provenance chip **never claims `live`
+ * without a successful check to point at**. Until now `Freshness.lastCheckedMs`
+ * was simply supplied by whoever built the view, which made the rule a
+ * convention rather than a property — and the editor server duly violated it,
+ * passing `Date.now()` on every render so the chip read `live · checked 0s ago`
+ * whether or not anything had ever been checked. A rule whose enforcement is
+ * "remember to pass the right number" is not enforced.
+ *
+ * So freshness is derived here, from what the transport actually did:
+ *
+ * - **No delivery ever received → `lastCheckedMs` is `null`.** The chip then
+ *   falls back to `snapshot · <label>`, which is the truth. There is no input to
+ *   this function that produces a `live` claim without a delivery behind it.
+ * - **A `lagged` delivery** (§8.1: staleness as a protocol message) surfaces as
+ *   `revisionsSinceBaseline`, so the chip reads `+N revisions since snapshot`
+ *   rather than claiming currency it does not have.
+ * - **A dropped connection does not backdate.** The last real check stays what
+ *   it was; the age simply grows, which is what a person needs to see.
+ */
+import type { Freshness } from "../../observation/src/consistency.ts";
+import type { DeliveryPhase } from "./wire.ts";
+
+export interface ReceivedDelivery {
+  phase: DeliveryPhase;
+  cursor: number;
+  /** When this delivery was actually received. Explicit clock, never ambient. */
+  atMs: number;
+  /** Present on a lagged delivery: how many relevant events remain unseen. */
+  behind?: number;
+}
+
+export interface TransportState {
+  /** The last delivery this client actually received. `null` means none ever. */
+  lastDelivery: ReceivedDelivery | null;
+  /** Whether the channel is up right now. */
+  connected: boolean;
+}
+
+export interface FreshnessInput {
+  nowMs: number;
+  snapshotLabel: string;
+  hasLocalEdits?: boolean;
+}
+
+export function freshnessFrom(state: TransportState, input: FreshnessInput): Freshness {
+  const d = state.lastDelivery;
+
+  // A backfill or live delivery is a check that happened. A lagged one is also a
+  // check — it is how the client learned it is behind — but it must not read as
+  // currency, so it reports its own shortfall instead.
+  const lastCheckedMs = d === null ? null : d.atMs;
+  const behind = d?.phase === "lagged" ? (d.behind ?? 0) : 0;
+
+  return {
+    nowMs: input.nowMs,
+    lastCheckedMs,
+    snapshotLabel: input.snapshotLabel,
+    ...(behind > 0 ? { revisionsSinceBaseline: behind } : {}),
+    ...(input.hasLocalEdits === undefined ? {} : { hasLocalEdits: input.hasLocalEdits }),
+  };
+}
+
+/**
+ * A client that has never connected. Named rather than inlined, because the
+ * honest default for "we do not know" is the one most likely to be reached for
+ * by accident, and it should be the safe one.
+ */
+export const NEVER_CONNECTED: TransportState = { lastDelivery: null, connected: false };
+
+
+========================================================================
 FILE: impl/transport/src/wire.ts
 ========================================================================
 
@@ -17542,6 +17626,68 @@ export function catchUp(
   }
   return { deliveries, connection: cursorState };
 }
+
+
+========================================================================
+FILE: impl/transport/test/freshness.test.ts
+========================================================================
+
+/**
+ * SCMS-035 vectors: the chip is driven by the transport, not by a caller's word.
+ */
+import { test } from "node:test";
+import assert from "node:assert/strict";
+
+
+// ── SCMS-035: freshness comes from the transport (R2 meets R3) ──────────────
+
+test("a client that never received a delivery never claims live", async () => {
+  const { freshnessFrom, NEVER_CONNECTED } = await import("../src/freshness.ts");
+  const { chip } = await import("../../observation/src/consistency.ts");
+  const f = freshnessFrom(NEVER_CONNECTED, { nowMs: 1_000_000, snapshotLabel: "Aug 29" });
+  assert.equal(f.lastCheckedMs, null);
+  assert.equal(chip("current", f), "snapshot · Aug 29");
+  // There is no input to freshnessFrom that yields a live claim without a
+  // delivery — that is the property, not the wording.
+});
+
+test("a live delivery is a check the chip can point at", async () => {
+  const { freshnessFrom } = await import("../src/freshness.ts");
+  const { chip } = await import("../../observation/src/consistency.ts");
+  const f = freshnessFrom(
+    { connected: true, lastDelivery: { phase: "live", cursor: 12, atMs: 1_000_000 - 4000 } },
+    { nowMs: 1_000_000, snapshotLabel: "Aug 29" });
+  assert.equal(chip("current", f), "live · checked 4s ago");
+});
+
+test("a lagged delivery discloses the shortfall instead of claiming currency", async () => {
+  const { freshnessFrom } = await import("../src/freshness.ts");
+  const { chip } = await import("../../observation/src/consistency.ts");
+  const f = freshnessFrom(
+    { connected: true, lastDelivery: { phase: "lagged", cursor: 5, atMs: 1_000_000, behind: 37 } },
+    { nowMs: 1_000_000, snapshotLabel: "Aug 29" });
+  assert.equal(f.revisionsSinceBaseline, 37);
+  assert.equal(chip("stale-but-safe", f), "+37 revisions since snapshot");
+  assert.notEqual(chip("stale-but-safe", f).startsWith("live"), true);
+});
+
+test("a dropped connection ages the last real check rather than backdating it", async () => {
+  const { freshnessFrom } = await import("../src/freshness.ts");
+  const { chip } = await import("../../observation/src/consistency.ts");
+  const state = { connected: false, lastDelivery: { phase: "live" as const, cursor: 3, atMs: 1_000_000 } };
+  assert.equal(chip("current", freshnessFrom(state, { nowMs: 1_000_000 + 60_000, snapshotLabel: "x" })),
+    "live · checked 60s ago");
+  // The claim stays truthful as it decays: it says when, not that it is fresh.
+});
+
+test("local edits outrank any transport claim", async () => {
+  const { freshnessFrom } = await import("../src/freshness.ts");
+  const { chip } = await import("../../observation/src/consistency.ts");
+  const f = freshnessFrom(
+    { connected: true, lastDelivery: { phase: "live", cursor: 9, atMs: 1_000_000 } },
+    { nowMs: 1_000_000, snapshotLabel: "Aug 29", hasLocalEdits: true });
+  assert.equal(chip("current", f), "local · unsent");
+});
 
 
 ========================================================================
@@ -21811,6 +21957,144 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+
+========================================================================
+FILE: scripts/next-id.py
+========================================================================
+
+#!/usr/bin/env python3
+"""Emit the next free identifier for a record register.
+
+Exists because I twice registered an id already in use -- SCMS-044 for two work
+items, then NR-scms-009 for two negative results -- by deriving the number from
+memory of the session instead of reading the register. The first time I wrote
+down the lesson ("derive the next id from the register, at the moment of
+registration") and then repeated the mistake within the hour, because I applied
+it to work items and not to the other registers.
+
+A lesson that has to be remembered per-register is not a lesson, it is a
+liability. This makes the register the only source of the number.
+
+    python3 scripts/next-id.py work        -> SCMS-046
+    python3 scripts/next-id.py negative    -> NR-scms-010
+    python3 scripts/next-id.py evidence    -> scms-evidence-046   (see note)
+    python3 scripts/next-id.py blocker     -> scms-blocker-004
+    python3 scripts/next-id.py spec-health -> SH-18
+
+    python3 scripts/next-id.py --check     -> non-zero if any register has a duplicate
+
+Note on evidence ids: they mirror their work item (SCMS-035 -> scms-evidence-035)
+rather than running sequentially, so the "next" number is not meaningful for that
+register -- take the work item's number instead. The duplicate check is what
+matters there, and it applies to every jsonl register alike.
+"""
+import json
+import pathlib
+import re
+import sys
+
+ROOT = pathlib.Path(__file__).resolve().parent.parent
+
+REGISTERS = {
+    "work":        ("work/GRAPH.md",                   r"\|\s*(SCMS-(\d+))\s*\|",      "SCMS-{:03d}"),
+    "negative":    ("records/negative-results.jsonl",  r"\"(NR-scms-(\d+))\"",         "NR-scms-{:03d}"),
+    "evidence":    ("records/evidence.jsonl",          r"\"(scms-evidence-(\d+))\"",   "scms-evidence-{:03d}"),
+    "blocker":     ("records/blockers.jsonl",          r"\"(scms-blocker-(\d+))\"",    "scms-blocker-{:03d}"),
+    "spec-health": ("SPEC_HEALTH.md",                  r"(SH-(\d+))",                  "SH-{:d}"),
+}
+
+
+def scan(name):
+    path, pattern, _ = REGISTERS[name]
+    text = (ROOT / path).read_text(encoding="utf-8")
+    return [(m.group(1), int(m.group(2))) for m in re.finditer(pattern, text)]
+
+
+def duplicates(name):
+    """Ids appearing more than once, excluding those a later record explicitly voids.
+
+    For prose registers a mention is not a definition, so only jsonl registers
+    can meaningfully report duplicates.
+
+    The `voids` escape exists because records are append-only: a clerical
+    duplicate that is already committed cannot be rewritten away, and rewriting
+    history to hide it would be the larger fault. The register carries the error
+    with its correction attached, and a record declaring `"voids": "<id>"`
+    settles it. That is the doctrine, so the gate encodes it rather than
+    fighting it -- but it stays narrow: only an explicit, named void counts, so
+    a duplicate nobody has accounted for still fails.
+    """
+    path = REGISTERS[name][0]
+    if not path.endswith(".jsonl"):
+        return []
+    records = []
+    for line in (ROOT / path).read_text(encoding="utf-8").splitlines():
+        if line.strip():
+            records.append(json.loads(line))
+    voided = {r["voids"] for r in records if r.get("voids")}
+    seen, dupes = set(), []
+    for r in records:
+        rid = r.get("id")
+        if rid in seen and rid not in voided:
+            dupes.append(rid)
+        seen.add(rid)
+    return dupes
+
+
+def main():
+    if "--check" in sys.argv:
+        bad = {n: d for n in REGISTERS if (d := duplicates(n))}
+        if bad:
+            for name, dupes in bad.items():
+                print(f"DUPLICATE ids in {REGISTERS[name][0]}: {', '.join(sorted(set(dupes)))}")
+            return 1
+        print("no duplicate record ids")
+        return 0
+
+    if "--self-test" in sys.argv:
+        # The gate must be able to fail, or it certifies nothing.
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            p = pathlib.Path(d) / "r.jsonl"
+            p.write_text('{"id":"NR-scms-001"}\n{"id":"NR-scms-001"}\n', encoding="utf-8")
+            seen, dupes = set(), []
+            for line in p.read_text(encoding="utf-8").splitlines():
+                rid = json.loads(line)["id"]
+                if rid in seen:
+                    dupes.append(rid)
+                seen.add(rid)
+            assert dupes == ["NR-scms-001"], "duplicate detection failed to fire"
+
+            # ...and that an explicitly voided duplicate is tolerated, so the
+            # escape works and is not merely declared.
+            p.write_text(
+                '{"id":"NR-scms-001"}\n{"id":"NR-scms-001"}\n'
+                '{"id":"NR-scms-002","voids":"NR-scms-001"}\n', encoding="utf-8")
+            recs = [json.loads(l) for l in p.read_text(encoding="utf-8").splitlines() if l.strip()]
+            voided = {r["voids"] for r in recs if r.get("voids")}
+            seen, dupes2 = set(), []
+            for r in recs:
+                if r["id"] in seen and r["id"] not in voided:
+                    dupes2.append(r["id"])
+                seen.add(r["id"])
+            assert dupes2 == [], "an explicitly voided duplicate should be tolerated"
+        print("self-test ok (duplicate detection fires; explicit voids tolerated)")
+        return 0
+
+    if len(sys.argv) < 2 or sys.argv[1] not in REGISTERS:
+        print(f"usage: next-id.py [{' | '.join(REGISTERS)}] | --check | --self-test", file=sys.stderr)
+        return 2
+
+    name = sys.argv[1]
+    found = scan(name)
+    nxt = (max(n for _, n in found) + 1) if found else 1
+    print(REGISTERS[name][2].format(nxt))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
 
 
 ========================================================================
