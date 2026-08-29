@@ -1,6 +1,6 @@
 # PROJECT COMPILED CONTEXT
 Generator: 0.5.0
-Source digest: b0aafab894cd30f2fbfdaf2b9ebf7a6241e13b2ac86a0b2a899dcae66ff64547
+Source digest: 38dddbcda79c61e293f7917da236619baea5471c82c4ff315c42a25179ebd789
 
 > Generated projection. Canonical sources remain authoritative.
 
@@ -204,6 +204,10 @@ jobs:
       - name: Qualification vectors (SCMS-013 · qualify/promote gates)
         run: node --test test/qualification.test.ts
         working-directory: impl/qualification
+
+      - name: Projection cache vectors (SCMS-014 · fingerprint-scoped invalidation)
+        run: node --test test/cache.test.ts
+        working-directory: impl/projection-cache
 
       - name: Cross-expression S3 vectors (SCMS-009)
         run: node --test test/s3.test.ts
@@ -4155,6 +4159,303 @@ test("no ambient time or randomness in the contract runtime", async () => {
     const src = readFileSync(fileURLToPath(new URL(rel, import.meta.url)), "utf8");
     assert.ok(!/Date\.now|Math\.random|new Date\(\)/.test(src), `${rel} references ambient time/randomness`);
   }
+});
+
+
+========================================================================
+FILE: impl/projection-cache/package.json
+========================================================================
+
+{
+  "name": "@scms/projection-cache",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Fingerprint-scoped projection invalidation (SCMS-014): a cache invalidated exactly when a changed subject appears in its own accessible dependency set (SSS §21), giving cache correctness and side-channel safety in one mechanism. Zero runtime dependencies; requires Node >= 22.6.",
+  "scripts": { "test": "node --test test/cache.test.ts" }
+}
+
+
+========================================================================
+FILE: impl/projection-cache/src/cache.ts
+========================================================================
+
+/**
+ * Fingerprint-scoped projection cache (SCMS-014).
+ *
+ * DESIGN.md §7: "fingerprint-scoped invalidation along observable edges only
+ * (cache correctness and side-channel safety in one mechanism)."
+ *
+ * An entry is invalidated exactly when a changed subject appears in its own
+ * accessible dependency set — the set the SSS resolver emits (SSS §21, pinned).
+ * Because the resolver's dependency set is computed *after* access projection,
+ * a change the viewer could not observe cannot appear in it, so it cannot
+ * invalidate their entry. That is the whole mechanism: no separate access check
+ * runs here, and none may — reading state above the entry's level to decide
+ * invalidation would reintroduce the leak this exists to prevent.
+ *
+ * Deliberately absent (pending on PR #28): declared refresh policy
+ * (eager / lazy-on-read / scheduled), the human-verification eagerness
+ * override, and stale-while-revalidate. Freshness disclosure is Observation's.
+ */
+import type { FrozenSnapshot, ResolvedSurface, SurfaceRequest } from "../../surface-resolver/src/types.ts";
+import { resolveSurface } from "../../surface-resolver/src/resolver.ts";
+import { isFailure } from "../../surface-resolver/src/types.ts";
+
+export interface CacheKey {
+  /** Caller-supplied identity for the request shape (lens, profile, subject). */
+  requestIdentity: string;
+  access: SurfaceRequest["access"];
+}
+
+export interface CacheEntry {
+  key: CacheKey;
+  surface: ResolvedSurface;
+  fingerprint: string;
+  /** The accessible dependency set, from the resolver (SSS §21). */
+  dependencies: string[];
+  /** Which commit wave produced this entry. */
+  computedAtWave: number;
+  valid: boolean;
+}
+
+export type InvalidationDecision =
+  | { key: CacheKey; decision: "invalidated"; becauseOf: string }
+  | { key: CacheKey; decision: "retained"; becauseOf: null };
+
+export interface WaveResult {
+  wave: number;
+  decisions: InvalidationDecision[];
+}
+
+const keyOf = (k: CacheKey) => `${k.requestIdentity}::${k.access}`;
+
+export class ProjectionCache {
+  #entries = new Map<string, CacheEntry>();
+  #wave = 0;
+
+  /** Resolve and cache, or return the cached surface if still valid. */
+  get(snapshot: FrozenSnapshot, request: SurfaceRequest, requestIdentity: string): CacheEntry {
+    const key: CacheKey = { requestIdentity, access: request.access };
+    const existing = this.#entries.get(keyOf(key));
+    if (existing?.valid) return existing;
+
+    const result = resolveSurface(snapshot, request);
+    if (isFailure(result)) throw new Error(`cannot cache a failed resolution: ${result.failure}`);
+    const surface = result as ResolvedSurface;
+    const entry: CacheEntry = {
+      key, surface, fingerprint: surface.fingerprint,
+      dependencies: surface.dependencies.map((d) => d.subject),
+      computedAtWave: this.#wave, valid: true,
+    };
+    this.#entries.set(keyOf(key), entry);
+    return entry;
+  }
+
+  /**
+   * Apply a commit wave. `changedSubjectIds` is the set of subjects whose
+   * canonical state changed — the caller derives it from Canon receipts, not
+   * from anything access-scoped.
+   */
+  commitWave(changedSubjectIds: string[]): WaveResult {
+    this.#wave += 1;
+    const changed = new Set(changedSubjectIds);
+    const decisions: InvalidationDecision[] = [];
+
+    for (const entry of this.#entries.values()) {
+      // The only question asked: does a changed subject appear in THIS entry's
+      // accessible dependency set? No access check, no peek at other levels.
+      const hit = entry.dependencies.find((d) => changed.has(d));
+      if (hit !== undefined) {
+        entry.valid = false;
+        decisions.push({ key: entry.key, decision: "invalidated", becauseOf: hit });
+      } else {
+        decisions.push({ key: entry.key, decision: "retained", becauseOf: null });
+      }
+    }
+    decisions.sort((a, b) => keyOf(a.key).localeCompare(keyOf(b.key)));
+    return { wave: this.#wave, decisions };
+  }
+
+  peek(requestIdentity: string, access: SurfaceRequest["access"]): CacheEntry | undefined {
+    return this.#entries.get(keyOf({ requestIdentity, access }));
+  }
+
+  get wave(): number { return this.#wave; }
+  get size(): number { return this.#entries.size; }
+}
+
+
+========================================================================
+FILE: impl/projection-cache/test/cache.test.ts
+========================================================================
+
+/**
+ * SCMS-014 vectors — including the side-channel vector this slice exists for:
+ * an edit the viewer cannot observe must not invalidate their cache entry.
+ */
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { CanonJournal } from "../../canon/src/journal.ts";
+import type { Envelope, RecordState } from "../../canon/src/envelope.ts";
+import { freeze } from "../../canon/src/freeze.ts";
+import { ProjectionCache } from "../src/cache.ts";
+import type { SurfaceRequest } from "../../surface-resolver/src/types.ts";
+
+const STATE: RecordState = {
+  semanticMaturity: "complete", evidenceState: "unqualified",
+  publicationState: "unpublished", deliveryState: "unpropagated",
+};
+
+function content(id: string, access: Envelope["minimumAccess"], body: Record<string, unknown> = {}): Envelope {
+  return {
+    schemaVersion: "scms-0.1", subjectId: id,
+    compatibility: { protocol: "scms-0.1", subjectSchema: "article@1" },
+    provenance: { kind: "declared", authority: "project.owner", source: "test" },
+    minimumAccess: access,
+    body: { kind: "Content", contentKind: "article", title: "t", ...body }, state: STATE,
+  };
+}
+
+function relation(id: string, from: string, to: string, access: Envelope["minimumAccess"]): Envelope {
+  return {
+    ...content(id, access), body: { kind: "Relation", from, to, relationType: "references" },
+  };
+}
+
+/** art-1 → art-2 (public), art-1 → sec-1 (admin), art-1 → ent-1 (public, entitled). */
+function world() {
+  const j = new CanonJournal();
+  const a1 = j.append(content("art-1", "public"), "t");
+  const a2 = j.append(content("art-2", "public"), "t");
+  const s1 = j.append(content("sec-1", "admin"), "t");
+  const e1 = j.append(content("ent-1", "public", { entitled: true }), "t");
+  j.append(relation("rel-1", "art-1", "art-2", "public"), "t");
+  j.append(relation("rel-2", "art-1", "sec-1", "admin"), "t");
+  j.append(relation("rel-3", "art-1", "ent-1", "public"), "t");
+  return { j, a1, a2, s1, e1 };
+}
+
+const req = (access: SurfaceRequest["access"]): SurfaceRequest => ({
+  profile: "focus", purpose: "understand", subject: "art-1", access,
+  lens: { traversal: { radius: 1 } },
+});
+
+test("a change inside the dependency set invalidates; outside, the entry is retained", () => {
+  const { j } = world();
+  const cache = new ProjectionCache();
+  const snap = freeze(j, "w0");
+  cache.get(snap as never, req("member"), "focus:art-1");
+
+  const retained = cache.commitWave(["unrelated-999"]);
+  assert.equal(retained.decisions[0].decision, "retained");
+  assert.equal(cache.peek("focus:art-1", "member")!.valid, true);
+
+  const invalidated = cache.commitWave(["art-2"]);
+  assert.equal(invalidated.decisions[0].decision, "invalidated");
+  assert.equal(invalidated.decisions[0].becauseOf, "art-2", "the deciding dependency is named");
+  assert.equal(cache.peek("focus:art-1", "member")!.valid, false);
+});
+
+test("side channel: an admin-only edit does not invalidate the member entry", () => {
+  const { j, s1 } = world();
+  const cache = new ProjectionCache();
+  const snap = freeze(j, "w0");
+  const memberEntry = cache.get(snap as never, req("member"), "focus:art-1");
+  const ownerEntry = cache.get(snap as never, req("owner"), "focus:art-1");
+
+  // sec-1 is admin-only: invisible at member and owner access alike, so it is
+  // in neither dependency set — the resolver never made it a candidate.
+  assert.ok(!memberEntry.dependencies.includes("sec-1"));
+  assert.ok(!ownerEntry.dependencies.includes("sec-1"));
+
+  const before = JSON.stringify(cache.peek("focus:art-1", "member"));
+  const result = cache.commitWave([s1.envelope.subjectId]);
+
+  for (const d of result.decisions) {
+    assert.equal(d.decision, "retained", `${d.key.access} must not learn of an admin-only edit`);
+  }
+  // The member's cache state is byte-identical to a world where sec-1 never changed.
+  assert.equal(JSON.stringify(cache.peek("focus:art-1", "member")), before);
+});
+
+test("observability, not membership: a withheld subject is still a dependency", () => {
+  const { j, e1 } = world();
+  const cache = new ProjectionCache();
+  const entry = cache.get(freeze(j, "w0") as never, req("member"), "focus:art-1");
+
+  // ent-1 is excluded from membership (withheld) but WAS evaluated — the
+  // member could observe its existence, so it is an accessible dependency.
+  const members = entry.surface.groups.flatMap((g) => g.members.map((m) => m.subject));
+  assert.ok(!members.includes("ent-1"), "withheld: not a member");
+  assert.ok(entry.dependencies.includes("ent-1"), "but still a dependency");
+
+  const result = cache.commitWave([e1.envelope.subjectId]);
+  assert.equal(result.decisions[0].decision, "invalidated");
+  assert.equal(result.decisions[0].becauseOf, "ent-1");
+});
+
+test("re-resolution after invalidation recomputes a valid entry", () => {
+  const { j, a2 } = world();
+  const cache = new ProjectionCache();
+  const first = cache.get(freeze(j, "w0") as never, req("member"), "focus:art-1");
+  const originalFingerprint = first.fingerprint;
+  const originalMembers = first.surface.groups.flatMap((g) => g.members.map((m) => m.subject));
+
+  j.supersede(a2.envelope.revision!, content("art-2", "public", { title: "changed" }), "editor");
+  cache.commitWave(["art-2"]);
+  const second = cache.get(freeze(j, "w1") as never, req("member"), "focus:art-1");
+
+  assert.equal(second.valid, true);
+  assert.equal(second.computedAtWave, 1);
+  // Participation is unchanged by an attribute edit: the same members resolve.
+  assert.deepEqual(
+    second.surface.groups.flatMap((g) => g.members.map((m) => m.subject)), originalMembers);
+
+  // KNOWN DEFECT (SCMS-015; recorded as NR-scms-003): the resolver stamps
+  // dependencies[].revision with the SNAPSHOT id, so a new snapshot id moves
+  // the fingerprint even when no accessible dependency changed. Pinned SSS §21
+  // requires the opposite ("changes outside the observable dependency set
+  // should not invalidate the surface"). This vector asserts CURRENT behaviour
+  // so the defect stays visible rather than hidden; fixing it means changing
+  // the resolver, which is outside SCMS-014's authorized target.
+  assert.notEqual(second.fingerprint, originalFingerprint,
+    "current behaviour: snapshot identity participates in the fingerprint (defect NR-scms-003)");
+
+  // Participation change: a member disappears, which must move the fingerprint
+  // under any correct implementation.
+  const rel = j.current().find((e) => (e.envelope.body as { from?: string }).from === "art-1"
+    && (e.envelope.body as { to?: string }).to === "art-2")!;
+  j.revoke(rel.envelope.revision!, "project.owner");
+  cache.commitWave(["art-2"]);
+  const third = cache.get(freeze(j, "w2") as never, req("member"), "focus:art-1");
+  const thirdMembers = third.surface.groups.flatMap((g) => g.members.map((m) => m.subject));
+  assert.ok(!thirdMembers.includes("art-2"), "revoked relation removes the member");
+  assert.notEqual(third.fingerprint, second.fingerprint);
+});
+
+test("entries are keyed per access level and decided independently", () => {
+  const { j, a2 } = world();
+  const cache = new ProjectionCache();
+  cache.get(freeze(j, "w0") as never, req("member"), "focus:art-1");
+  cache.get(freeze(j, "w0") as never, req("owner"), "focus:art-1");
+  assert.equal(cache.size, 2);
+
+  const result = cache.commitWave([a2.envelope.subjectId]);
+  // art-2 is public: visible at both levels, so both invalidate — and each
+  // decision names its own deciding dependency.
+  assert.equal(result.decisions.length, 2);
+  assert.ok(result.decisions.every((d) => d.decision === "invalidated" && d.becauseOf === "art-2"));
+});
+
+test("the cache asks one question and reads no access-scoped state", async () => {
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const src = readFileSync(fileURLToPath(new URL("../src/cache.ts", import.meta.url)), "utf8");
+  // No ambient time or randomness, and no access-rank comparison: invalidation
+  // is decided solely by dependency-set membership.
+  assert.ok(!/Date\.now|Math\.random|new Date\(\)/.test(src));
+  assert.ok(!/ACCESS_RANK|minimumAccess/.test(src), "cache must not evaluate access itself");
 });
 
 
@@ -9395,6 +9696,8 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-011 | Canon: envelope, canonical identity, append-only journal (E1 narrow slice) | E1 | Done — Canon→surface spine closed; awaiting owner verification | records/evidence.jsonl · scms-evidence-011 |
 | SCMS-012 | Contracts: content.revise@1, the governed write path (E2 narrow slice) | E1 | Done — §14 step 2 closed; awaiting owner verification | records/evidence.jsonl · scms-evidence-012 |
 | SCMS-013 | Qualification and promotion as separate gates (E3 narrow slice) | E1 | Done — §14 steps 4–5 closed; awaiting owner verification | records/evidence.jsonl · scms-evidence-013 |
+| SCMS-014 | Fingerprint-scoped projection invalidation (E4 narrow slice) | E1 | Done — §14 step 8 closed; awaiting owner verification | records/evidence.jsonl · scms-evidence-014 |
+| SCMS-015 | Fix resolver dependency revision: use per-subject revision, not snapshot id (SSS §21 conformance) | E1 | Ready — defect NR-scms-003, found by SCMS-014 | — |
 | SCMS-010 | S4 cross-domain portability: a materially unrelated project (outside this repository, per owner doctrine 2026-08-28) consumes @semantic-systems/surface unmodified | external | Backlog — executes outside scms; scms records the conformance result | — |
 
 ## Epic register
@@ -9405,7 +9708,7 @@ epic as the owner assigns the corresponding piece of work.
 | E1 | Canon — envelope schema, identity classes, append-only store, receipts ledger | DESIGN.md §3 | In progress — narrow slice landed (SCMS-011); durable store open (SH-1) |
 | E2 | Contracts — write plane: contract registry, instance lifecycle, receipts, recovery | DESIGN.md §5 | In progress — one contract landed (SCMS-012); multi-contract + verification levels open |
 | E3 | Qualification — evidence records, consequence profiles, incremental re-qualification, promotion | DESIGN.md §6 | In progress — note profile end-to-end (SCMS-013); evidence collection + evaluator independence open |
-| E4 | Projection — resolver, projection contracts, access projection, derivations, fingerprint invalidation | DESIGN.md §4, §7 | Backlog |
+| E4 | Projection — resolver, projection contracts, access projection, derivations, fingerprint invalidation | DESIGN.md §4, §7 | In progress — resolver + S3 + invalidation landed; SCMS-015 open |
 | E5 | Field — semantic metrics, workspace morphology, editorial time | DESIGN.md §9 | Backlog |
 | E6 | Observation — presence, consistency states, provenance chips, drift, degradation | DESIGN.md §8, §10 | Backlog |
 | E7 | Narrowest end-to-end path — the nine-step milestone, exit by evidence | DESIGN.md §14 | Backlog (depends on E1–E6 slices, not their entirety) |
@@ -10116,4 +10419,75 @@ Claimed by agent-under-owner-direction 2026-08-28; released at closing state bel
 
 **Done — Implemented + Tested for the note profile; §14 steps 4–5 closed on the narrow path.**
 Evidence: records/evidence.jsonl · scms-evidence-013. Claim released.
+
+
+========================================================================
+FILE: work/SCMS-014.md
+========================================================================
+
+# SCMS-014 — Fingerprint-scoped projection invalidation (E4 narrow slice)
+
+**Intent ref:** PROJECT_INTENT.md · **Epic:** E4 (board #9) · **Advances:** DESIGN.md §14 step 8
+**Assigned by:** coordinator goal (narrowest end-to-end proof). SCMS-008 proved hidden state
+cannot move a fingerprint; this closes the other half — that it cannot move an *invalidation*
+either, which is where the side channel would actually leak.
+**Effect class:** E1 — a pure cache library over existing surfaces; no canonical mutation.
+**State:** Ready → Claimed → (closing state at bottom)
+
+## Objective
+
+Prove the design's most distinctive projection claim end to end: **cache correctness and
+side-channel safety in one mechanism**. A cached projection is invalidated exactly when a
+subject in its *own accessible dependency set* changes — so an edit the viewer could not
+observe produces no invalidation for them, and invalidation timing leaks nothing.
+
+## Ready predicate
+
+- **Scope:** `impl/projection-cache/` —
+  1. A cache keyed by `(requestIdentity, accessLevel)` holding the resolved surface, its
+     fingerprint, and the SSS `dependencies` the resolver already emits (SSS §21 — a *pinned*
+     requirement, not a pending proposal).
+  2. `commitWave(changedSubjectIds)` → per-entry decision `invalidated | retained`, with the
+     deciding dependency named (an audit trail, not a boolean).
+  3. Re-resolution on read after invalidation, and a fingerprint comparison proving the new
+     surface actually differs when it should.
+- **Exclusions:** P4's declared **refresh policy** (eager / lazy-on-read / scheduled), the
+  human-verification eagerness override, and the `computed_from` naming are **pending** on
+  PR #28 — not implemented. No stale-while-revalidate. No transport, no persistence, no TTLs
+  (freshness disclosure is E6/Observation, and its refinements are pending under P11). No
+  DESIGN.md change on main.
+- **Dependencies (satisfied):** SCMS-008 resolver (emits `dependencies` + `fingerprint` over
+  the access-projected set); SCMS-011 Canon + freeze; sss pin §21; node ≥ 22.6.
+- **Acceptance:**
+  1. A change to a subject **in** an entry's dependency set invalidates that entry.
+  2. A change to a subject **not** in the set retains the entry.
+  3. **The side-channel vector:** editing an admin-only subject invalidates the owner-access
+     entry and provably does *not* invalidate the member-access entry — the member's cache
+     state is byte-identical to a world where that subject never changed.
+  4. The same holds for an entitlement-withheld subject: it *is* a dependency (it was
+     evaluated and excluded), so a change to it may invalidate — proving the mechanism keys on
+     *observability*, not on membership.
+  5. Retained entries keep their original fingerprint; invalidated entries re-resolve to a
+     fingerprint that differs iff the accessible content differs.
+  6. Every invalidation decision names its deciding dependency.
+- **Evidence requirements:** `node --test` output in scms-evidence-014; claim at the weakest
+  justified rung — **Implemented + Tested** for the narrow path. NOT established: distributed
+  caching, eviction under memory pressure, refresh policy, empirical performance.
+- **Permissions / effect class:** E1; project-mutation authority per bindings.
+- **Target:** `impl/projection-cache/` (new), `.github/workflows/gates.yml`, `records/*`,
+  `work/GRAPH.md`. No other path.
+- **Budget:** one work cycle; no spend; no credentials; no external services.
+- **Stop conditions:** (a) correct invalidation would require reading state above the entry's
+  access level → stop (that is the leak this exists to prevent); (b) a vector would require a
+  pending PR-#28 proposal → stop; (c) the resolver would need to change to support caching →
+  stop and re-scope (the cache is downstream, not a resolver concern).
+
+## Claim
+
+Claimed by agent-under-owner-direction 2026-08-28; released at closing state below.
+
+## Closing state
+
+**Done — Implemented + Tested; §14 step 8 closed on the narrow path.**
+Evidence: records/evidence.jsonl · scms-evidence-014. Claim released.
 

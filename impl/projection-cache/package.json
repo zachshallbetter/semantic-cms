@@ -1,0 +1,8 @@
+{
+  "name": "@scms/projection-cache",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Fingerprint-scoped projection invalidation (SCMS-014): a cache invalidated exactly when a changed subject appears in its own accessible dependency set (SSS §21), giving cache correctness and side-channel safety in one mechanism. Zero runtime dependencies; requires Node >= 22.6.",
+  "scripts": { "test": "node --test test/cache.test.ts" }
+}

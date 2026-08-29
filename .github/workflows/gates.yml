@@ -56,6 +56,10 @@ jobs:
         run: node --test test/qualification.test.ts
         working-directory: impl/qualification
 
+      - name: Projection cache vectors (SCMS-014 · fingerprint-scoped invalidation)
+        run: node --test test/cache.test.ts
+        working-directory: impl/projection-cache
+
       - name: Cross-expression S3 vectors (SCMS-009)
         run: node --test test/s3.test.ts
         working-directory: impl/surface-expression
