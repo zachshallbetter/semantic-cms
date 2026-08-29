@@ -62,6 +62,7 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-046 | Observations are signals, not participants (closes SH-14) | E6 | Done — unblocks SCMS-045's prerequisite; awaiting owner verification | records/evidence.jsonl · scms-evidence-046 |
 | SCMS-047 | The inspector's three tabs (owner design direction) | E12 | Done — SSS/SES panels exposed with member basis; unbuilt mockup parts recorded, not started | records/evidence.jsonl · scms-evidence-047 |
 | SCMS-048 | The converge step (SH-17 mechanism) and the P27 declaration-parity gate | E6+E0 | Done — mechanism landed, policy flip left to owner; parity gate in CI | records/evidence.jsonl · scms-evidence-048 |
+| SCMS-049 | Extend the composed proof to outbox, wire, editor and site | E7 | Done — four new seams; composite invariant asserts the Canon/delivered boundary both ways | records/evidence.jsonl · scms-evidence-049 |
 | SCMS-044 | Route the editor through the surface pipeline it currently bypasses | E12 | Done — SH-16 closed; two duplicate access checks removed; awaiting owner verification | records/evidence.jsonl · scms-evidence-044 |
 | SCMS-018 | R1 live co-authoring — **free lane only** (convergent merge) | E1 | **Blocked** — awaiting disposition of P7/P22 on PR #28 | records/blockers · scms-blocker-001 |
 | SCMS-010 | S4 cross-domain portability: a materially unrelated project (outside this repository, per owner doctrine 2026-08-28) consumes @semantic-systems/surface unmodified | external | Backlog — executes outside scms; scms records the conformance result | — |

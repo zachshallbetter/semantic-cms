@@ -1,6 +1,6 @@
 # PROJECT COMPILED CONTEXT
 Generator: 0.5.0
-Source digest: 0e04557853ca6882ef76420b3f306b29cdc2d54a5d0e4ef3f1f9c28f36d40d1c
+Source digest: dae03b049a2653075bf014ca784aa3fe9b9cea0fe8bad1ec4a88d31f05cb1928
 
 > Generated projection. Canonical sources remain authoritative.
 
@@ -257,7 +257,7 @@ jobs:
         run: node --test test/*.test.ts
         working-directory: impl/site
 
-      - name: End-to-end spine (SCMS-019 · the composed narrow path)
+      - name: End-to-end spine (SCMS-019/027/049 · the composed path)
         run: node --test test/spine.test.ts
         working-directory: impl/e2e
 
@@ -10888,6 +10888,140 @@ test("composite invariant, extended: no hidden subject in any artefact of the fu
   assert.ok(!everythingVisible.includes("sec-1"), "no hidden subject in any artefact");
   assert.ok(!everythingVisible.includes("Secret"), "nor its content");
   assert.ok(everythingVisible.includes("art-2"), "control: a visible subject does appear");
+});
+
+// ── SCMS-049: the spine grew again — outbox, transport, editor, site ────────
+// SCMS-027 closed this once: the composed proof must match the landed surface,
+// not the surface of the day it was written. Since then the system gained
+// emission (SCMS-032), the wire (SCMS-033/034), derived freshness (SCMS-035),
+// the editor as a surface (SCMS-044/047) and the site as a third adapter
+// (SCMS-037). Each is vectored alone; nothing showed them composing.
+
+test("seam 14: every governed write in the spine emitted, and the emissions are intact", async () => {
+  const { verifyEmissionIntegrity } = await import("../../outbox/src/integrity.ts");
+  const { journal } = runSpine();
+
+  assert.equal(journal.events().length, journal.receipts().length,
+    "nothing happened in the composed run without an emission");
+  assert.deepEqual(verifyEmissionIntegrity(journal), []);
+  assert.deepEqual(journal.events().map((e) => e.eventId), [...journal.events().keys()]);
+});
+
+test("seam 15: the wire delivers the spine's changes, and only what the subscriber may see", async () => {
+  const { deliver } = await import("../../transport/src/wire.ts");
+  const { journal, revised } = runSpine();
+
+  const entry = new ProjectionCache().get(
+    freeze(journal, "wave-w") as never,
+    { profile: "focus", purpose: "understand", subject: "art-1", access: "member",
+      lens: { traversal: { radius: 1 } } } as SurfaceRequest,
+    "focus:art-1");
+
+  const member = deliver(journal, {
+    subscription: { id: "sub-member", access: "member", dependencies: entry.dependencies },
+    position: null,
+  });
+  assert.ok(member, "a subscriber with visible dependencies hears about the spine's writes");
+  assert.ok(!member!.keys.includes("sec-1"), "and never about the hidden subject");
+  assert.ok(revised.length > 0);
+
+  // A subscriber whose accessible dependency set is empty hears silence, not an
+  // empty message — silence carries no information (SCMS-026).
+  assert.equal(deliver(journal, {
+    subscription: { id: "sub-none", access: "public", dependencies: [] }, position: null,
+  }), null);
+});
+
+test("seam 16: freshness in the composed run is derived, never asserted", async () => {
+  const { freshnessFrom, NEVER_CONNECTED } = await import("../../transport/src/freshness.ts");
+  const { deliver } = await import("../../transport/src/wire.ts");
+  const { journal } = runSpine();
+
+  // Before any delivery the composed world cannot claim liveness.
+  const cold = freshnessFrom(NEVER_CONNECTED, { nowMs: 1_000, snapshotLabel: "wave-1" });
+  assert.equal(chip("current", cold), "snapshot · wave-1");
+
+  const entry = new ProjectionCache().get(
+    freeze(journal, "wave-f") as never,
+    { profile: "focus", purpose: "understand", subject: "art-1", access: "member",
+      lens: { traversal: { radius: 1 } } } as SurfaceRequest,
+    "focus:art-1");
+  const d = deliver(journal, {
+    subscription: { id: "s", access: "member", dependencies: entry.dependencies }, position: null,
+  })!;
+  const warm = freshnessFrom(
+    { connected: true, lastDelivery: { phase: d.phase, cursor: d.cursor, atMs: 5_000 } },
+    { nowMs: 9_000, snapshotLabel: "wave-1" });
+  assert.equal(chip("current", warm), "live · checked 4s ago",
+    "and only a real delivery earns the live claim");
+});
+
+test("seam 17: the editor and the site are two expressions of the same Canon", async () => {
+  const { editorView } = await import("../../editor/src/viewmodel.ts");
+  const { deriveOffer } = await import("../../authoring/src/editor.ts");
+  const { expressReaderWeb } = await import("../../site/src/express.ts");
+  const { journal, registry } = runSpine();
+
+  const offer = deriveOffer(registry);
+  const held = journal.current().find((e) => e.envelope.subjectId === "art-1")!;
+  const view = editorView({
+    journal, subject: "art-1", access: "owner", offer,
+    baseline: { subjectId: "art-1", atRevision: held.envelope.revision!, hasLocalEdits: false,
+      observedCanonEntries: journal.all().length, baselineEstablished: true },
+    freshness: { nowMs: 1_000, lastCheckedMs: null, snapshotLabel: "wave-1" },
+  } as never);
+  assert.ok(!("notFound" in view), "the owner's editor resolves the spine's subject");
+
+  const reader = resolveSurface(freeze(journal, "wave-r") as never, {
+    profile: "focus", purpose: "understand", subject: "art-1", access: "member",
+    lens: { traversal: { radius: 1 } },
+  });
+  assert.ok(!isFailure(reader));
+  const page = expressReaderWeb(reader as ResolvedSurface, (s) => ({ title: s, kind: "article" }));
+
+  // Same Canon, two expressions, and neither shows the hidden subject.
+  assert.ok(!page.presentedOrder.includes("sec-1"));
+  assert.ok(!JSON.stringify(view).includes("sec-1"));
+  // The editor sees the surface's own vocabulary; the page sees container forms.
+  assert.equal((view as { surface: { purpose: string } }).surface.purpose, "edit");
+  assert.notDeepEqual(page.morphology, {});
+});
+
+test("composite invariant, third extension: Canon records the hidden subject; nothing leaving Canon does", async () => {
+  const { deliver } = await import("../../transport/src/wire.ts");
+  const { expressReaderWeb } = await import("../../site/src/express.ts");
+  const { journal } = runSpine();
+
+  const entry = new ProjectionCache().get(
+    freeze(journal, "wave-c") as never,
+    { profile: "focus", purpose: "understand", subject: "art-1", access: "member",
+      lens: { traversal: { radius: 1 } } } as SurfaceRequest,
+    "focus:art-1");
+  const delivery = deliver(journal, {
+    subscription: { id: "s", access: "member", dependencies: entry.dependencies }, position: null,
+  });
+  const page = expressReaderWeb(entry.surface, (s) => ({ title: s, kind: "article" }));
+
+  // The boundary runs between Canon and what leaves it, so this asserts BOTH
+  // directions. An earlier draft of this vector scanned Canon's own stream
+  // alongside the delivered artefacts and failed — correctly, because the
+  // premise was wrong, not the system.
+  //
+  // Canon MUST contain the hidden subject: the outbox is the record of what
+  // happened, and a stream that omitted private writes would leave fan-out
+  // nothing to filter and would make replay lose events. Asserting its presence
+  // keeps a future "fix" from quietly emptying it.
+  assert.ok(JSON.stringify(journal.events()).includes("sec-1"),
+    "Canon's own stream records every write, including the hidden one");
+  assert.ok(JSON.stringify(journal.receipts()).includes("sec-1"));
+
+  // What LEAVES Canon must not. This is the property the run has to hold.
+  const delivered = JSON.stringify({ delivery, page });
+  assert.ok(!delivered.includes("sec-1"),
+    "no delivery and no rendered page may carry the hidden subject");
+  // Control: a visible subject IS present in the delivered artefacts, so the
+  // scan can fail.
+  assert.ok(delivered.includes("art-1"));
 });
 
 
@@ -23971,6 +24105,7 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-046 | Observations are signals, not participants (closes SH-14) | E6 | Done — unblocks SCMS-045's prerequisite; awaiting owner verification | records/evidence.jsonl · scms-evidence-046 |
 | SCMS-047 | The inspector's three tabs (owner design direction) | E12 | Done — SSS/SES panels exposed with member basis; unbuilt mockup parts recorded, not started | records/evidence.jsonl · scms-evidence-047 |
 | SCMS-048 | The converge step (SH-17 mechanism) and the P27 declaration-parity gate | E6+E0 | Done — mechanism landed, policy flip left to owner; parity gate in CI | records/evidence.jsonl · scms-evidence-048 |
+| SCMS-049 | Extend the composed proof to outbox, wire, editor and site | E7 | Done — four new seams; composite invariant asserts the Canon/delivered boundary both ways | records/evidence.jsonl · scms-evidence-049 |
 | SCMS-044 | Route the editor through the surface pipeline it currently bypasses | E12 | Done — SH-16 closed; two duplicate access checks removed; awaiting owner verification | records/evidence.jsonl · scms-evidence-044 |
 | SCMS-018 | R1 live co-authoring — **free lane only** (convergent merge) | E1 | **Blocked** — awaiting disposition of P7/P22 on PR #28 | records/blockers · scms-blocker-001 |
 | SCMS-010 | S4 cross-domain portability: a materially unrelated project (outside this repository, per owner doctrine 2026-08-28) consumes @semantic-systems/surface unmodified | external | Backlog — executes outside scms; scms records the conformance result | — |

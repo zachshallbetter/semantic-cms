@@ -108,7 +108,7 @@ jobs:
         run: node --test test/*.test.ts
         working-directory: impl/site
 
-      - name: End-to-end spine (SCMS-019 · the composed narrow path)
+      - name: End-to-end spine (SCMS-019/027/049 · the composed path)
         run: node --test test/spine.test.ts
         working-directory: impl/e2e
 
