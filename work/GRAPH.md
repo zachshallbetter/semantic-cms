@@ -28,6 +28,7 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-009 | S3 cross-expression qualification | E1 | Done — S3 established for the narrow path; awaiting owner verification | records/evidence.jsonl · scms-evidence-009 |
 | SCMS-011 | Canon: envelope, canonical identity, append-only journal (E1 narrow slice) | E1 | Done — Canon→surface spine closed; awaiting owner verification | records/evidence.jsonl · scms-evidence-011 |
 | SCMS-012 | Contracts: content.revise@1, the governed write path (E2 narrow slice) | E1 | Done — §14 step 2 closed; awaiting owner verification | records/evidence.jsonl · scms-evidence-012 |
+| SCMS-013 | Qualification and promotion as separate gates (E3 narrow slice) | E1 | Done — §14 steps 4–5 closed; awaiting owner verification | records/evidence.jsonl · scms-evidence-013 |
 | SCMS-010 | S4 cross-domain portability: a materially unrelated project (outside this repository, per owner doctrine 2026-08-28) consumes @semantic-systems/surface unmodified | external | Backlog — executes outside scms; scms records the conformance result | — |
 
 ## Epic register
@@ -37,7 +38,7 @@ epic as the owner assigns the corresponding piece of work.
 | E0 | Operating substrate (bootstrap, pins, compiled context) | DESIGN.md §13 | Done via SCMS-001, pending verification |
 | E1 | Canon — envelope schema, identity classes, append-only store, receipts ledger | DESIGN.md §3 | In progress — narrow slice landed (SCMS-011); durable store open (SH-1) |
 | E2 | Contracts — write plane: contract registry, instance lifecycle, receipts, recovery | DESIGN.md §5 | In progress — one contract landed (SCMS-012); multi-contract + verification levels open |
-| E3 | Qualification — evidence records, consequence profiles, incremental re-qualification, promotion | DESIGN.md §6 | Backlog |
+| E3 | Qualification — evidence records, consequence profiles, incremental re-qualification, promotion | DESIGN.md §6 | In progress — note profile end-to-end (SCMS-013); evidence collection + evaluator independence open |
 | E4 | Projection — resolver, projection contracts, access projection, derivations, fingerprint invalidation | DESIGN.md §4, §7 | Backlog |
 | E5 | Field — semantic metrics, workspace morphology, editorial time | DESIGN.md §9 | Backlog |
 | E6 | Observation — presence, consistency states, provenance chips, drift, degradation | DESIGN.md §8, §10 | Backlog |

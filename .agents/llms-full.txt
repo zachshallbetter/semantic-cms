@@ -1,6 +1,6 @@
 # PROJECT COMPILED CONTEXT
 Generator: 0.5.0
-Source digest: 11f1d7844052d24ba0a392052abf35263219f079cdeaf99f17dde519157390bd
+Source digest: b0aafab894cd30f2fbfdaf2b9ebf7a6241e13b2ac86a0b2a899dcae66ff64547
 
 > Generated projection. Canonical sources remain authoritative.
 
@@ -200,6 +200,10 @@ jobs:
       - name: Contract vectors (SCMS-012 · governed writes, receipts, conflict)
         run: node --test test/contracts.test.ts
         working-directory: impl/contracts
+
+      - name: Qualification vectors (SCMS-013 · qualify/promote gates)
+        run: node --test test/qualification.test.ts
+        working-directory: impl/qualification
 
       - name: Cross-expression S3 vectors (SCMS-009)
         run: node --test test/s3.test.ts
@@ -4151,6 +4155,611 @@ test("no ambient time or randomness in the contract runtime", async () => {
     const src = readFileSync(fileURLToPath(new URL(rel, import.meta.url)), "utf8");
     assert.ok(!/Date\.now|Math\.random|new Date\(\)/.test(src), `${rel} references ambient time/randomness`);
   }
+});
+
+
+========================================================================
+FILE: impl/qualification/package.json
+========================================================================
+
+{
+  "name": "@scms/qualification",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Qualification and promotion as separate gates (SCMS-013): EQP vocabularies as declared bindings, consequence profiles with declared ends, incremental re-qualification by radius, and content.promote@1 refusing non-qualified, under-verified, or unauthorised promotion. Performs no external publication. Zero runtime dependencies; requires Node >= 22.6.",
+  "scripts": { "test": "node --test test/qualification.test.ts" }
+}
+
+
+========================================================================
+FILE: impl/qualification/src/eqp.ts
+========================================================================
+
+/**
+ * EQP vocabularies and consequence profiles (SCMS-013).
+ *
+ * The enums are the pinned protocol's own, transcribed from
+ * evidence-qualification-protocol/schemas/*.schema.json and re-verified against
+ * source this cycle. EQP owns qualification semantics; nothing here redefines
+ * them. Consequence profiles are scms-local qualification profiles declared per
+ * EQP profile semantics (bindings: "Qualification / Promotion").
+ */
+
+export const EVIDENCE_RESULTS = [
+  "PASS", "FAIL", "PARTIAL", "INCONCLUSIVE", "BLOCKED", "NOT_RUN", "NOT_APPLICABLE",
+] as const;
+export type EvidenceResult = (typeof EVIDENCE_RESULTS)[number];
+
+export const EVIDENCE_VALIDITY = [
+  "VALID", "INVALID", "STALE", "SUPERSEDED", "OUT_OF_SCOPE", "UNVERIFIABLE",
+] as const;
+export type EvidenceValidity = (typeof EVIDENCE_VALIDITY)[number];
+
+export const DISPOSITIONS = ["QUALIFIED", "NOT_QUALIFIED", "BLOCKED", "SUPERSEDED"] as const;
+export type Disposition = (typeof DISPOSITIONS)[number];
+
+/** EQP qualification radius — a verification-scope claim, not a risk score. */
+export const RADII = ["R1", "R2", "R3", "R4"] as const;
+export type Radius = (typeof RADII)[number];
+
+export interface EvidenceRecord {
+  id: string;
+  obligation: string;
+  result: EvidenceResult;
+  validity: EvidenceValidity;
+  /** Which candidate revision this evidence was collected against. */
+  candidateRevision: string;
+  actor: string;
+  /** EQP: evaluator independence is a separate property; recorded, never assumed. */
+  independentEvaluator: boolean;
+}
+
+export interface Obligation {
+  id: string;
+  /** The claim this obligation supports. */
+  claim: string;
+  /** Change radius at which prior evidence for this obligation is invalidated. */
+  reRunAtRadius: Radius;
+  /** Must be satisfied for QUALIFIED. Distinct from alwaysReRun. */
+  mustSatisfy: boolean;
+  /**
+   * MandatoryProfileEvidence: re-collected on every qualification regardless of
+   * what changed. Kept distinct from mustSatisfy — conflating them would make
+   * the radius term of the RequiredEvidence equation inert.
+   */
+  alwaysReRun: boolean;
+}
+
+/**
+ * DESIGN.md §6.1 — every content class declares its gate roster AND its end.
+ * `declaredEnd` is the stopping condition: an obligation not named here is not
+ * required, and that absence is a statement rather than silence.
+ */
+export interface ConsequenceProfile {
+  id: "note" | "article" | "commitment";
+  obligations: Obligation[];
+  declaredEnd: string;
+  /** Verification the promotion of this class demands (derived from consequence). */
+  promotionVerification: "none" | "acknowledge" | "confirm" | "reauthenticate" | "prove";
+}
+
+export const NOTE_PROFILE: ConsequenceProfile = {
+  id: "note",
+  obligations: [
+    { id: "ob/schema-valid", claim: "claim/structurally-sound", reRunAtRadius: "R1", mustSatisfy: true, alwaysReRun: true },
+    { id: "ob/access-declared", claim: "claim/access-safe", reRunAtRadius: "R2", mustSatisfy: true, alwaysReRun: false },
+  ],
+  declaredEnd:
+    "No further gates. A note does not require link checks, editorial review, or accessibility " +
+    "audit beyond defaults; requiring them would be gate creep, not diligence.",
+  promotionVerification: "reauthenticate",
+};
+
+export const ARTICLE_PROFILE: ConsequenceProfile = {
+  id: "article",
+  obligations: [
+    ...NOTE_PROFILE.obligations,
+    { id: "ob/links-resolve", claim: "claim/references-sound", reRunAtRadius: "R2", mustSatisfy: true, alwaysReRun: false },
+    { id: "ob/media-alt-text", claim: "claim/accessible-media", reRunAtRadius: "R1", mustSatisfy: true, alwaysReRun: false },
+  ],
+  declaredEnd: "No further gates. Legal review and human comprehension evidence are not required.",
+  promotionVerification: "reauthenticate",
+};
+
+export const COMMITMENT_PROFILE: ConsequenceProfile = {
+  id: "commitment",
+  obligations: [
+    ...ARTICLE_PROFILE.obligations,
+    { id: "ob/entitlement-declared", claim: "claim/entitlement-sound", reRunAtRadius: "R3", mustSatisfy: true, alwaysReRun: false },
+    { id: "ob/recipient-contract", claim: "claim/recipient-named", reRunAtRadius: "R3", mustSatisfy: true, alwaysReRun: false },
+    { id: "ob/second-attestation", claim: "claim/independently-reviewed", reRunAtRadius: "R1", mustSatisfy: true, alwaysReRun: true },
+  ],
+  declaredEnd: "The gate roster is exhaustive for this class; additions require an owner decision.",
+  promotionVerification: "prove",
+};
+
+export const PROFILES: Record<ConsequenceProfile["id"], ConsequenceProfile> = {
+  note: NOTE_PROFILE, article: ARTICLE_PROFILE, commitment: COMMITMENT_PROFILE,
+};
+
+
+========================================================================
+FILE: impl/qualification/src/promote.ts
+========================================================================
+
+/**
+ * content.promote@1 (SCMS-013) — promotion as a separate authority.
+ *
+ * EQP §16: QUALIFIED does not mean deploy, publish, release, or adopt. Those
+ * are external authority. This contract is the boundary: it refuses a
+ * non-qualified candidate, refuses without the verification its consequence
+ * class demands, and — when it does act — moves only the publicationState axis.
+ *
+ * It performs no external publication. Actual delivery is a protected action
+ * requiring owner promotion authority (bindings: authority_bindings.promotion)
+ * and is deliberately outside this narrow slice.
+ */
+import type { CanonJournal } from "../../canon/src/journal.ts";
+import type { Envelope } from "../../canon/src/envelope.ts";
+import type { ContractDefinition, ExecutionContext, ExecutionRequest, ExecutionResult } from "../../contracts/src/runtime.ts";
+import { receiptDigest } from "../../contracts/src/runtime.ts";
+import type { ChangeReceipt, InstanceState } from "../../contracts/src/icp.ts";
+import type { Attestation } from "./qualify.ts";
+import type { ConsequenceProfile } from "./eqp.ts";
+
+export const CONTENT_PROMOTE: ContractDefinition = {
+  id: "icp:interaction/content.promote",
+  version: "1.0.0",
+  effectClass: "E3",                 // consequential external commitment
+  reversibility: "compensatable",
+  resourceType: "content",
+  compensationInteraction: "icp:interaction/content.unpublish",
+};
+
+export interface PromoteInput {
+  subjectId: string;
+  candidateRevision: string;
+  attestation: Attestation;
+  profile: ConsequenceProfile;
+  /** Verification actually performed by the caller, if any. */
+  verificationPerformed?: "none" | "acknowledge" | "confirm" | "reauthenticate" | "prove";
+  /** The named authority acting. Promotion is never anonymous. */
+  promotionAuthority?: string;
+}
+
+const VERIFICATION_RANK = { none: 0, acknowledge: 1, confirm: 2, reauthenticate: 3, prove: 4 };
+
+export function promoteHandler(
+  journal: CanonJournal, req: ExecutionRequest, def: ContractDefinition, ctx: ExecutionContext,
+): ExecutionResult {
+  const states: InstanceState[] = ["declared", "ready", "started", "validating"];
+  const input = req.input as unknown as PromoteInput;
+  const required = input?.profile?.promotionVerification ?? "reauthenticate";
+
+  // GATE 1 — qualification. A candidate that is not QUALIFIED cannot promote,
+  // and BLOCKED (coverage gap) is reported as needing evidence, not as a
+  // finding against the candidate.
+  const att = input?.attestation;
+  if (!att || att.disposition !== "QUALIFIED") {
+    const blocked = att?.disposition === "BLOCKED";
+    return {
+      instanceId: ctx.instanceId,
+      outcome: blocked ? "needs_evidence" : "blocked",
+      states: [...states, "blocked"],
+      verification: required,
+      recovery: [
+        { action: "replace_evidence", data: {
+          candidateRevision: input?.candidateRevision ?? "unknown",
+          disposition: att?.disposition ?? "none",
+          missing: (att?.outcomes ?? []).filter((o) => !o.satisfied).map((o) => o.obligation).join(",") || "unknown",
+        } },
+      ],
+      detail: `promotion requires a QUALIFIED attestation; got ${att?.disposition ?? "none"}`,
+    };
+  }
+  if (att.candidateRevision !== input.candidateRevision) {
+    return {
+      instanceId: ctx.instanceId, outcome: "conflict", states: [...states, "conflicted"], verification: required,
+      recovery: [{ action: "refresh_record", data: { attestationFor: att.candidateRevision, requested: input.candidateRevision } }],
+      detail: "attestation does not cover the requested revision",
+    };
+  }
+
+  // GATE 2 — verification derived from consequence, never from preference.
+  const performed = input.verificationPerformed ?? "none";
+  if (VERIFICATION_RANK[performed] < VERIFICATION_RANK[required]) {
+    return {
+      instanceId: ctx.instanceId, outcome: "verification_required",
+      states: [...states, "verification_required"], verification: required,
+      recovery: [{ action: "reauthenticate", data: { required, performed } }],
+      detail: `profile '${input.profile.id}' requires ${required} verification`,
+    };
+  }
+  if (!input.promotionAuthority) {
+    return {
+      instanceId: ctx.instanceId, outcome: "blocked", states: [...states, "blocked"], verification: required,
+      recovery: [{ action: "request_access", data: { need: "named promotion authority" } }],
+      detail: "promotion authority must be named (EQP §16: promotion is external authority)",
+    };
+  }
+
+  const current = journal.get(input.candidateRevision);
+  if (!current) {
+    return {
+      instanceId: ctx.instanceId, outcome: "not_found", states: [...states, "failed"], verification: required,
+      recovery: [{ action: "refresh_record", data: { subjectId: input.subjectId } }],
+      detail: `unknown revision ${input.candidateRevision}`,
+    };
+  }
+
+  // PROCESS — move ONLY the publication axis. Semantic maturity, evidence
+  // state, and delivery state are other axes with other owners (§3.5).
+  states.push("processing");
+  const before = current.envelope.state;
+  const next: Envelope = {
+    ...current.envelope,
+    state: { ...before, publicationState: "promoted" },
+    revision: undefined,
+  };
+  const landed = journal.supersede(input.candidateRevision, next, input.promotionAuthority);
+
+  const base: Omit<ChangeReceipt, "integrity"> = {
+    id: `rcpt_${ctx.instanceId}`,
+    interaction: def.id, contractVersion: def.version, instanceId: ctx.instanceId, requestId: req.requestId,
+    actor: req.actor, resource: { type: def.resourceType, id: input.subjectId },
+    beforeVersion: input.candidateRevision, afterVersion: landed.envelope.revision!,
+    changes: [{ path: "/state/publicationState", before: before.publicationState, after: "promoted" }],
+    occurredAt: ctx.occurredAt, reversibility: def.reversibility,
+    compensationInteraction: def.compensationInteraction,
+  };
+  return {
+    instanceId: ctx.instanceId, outcome: "completed", states: [...states, "completed"], verification: required,
+    receipt: { ...base, integrity: { algorithm: "sha-256", digest: receiptDigest(base) } },
+    recovery: [],
+  };
+}
+
+
+========================================================================
+FILE: impl/qualification/src/qualify.ts
+========================================================================
+
+/**
+ * Qualification (SCMS-013) — EQP's question, asked of one exact candidate.
+ *
+ * "Given this exact candidate, this exact claim, this exact context, and this
+ * exact evidence, what is justified?" Qualification never publishes; promotion
+ * is a separate authority (EQP §16, DESIGN.md §6).
+ *
+ * Canonical v1 governs: results stay distinct, missing evidence yields
+ * INCONCLUSIVE (never PASS), and an exception may not rewrite an evidence
+ * result. The P3 refinements (four-column verdicts, vacuous-pass gating,
+ * per-obligation freshness) are pending on PR #28 and are NOT implemented.
+ */
+import { createHash } from "node:crypto";
+import type {
+  ConsequenceProfile, Disposition, EvidenceRecord, Obligation, Radius,
+} from "./eqp.ts";
+import { RADII } from "./eqp.ts";
+
+export interface ObligationOutcome {
+  obligation: string;
+  /** The strongest thing the evidence supports — never stronger. */
+  result: EvidenceRecord["result"] | "MISSING";
+  validity?: EvidenceRecord["validity"];
+  evidenceId?: string;
+  satisfied: boolean;
+  reason: string;
+}
+
+export interface Attestation {
+  id: string;
+  candidateRevision: string;
+  profile: ConsequenceProfile["id"];
+  disposition: Disposition;
+  outcomes: ObligationOutcome[];
+  /** EQP: limitations are mandatory — an attestation states what it does not cover. */
+  limitations: string[];
+  qualificationAuthority: string;
+  /** Always null here: qualification does not carry promotion authority. */
+  promotionAuthority: null;
+  recordedAt: string;
+  digest: string;
+}
+
+const ATTESTATION_DOMAIN = "scms:attestation:v1 ";
+
+/** Only VALID PASS evidence satisfies an obligation. */
+function evaluate(ob: Obligation, evidence: EvidenceRecord[], candidateRevision: string): ObligationOutcome {
+  const forOb = evidence.filter((e) => e.obligation === ob.id && e.candidateRevision === candidateRevision);
+  if (forOb.length === 0) {
+    return {
+      obligation: ob.id, result: "MISSING", satisfied: false,
+      reason: "no evidence for this candidate revision — a coverage gap, not a finding about the candidate",
+    };
+  }
+  // Strongest available, but validity gates it.
+  const chosen = forOb.find((e) => e.result === "PASS" && e.validity === "VALID") ?? forOb[0];
+  const satisfied = chosen.result === "PASS" && chosen.validity === "VALID";
+  return {
+    obligation: ob.id, result: chosen.result, validity: chosen.validity, evidenceId: chosen.id, satisfied,
+    reason: satisfied
+      ? "satisfied by VALID PASS evidence"
+      : `not satisfied: result ${chosen.result}, validity ${chosen.validity}`,
+  };
+}
+
+export function qualify(
+  candidateRevision: string,
+  profile: ConsequenceProfile,
+  evidence: EvidenceRecord[],
+  qualificationAuthority: string,
+  recordedAt: string,
+): Attestation {
+  const outcomes = profile.obligations.map((ob) => evaluate(ob, evidence, candidateRevision));
+
+  // Disposition, canonical v1:
+  //  - any obligation with no evidence (or evidence that could not be evaluated)
+  //    is a COVERAGE GAP → BLOCKED, never NOT_QUALIFIED and never QUALIFIED;
+  //  - an evaluated failure is a finding about the candidate → NOT_QUALIFIED;
+  //  - all satisfied → QUALIFIED.
+  const gaps = outcomes.filter((o) =>
+    o.result === "MISSING" || o.result === "INCONCLUSIVE" || o.result === "NOT_RUN" || o.result === "BLOCKED");
+  const failures = outcomes.filter((o) => !o.satisfied && !gaps.includes(o));
+  const disposition: Disposition =
+    gaps.length > 0 ? "BLOCKED" : failures.length > 0 ? "NOT_QUALIFIED" : "QUALIFIED";
+
+  const limitations = [
+    `Qualifies only against profile '${profile.id}' obligations for revision ${candidateRevision}.`,
+    "Says nothing about performance, security, accessibility beyond declared obligations, or empirical usefulness.",
+    ...(evidence.some((e) => !e.independentEvaluator)
+      ? ["Contains non-independent evaluator evidence; independence is recorded, not assumed."] : []),
+  ];
+
+  const base = {
+    id: `att_${candidateRevision.slice(7, 19)}_${profile.id}`,
+    candidateRevision, profile: profile.id, disposition, outcomes, limitations,
+    qualificationAuthority, promotionAuthority: null as null, recordedAt,
+  };
+  const digest = createHash("sha256")
+    .update(ATTESTATION_DOMAIN + JSON.stringify(base), "utf8").digest("hex");
+  return { ...base, digest };
+}
+
+/**
+ * EQP §14 — an exception may bound scope or accept a limitation. It may NOT
+ * rewrite an evidence result to PASS or convert a coverage gap into coverage.
+ */
+export function applyException(): never {
+  throw new Error("EQP §14: an exception must not rewrite an evidence state to PASS");
+}
+
+/**
+ * Incremental re-qualification (DESIGN.md §6):
+ *   RequiredEvidence(rev_n) = InvalidatedEvidence(rev_n-1 → rev_n)
+ *                           + EvidenceForNewClaims(rev_n)
+ *                           + MandatoryProfileEvidence
+ * Radius scopes the first term: an obligation re-runs when the change radius
+ * reaches or exceeds the obligation's declared re-run radius.
+ */
+export function requiredEvidence(
+  profile: ConsequenceProfile, radius: Radius, newClaims: string[] = [],
+): string[] {
+  const rank = (r: Radius) => RADII.indexOf(r);
+  const invalidated = profile.obligations
+    .filter((ob) => rank(radius) >= rank(ob.reRunAtRadius))
+    .map((ob) => ob.id);
+  const forNewClaims = profile.obligations
+    .filter((ob) => newClaims.includes(ob.claim)).map((ob) => ob.id);
+  const mandatory = profile.obligations.filter((ob) => ob.alwaysReRun).map((ob) => ob.id);
+  // The union is the equation. MandatoryProfileEvidence is the alwaysReRun set —
+  // not every must-satisfy obligation, or the radius term would be inert.
+  return [...new Set([...invalidated, ...forNewClaims, ...mandatory])].sort();
+}
+
+
+========================================================================
+FILE: impl/qualification/test/qualification.test.ts
+========================================================================
+
+/**
+ * SCMS-013 vectors: qualification disposition, the coverage-gap vs finding
+ * distinction, the RequiredEvidence equation by radius, and promotion refusing
+ * every way it must before it acts.
+ */
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { CanonJournal } from "../../canon/src/journal.ts";
+import type { Envelope, RecordState } from "../../canon/src/envelope.ts";
+import { ContractRegistry, CONTENT_REVISE, reviseHandler } from "../../contracts/src/runtime.ts";
+import { NOTE_PROFILE, ARTICLE_PROFILE, COMMITMENT_PROFILE, PROFILES } from "../src/eqp.ts";
+import type { EvidenceRecord } from "../src/eqp.ts";
+import { qualify, requiredEvidence, applyException } from "../src/qualify.ts";
+import { CONTENT_PROMOTE, promoteHandler } from "../src/promote.ts";
+
+const STATE: RecordState = {
+  semanticMaturity: "complete", evidenceState: "unqualified",
+  publicationState: "unpublished", deliveryState: "unpropagated",
+};
+
+function note(id: string): Envelope {
+  return {
+    schemaVersion: "scms-0.1", subjectId: id,
+    compatibility: { protocol: "scms-0.1", subjectSchema: "note@1" },
+    provenance: { kind: "declared", authority: "project.owner", source: "test" },
+    minimumAccess: "public", body: { kind: "Content", contentKind: "note", title: "n" }, state: STATE,
+  };
+}
+
+function ev(obligation: string, rev: string, over: Partial<EvidenceRecord> = {}): EvidenceRecord {
+  return {
+    id: `ev_${obligation}`, obligation, result: "PASS", validity: "VALID",
+    candidateRevision: rev, actor: "checker", independentEvaluator: true, ...over,
+  };
+}
+
+function setup() {
+  const journal = new CanonJournal();
+  const seed = journal.append(note("note-1"), "tester");
+  const registry = new ContractRegistry();
+  registry.register(CONTENT_REVISE, reviseHandler);
+  registry.register(CONTENT_PROMOTE, promoteHandler);
+  return { journal, registry, rev: seed.envelope.revision! };
+}
+
+const ctx = { occurredAt: "2026-08-28T12:00:00Z", instanceId: "int_p1" };
+const promoteReq = (input: Record<string, unknown>) => ({
+  contract: "icp:interaction/content.promote@1.0.0", requestId: "req_p1",
+  actor: { id: "usr_1", role: "editor" }, input,
+});
+
+test("QUALIFIED requires every obligation satisfied by VALID PASS evidence", () => {
+  const { rev } = setup();
+  const att = qualify(rev, NOTE_PROFILE, [ev("ob/schema-valid", rev), ev("ob/access-declared", rev)], "checker", ctx.occurredAt);
+  assert.equal(att.disposition, "QUALIFIED");
+  assert.ok(att.outcomes.every((o) => o.satisfied));
+  assert.equal(att.promotionAuthority, null, "qualification carries no promotion authority");
+  assert.ok(att.limitations.length >= 2, "attestation states what it does not cover");
+});
+
+test("a coverage gap is BLOCKED, not NOT_QUALIFIED and never QUALIFIED", () => {
+  const { rev } = setup();
+  const missing = qualify(rev, NOTE_PROFILE, [ev("ob/schema-valid", rev)], "checker", ctx.occurredAt);
+  assert.equal(missing.disposition, "BLOCKED");
+  assert.notEqual(missing.disposition, "NOT_QUALIFIED");
+  const gap = missing.outcomes.find((o) => o.obligation === "ob/access-declared")!;
+  assert.equal(gap.result, "MISSING");
+  assert.match(gap.reason, /coverage gap, not a finding/);
+
+  const inconclusive = qualify(rev, NOTE_PROFILE,
+    [ev("ob/schema-valid", rev), ev("ob/access-declared", rev, { result: "INCONCLUSIVE" })], "checker", ctx.occurredAt);
+  assert.equal(inconclusive.disposition, "BLOCKED");
+});
+
+test("an evaluated failure is NOT_QUALIFIED — a finding about the candidate", () => {
+  const { rev } = setup();
+  const att = qualify(rev, NOTE_PROFILE,
+    [ev("ob/schema-valid", rev), ev("ob/access-declared", rev, { result: "FAIL" })], "checker", ctx.occurredAt);
+  assert.equal(att.disposition, "NOT_QUALIFIED");
+});
+
+test("STALE or SUPERSEDED evidence cannot qualify; exceptions cannot rewrite results", () => {
+  const { rev } = setup();
+  for (const validity of ["STALE", "SUPERSEDED", "INVALID", "OUT_OF_SCOPE", "UNVERIFIABLE"] as const) {
+    const att = qualify(rev, NOTE_PROFILE,
+      [ev("ob/schema-valid", rev), ev("ob/access-declared", rev, { validity })], "checker", ctx.occurredAt);
+    assert.notEqual(att.disposition, "QUALIFIED", `${validity} must not qualify`);
+  }
+  assert.throws(applyException, /must not rewrite an evidence state to PASS/);
+});
+
+test("evidence from another revision does not qualify this candidate", () => {
+  const { rev } = setup();
+  const att = qualify(rev, NOTE_PROFILE,
+    [ev("ob/schema-valid", rev), ev("ob/access-declared", "sha256:other")], "checker", ctx.occurredAt);
+  assert.equal(att.disposition, "BLOCKED", "evidence is bound to one exact candidate");
+});
+
+test("qualification does not publish: publicationState is untouched", () => {
+  const { journal, rev } = setup();
+  qualify(rev, NOTE_PROFILE, [ev("ob/schema-valid", rev), ev("ob/access-declared", rev)], "checker", ctx.occurredAt);
+  assert.equal(journal.current()[0].envelope.state.publicationState, "unpublished");
+  assert.equal(journal.all().length, 1, "qualifying writes nothing to Canon");
+});
+
+test("RequiredEvidence: radius scopes re-qualification; alwaysReRun is the floor", () => {
+  // R1 editorial change → only the always-re-run set plus R1-invalidated obligations.
+  assert.deepEqual(requiredEvidence(NOTE_PROFILE, "R1"), ["ob/schema-valid"]);
+  // R2 reaches access-declared.
+  assert.deepEqual(requiredEvidence(NOTE_PROFILE, "R2"), ["ob/access-declared", "ob/schema-valid"]);
+  // R3 on the commitment profile reaches the R3 obligations too.
+  const r3 = requiredEvidence(COMMITMENT_PROFILE, "R3");
+  assert.ok(r3.includes("ob/entitlement-declared") && r3.includes("ob/recipient-contract"));
+  // A new claim pulls its obligation in regardless of radius.
+  assert.ok(requiredEvidence(ARTICLE_PROFILE, "R1", ["claim/references-sound"]).includes("ob/links-resolve"));
+  // The radius term is real: R1 !== R2 for the note profile.
+  assert.notDeepEqual(requiredEvidence(NOTE_PROFILE, "R1"), requiredEvidence(NOTE_PROFILE, "R2"));
+});
+
+test("profiles declare their end — no gate creep", () => {
+  assert.ok(NOTE_PROFILE.declaredEnd.length > 0);
+  assert.equal(NOTE_PROFILE.obligations.length, 2, "a note is gated as a note");
+  assert.ok(ARTICLE_PROFILE.obligations.length > NOTE_PROFILE.obligations.length);
+  assert.ok(COMMITMENT_PROFILE.obligations.length > ARTICLE_PROFILE.obligations.length);
+  assert.equal(Object.keys(PROFILES).length, 3);
+});
+
+test("promotion refuses a non-qualified candidate with executable recovery", () => {
+  const { journal, registry, rev } = setup();
+  const blocked = qualify(rev, NOTE_PROFILE, [ev("ob/schema-valid", rev)], "checker", ctx.occurredAt);
+  const r = registry.execute(journal, promoteReq({
+    subjectId: "note-1", candidateRevision: rev, attestation: blocked, profile: NOTE_PROFILE,
+    verificationPerformed: "reauthenticate", promotionAuthority: "project.owner",
+  }), ctx);
+  assert.equal(r.outcome, "needs_evidence");
+  assert.equal(r.recovery[0].action, "replace_evidence");
+  assert.match(r.recovery[0].data.missing, /ob\/access-declared/);
+  assert.equal(journal.current()[0].envelope.state.publicationState, "unpublished");
+});
+
+test("promotion refuses without the verification its consequence class demands", () => {
+  const { journal, registry, rev } = setup();
+  const att = qualify(rev, NOTE_PROFILE, [ev("ob/schema-valid", rev), ev("ob/access-declared", rev)], "checker", ctx.occurredAt);
+  const r = registry.execute(journal, promoteReq({
+    subjectId: "note-1", candidateRevision: rev, attestation: att, profile: NOTE_PROFILE,
+    verificationPerformed: "confirm", promotionAuthority: "project.owner",
+  }), ctx);
+  assert.equal(r.outcome, "verification_required");
+  assert.equal(r.verification, "reauthenticate");
+  assert.equal(r.recovery[0].action, "reauthenticate");
+  assert.equal(journal.all().length, 1, "refusal writes nothing");
+});
+
+test("promotion refuses when no authority is named", () => {
+  const { journal, registry, rev } = setup();
+  const att = qualify(rev, NOTE_PROFILE, [ev("ob/schema-valid", rev), ev("ob/access-declared", rev)], "checker", ctx.occurredAt);
+  const r = registry.execute(journal, promoteReq({
+    subjectId: "note-1", candidateRevision: rev, attestation: att, profile: NOTE_PROFILE,
+    verificationPerformed: "reauthenticate",
+  }), ctx);
+  assert.equal(r.outcome, "blocked");
+  assert.equal(r.recovery[0].action, "request_access");
+});
+
+test("a qualified, verified, authorised promotion moves only the publication axis", () => {
+  const { journal, registry, rev } = setup();
+  const att = qualify(rev, NOTE_PROFILE, [ev("ob/schema-valid", rev), ev("ob/access-declared", rev)], "checker", ctx.occurredAt);
+  const before = journal.get(rev)!.envelope.state;
+  const r = registry.execute(journal, promoteReq({
+    subjectId: "note-1", candidateRevision: rev, attestation: att, profile: NOTE_PROFILE,
+    verificationPerformed: "reauthenticate", promotionAuthority: "project.owner",
+  }), ctx);
+
+  assert.equal(r.outcome, "completed");
+  assert.equal(r.receipt!.changes.length, 1);
+  assert.deepEqual(r.receipt!.changes[0], {
+    path: "/state/publicationState", before: "unpublished", after: "promoted",
+  });
+  assert.equal(r.receipt!.reversibility, "compensatable");
+  assert.equal(r.receipt!.compensationInteraction, "icp:interaction/content.unpublish");
+
+  const after = journal.current()[0].envelope.state;
+  assert.equal(after.publicationState, "promoted");
+  assert.equal(after.semanticMaturity, before.semanticMaturity, "other axes untouched");
+  assert.equal(after.evidenceState, before.evidenceState);
+  assert.equal(after.deliveryState, before.deliveryState);
+  assert.equal(journal.verifyChain().valid, true);
+});
+
+test("an attestation for a different revision cannot promote this one", () => {
+  const { journal, registry, rev } = setup();
+  const att = qualify(rev, NOTE_PROFILE, [ev("ob/schema-valid", rev), ev("ob/access-declared", rev)], "checker", ctx.occurredAt);
+  const r = registry.execute(journal, promoteReq({
+    subjectId: "note-1", candidateRevision: "sha256:other", attestation: att, profile: NOTE_PROFILE,
+    verificationPerformed: "reauthenticate", promotionAuthority: "project.owner",
+  }), ctx);
+  assert.equal(r.outcome, "conflict");
 });
 
 
@@ -8785,6 +9394,7 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-009 | S3 cross-expression qualification | E1 | Done — S3 established for the narrow path; awaiting owner verification | records/evidence.jsonl · scms-evidence-009 |
 | SCMS-011 | Canon: envelope, canonical identity, append-only journal (E1 narrow slice) | E1 | Done — Canon→surface spine closed; awaiting owner verification | records/evidence.jsonl · scms-evidence-011 |
 | SCMS-012 | Contracts: content.revise@1, the governed write path (E2 narrow slice) | E1 | Done — §14 step 2 closed; awaiting owner verification | records/evidence.jsonl · scms-evidence-012 |
+| SCMS-013 | Qualification and promotion as separate gates (E3 narrow slice) | E1 | Done — §14 steps 4–5 closed; awaiting owner verification | records/evidence.jsonl · scms-evidence-013 |
 | SCMS-010 | S4 cross-domain portability: a materially unrelated project (outside this repository, per owner doctrine 2026-08-28) consumes @semantic-systems/surface unmodified | external | Backlog — executes outside scms; scms records the conformance result | — |
 
 ## Epic register
@@ -8794,7 +9404,7 @@ epic as the owner assigns the corresponding piece of work.
 | E0 | Operating substrate (bootstrap, pins, compiled context) | DESIGN.md §13 | Done via SCMS-001, pending verification |
 | E1 | Canon — envelope schema, identity classes, append-only store, receipts ledger | DESIGN.md §3 | In progress — narrow slice landed (SCMS-011); durable store open (SH-1) |
 | E2 | Contracts — write plane: contract registry, instance lifecycle, receipts, recovery | DESIGN.md §5 | In progress — one contract landed (SCMS-012); multi-contract + verification levels open |
-| E3 | Qualification — evidence records, consequence profiles, incremental re-qualification, promotion | DESIGN.md §6 | Backlog |
+| E3 | Qualification — evidence records, consequence profiles, incremental re-qualification, promotion | DESIGN.md §6 | In progress — note profile end-to-end (SCMS-013); evidence collection + evaluator independence open |
 | E4 | Projection — resolver, projection contracts, access projection, derivations, fingerprint invalidation | DESIGN.md §4, §7 | Backlog |
 | E5 | Field — semantic metrics, workspace morphology, editorial time | DESIGN.md §9 | Backlog |
 | E6 | Observation — presence, consistency states, provenance chips, drift, degradation | DESIGN.md §8, §10 | Backlog |
@@ -9421,4 +10031,89 @@ Claimed by agent-under-owner-direction 2026-08-28; released at closing state bel
 
 **Done — Implemented + Tested for the narrow path; §14 step 2 closed.**
 Evidence: records/evidence.jsonl · scms-evidence-012. Claim released.
+
+
+========================================================================
+FILE: work/SCMS-013.md
+========================================================================
+
+# SCMS-013 — Qualification and promotion as separate gates (E3 narrow slice)
+
+**Intent ref:** PROJECT_INTENT.md · **Epic:** E3 (board #8) · **Advances:** DESIGN.md §14 steps 4–5
+**Assigned by:** coordinator goal (increase *qualified* maturity; the publish path is the
+thesis's centre — "publishing is qualification plus promotion, never a boolean on a row").
+**Effect class:** E1 in this repository — a pure library. The **contract it models**,
+`content.promote@1`, is an E3 consequential external commitment whose verification level is
+therefore `reauthenticate`; the narrow slice proves the gate refuses without that
+verification rather than performing any external publication.
+**State:** Ready → Claimed → (closing state at bottom)
+
+## Objective
+
+Make publishing two gates that cannot collapse: **qualification** (is the required evidence
+present, valid, current, sufficient for this exact revision and claim set) and **promotion**
+(a separate authority acting on a qualified candidate). Close §14 steps 4–5 for the note
+profile.
+
+## Ready predicate
+
+- **Scope:** `impl/qualification/` —
+  1. EQP vocabularies imported as declared bindings: evidence `result`
+     (`PASS|FAIL|PARTIAL|INCONCLUSIVE|BLOCKED|NOT_RUN|NOT_APPLICABLE`), `validity`
+     (`VALID|INVALID|STALE|SUPERSEDED|OUT_OF_SCOPE|UNVERIFIABLE`), disposition
+     (`QUALIFIED|NOT_QUALIFIED|BLOCKED|SUPERSEDED`) — verified from the pinned schemas.
+  2. **Consequence profiles** (DESIGN.md §6.1) as declared data: `note`, `article`,
+     `commitment` — each naming its obligations **and its end** ("no further gates" is a
+     declared statement, not silence).
+  3. `qualify(candidate, profile, evidence)` → attestation with disposition; missing evidence
+     yields `INCONCLUSIVE` → disposition `BLOCKED`, never `PASS`/`QUALIFIED`.
+  4. Incremental re-qualification by **radius** (`R1|R2|R3|R4`) implementing the v1
+     RequiredEvidence equation: invalidated + new-claim + mandatory-profile evidence.
+  5. `content.promote@1` registered in the SCMS-012 registry: refuses a non-`QUALIFIED`
+     candidate; refuses without `reauthenticate` verification; on success emits a change
+     receipt and moves the record's **publicationState** axis only.
+- **Exclusions:** no P3 refinements (four-column verdicts, vacuous-pass gating, evaluator
+  self-test requirements, per-obligation freshness) — **pending** on PR #28; canonical v1
+  governs. No embargo scheduling, no external publication, no delivery. No evaluator
+  independence claim (single-actor evidence here is recorded as such). No DESIGN.md change.
+- **Dependencies (satisfied):** eqp pin (enums + qualification tuple + promotion boundary);
+  SCMS-011 Canon (state axes, revisions); SCMS-012 registry (the only write path); node ≥ 22.6.
+- **Acceptance:**
+  1. `QUALIFIED` requires every profile obligation satisfied by `VALID` `PASS` evidence.
+  2. A missing obligation yields `INCONCLUSIVE`/`BLOCKED` — provably not `NOT_QUALIFIED`
+     (a coverage gap is not a finding about the candidate) and provably not `QUALIFIED`.
+  3. `STALE` or `SUPERSEDED` evidence cannot qualify; an exception may not rewrite an
+     evidence result to `PASS` (EQP §14).
+  4. Qualification does not publish: a `QUALIFIED` attestation alone leaves
+     `publicationState` unchanged.
+  5. `content.promote@1` refuses a non-qualified candidate (`needs_evidence`) and refuses
+     without `reauthenticate` (`verification_required`), each with executable recovery.
+  6. Promotion by a named authority moves only `publicationState`, emits a receipt, and
+     leaves semantic/evidence/delivery axes untouched.
+  7. Radius drives incremental re-qualification: an R1 editorial change re-runs only
+     invalidated obligations; an R3 schema-class change re-runs the mandatory set.
+  8. The note profile's declared end holds: it requires no obligation the profile does not
+     name (no gate creep).
+- **Evidence requirements:** `node --test` output in scms-evidence-013; claim at the weakest
+  justified rung — **Implemented + Tested** for the note profile on the narrow path. NOT
+  established: evaluator independence, real evidence collection, embargo, external
+  publication, empirical usefulness.
+- **Permissions / effect class:** E1 in-repo; no protected action is performed — the promote
+  contract's refusal path is what is exercised, never an external effect.
+- **Target:** `impl/qualification/` (new), `.github/workflows/gates.yml`, `records/*`,
+  `work/GRAPH.md`. No other path.
+- **Budget:** one work cycle; no spend; no credentials; no external services.
+- **Stop conditions:** (a) a vector would require a pending PR-#28 proposal → stop; (b)
+  promotion would require performing an actual external publication → stop, that is a
+  protected action requiring owner promotion authority; (c) qualification would need to
+  manufacture evidence → stop (EQP forbids it).
+
+## Claim
+
+Claimed by agent-under-owner-direction 2026-08-28; released at closing state below.
+
+## Closing state
+
+**Done — Implemented + Tested for the note profile; §14 steps 4–5 closed on the narrow path.**
+Evidence: records/evidence.jsonl · scms-evidence-013. Claim released.
 

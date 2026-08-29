@@ -1,0 +1,8 @@
+{
+  "name": "@scms/qualification",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Qualification and promotion as separate gates (SCMS-013): EQP vocabularies as declared bindings, consequence profiles with declared ends, incremental re-qualification by radius, and content.promote@1 refusing non-qualified, under-verified, or unauthorised promotion. Performs no external publication. Zero runtime dependencies; requires Node >= 22.6.",
+  "scripts": { "test": "node --test test/qualification.test.ts" }
+}
