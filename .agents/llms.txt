@@ -1,6 +1,6 @@
 # Project Context Index
 > Generator: 0.5.0
-> Source digest: `72132336e9dd8293f9c44ae2209c5e253e516dbad082b51925e216f8713efd30`
+> Source digest: `3093ecf9d7952dfa29bc1d24efab6c8a26f4c87461e9a67fcaa97f8c70b9c8fb`
 
 > Generated projection. Canonical sources remain authoritative.
 
@@ -97,7 +97,7 @@
 - `impl/schema/src/schema.ts` | 6972 bytes | `e1457844a5de56f37c8606ca7b85b2baa18f70a293aa77eaf7cf06c1840f81f9`
 - `impl/schema/test/schema.test.ts` | 5775 bytes | `d37561db4e941c3ed35412826c81dac2030871b8d386f053c8ee6909f13fa22d`
 - `impl/site/package.json` | 389 bytes | `fb5868ea47a22c7d63dbae3a04f6eebf04fe3b5e13bb4130cf13177b14cac28f`
-- `impl/site/server/serve.ts` | 6474 bytes | `66b1fa9ae850dd47457c895611ee5ea8354adcc910f4fc1df81bc39c9562f1da`
+- `impl/site/server/serve.ts` | 8127 bytes | `d89788c3e6a903494dc4ca5511a08a64512d6bdeee4091cff1a81a2d11323f78`
 - `impl/site/src/express.ts` | 4479 bytes | `45ec09c07f4760f05f9791840fb12eb2f5d90ffe689b6f762f04e2a83c9bf252`
 - `impl/site/src/feeds.ts` | 2379 bytes | `6086972a391f76c1dabcb2bb79cabcb7e524471f86d0019d9fa6309105a55323`
 - `impl/site/src/page.ts` | 3292 bytes | `e81917b19a4ccb04187344303ca33282e1f7d18ff5a16fd71b8bcaee1d7e65a8`

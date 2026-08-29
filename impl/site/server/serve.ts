@@ -21,6 +21,8 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { CanonJournal } from "../../canon/src/journal.ts";
 import { freeze } from "../../canon/src/freeze.ts";
+import { narrowPathRegistry } from "../../contracts/src/runtime.ts";
+import { governedImport } from "../../migrate/src/governed.ts";
 import { migrateAll } from "../../migrate/src/zach-core.ts";
 import type { SourceEntry } from "../../migrate/src/zach-core.ts";
 import { READER_ROUTES, renderRoute, isRouteFailure, siteMap } from "../../reader/src/routes.ts";
@@ -63,8 +65,31 @@ const migrated = migrateAll(manifest.entries.map((e) => ({
   ...e, body: prose.get(String(e.frontmatter.slug ?? "")) ?? undefined,
 })));
 
+/**
+ * Content enters through `content.create@1`, not `journal.append`. The write
+ * boundary gate caught this server doing the latter, which is exactly the rule
+ * SCMS-041 established and DESIGN.md §5 states: Canon mutation belongs behind a
+ * registered contract, and "it is only a reader loading fixtures" is not an
+ * exemption — it is how the exemption starts.
+ *
+ * A consequence worth stating rather than hiding: `content.create@1` forces
+ * publication state to `unpublished`, because a caller must not be able to
+ * create already-published content (the NR-scms-006 rule — the party being
+ * gated does not supply the value that decides the gate). So the 51 entries
+ * that were promoted in the source arrive unpublished here, and the import
+ * reports it. The reader routes select on kind and listedness rather than
+ * publication, so the site still renders them; the discrepancy is real, is
+ * reported at startup, and belongs to SCMS-029's reconciliation rather than to
+ * a quiet workaround here.
+ */
 const journal = new CanonJournal();
-for (const e of [...migrated.content, ...migrated.relations]) journal.append(e, "migration");
+const registry = narrowPathRegistry();
+const imported = governedImport({
+  journal, registry,
+  envelopes: [...migrated.content, ...migrated.relations],
+  context: { occurredAt: new Date().toISOString(), authority: "owner" },
+  actor: { id: "project.owner", role: "owner" },
+});
 const snapshot = freeze(journal, "site");
 
 const byId = new Map(journal.current().map((e) => [e.envelope.subjectId, e]));
@@ -144,7 +169,11 @@ server.listen(PORT, () => {
   const pub = migrated.content.filter((e) => e.minimumAccess === "public").length;
   process.stdout.write(
     `Site on ${ORIGIN}\n`
-    + `  ${migrated.content.length} entries in Canon, ${pub} reachable at public access\n`
+    + `  ${imported.landed.length} records created through content.create@1`
+    + `${imported.refused.length ? `, ${imported.refused.length} refused` : ""}\n`
+    + `  ${pub} entries reachable at public access\n`
     + `  bodies from ${CONTENT_DIR}: ${prose.size}\n`
+    + `  ${imported.publicationNotCarried.length} entries were promoted in the source and arrive `
+    + `unpublished — creation cannot carry publication state (SCMS-029 reconciles this)\n`
     + `  public access only — no auth here, and none implied\n`);
 });
