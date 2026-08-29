@@ -54,6 +54,9 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-037 | The site renders from Canon (consolidation, no deploy) | E8 | Ready — completes E8 up to the deploy decision, which stays the owner's | — |
 | SCMS-038 | Independent adversarial verification of the load-bearing claims | E0 | Ready — nothing has ever been marked Verified; targets the new authority gate first | — |
 | SCMS-039 | Recommended dispositions for the 25 open proposals on PR #28 | E0 | Ready — recommendations only; ratification is owner authority and will NOT be exercised | — |
+| SCMS-040 | The editor in preview: a usable authoring surface over real content | E12 | Ready — owner-directed; the instrument that produces the P7 workload | — |
+| SCMS-041 | Migrate the corpus THROUGH the editor (the first real editing workload) | E8+E12 | Ready — depends on SCMS-040; generates the evidence P7's deferral asked for | — |
+| SCMS-042 | Disposition P7 from the observed workload, not from a fixture | E1 | Ready — depends on SCMS-041; recommendation to owner, grounded in what real edits did | — |
 | SCMS-018 | R1 live co-authoring — **free lane only** (convergent merge) | E1 | **Blocked** — awaiting disposition of P7/P22 on PR #28 | records/blockers · scms-blocker-001 |
 | SCMS-010 | S4 cross-domain portability: a materially unrelated project (outside this repository, per owner doctrine 2026-08-28) consumes @semantic-systems/surface unmodified | external | Backlog — executes outside scms; scms records the conformance result | — |
 

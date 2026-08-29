@@ -1,6 +1,6 @@
 # Project Context Index
 > Generator: 0.5.0
-> Source digest: `ce169fea5c49937781e04aa60358885667a65ad968907ca4e7e4e78d199d54a7`
+> Source digest: `c55171e94421d85ae8d3f09df55295924836420dd12fa7169b83ac3624f88136`
 
 > Generated projection. Canonical sources remain authoritative.
 
@@ -111,7 +111,7 @@
 - `scripts/check-records-append-only.py` | 2614 bytes | `05a1addaf9d271ca01475afef92f8b9fa9b466407bc10b2781b602674b1e541b`
 - `scripts/gen-context.py` | 7015 bytes | `4cab5cf07c5a69e7afd728844393958223495e3c01d339c0c8d6dbde8bb51322`
 - `scripts/validate-bootstrap.py` | 4120 bytes | `b3881974ac4d1259a0fa084c1aa80bfcdc1af4b3873f05c9057697e61bb1fb95`
-- `work/GRAPH.md` | 10265 bytes | `cc03af352a96da47347566e4c81ca8f10c583335222795b15e86b940ac227cf8`
+- `work/GRAPH.md` | 10793 bytes | `93f6fdab6ded9a49650712511d134a07ad78d31fcfaf9073210162c1cfc17eea`
 - `work/SCMS-001.md` | 2155 bytes | `99c5bc6ed57cfd3b84eb813d1aadee333af8e706120003d34285cc6e20beffd9`
 - `work/SCMS-002.md` | 2769 bytes | `0fdb32c56443212ade358f5e06c6b45cb9be3b6b8a8bdaa1a7eec61264406a33`
 - `work/SCMS-003.md` | 1448 bytes | `b93754ca3c9f8e039abc83cfdb59c49f86f9dadf4f64da55fc76caf82fec6943`
