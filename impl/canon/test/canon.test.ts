@@ -317,3 +317,80 @@ test("an observation's access is its own, not its subject's", () => {
     "a public reader must not see an owner-scoped note about a public article");
   assert.equal(observationsFor(snap, "art-1", "owner").length, 1);
 });
+
+// ── SCMS-056: supersession and revocation are derived (closes SH-23) ────────
+
+test("superseding rewrites no row — the successor carries the pointer", () => {
+  const j = new CanonJournal();
+  const v1 = j.append(article("art-1"), "t");
+  const before = JSON.stringify(j.all().map((e) => e.envelope));
+
+  const v2 = j.supersede(v1.envelope.revision!, article("art-1", {}, { extra: 1 }), "t");
+
+  // Every envelope that existed before is byte-identical after. Under §3.4's
+  // no-UPDATE grant this is the difference between possible and impossible.
+  const after = JSON.stringify(j.all().slice(0, 1).map((e) => e.envelope));
+  assert.equal(after, before, "the predecessor's row was rewritten");
+
+  // And supersession is still visible — read off the successor's own pointer.
+  assert.equal(j.get(v1.envelope.revision!)!.supersededBy, v2.envelope.revision);
+  assert.equal(v2.envelope.supersedes, v1.envelope.revision);
+});
+
+test("revoking rewrites no row — the receipt chain carries it", () => {
+  const j = new CanonJournal();
+  const v1 = j.append(article("art-1"), "t");
+  const before = JSON.stringify(j.all().map((e) => e.envelope));
+
+  j.revoke(v1.envelope.revision!, "t");
+
+  assert.equal(JSON.stringify(j.all().map((e) => e.envelope)), before,
+    "revocation must not rewrite the row");
+  assert.equal(j.get(v1.envelope.revision!)!.revoked, true);
+  assert.ok(j.receipts().some((r) => r.action === "revoke" && r.revision === v1.envelope.revision));
+});
+
+test("the derived indexes are only a cache — recomputation reproduces them exactly", () => {
+  // The property that keeps an index from quietly becoming the source of truth.
+  // If this ever fails, some state is being maintained that append-only data
+  // cannot reconstruct — which is precisely what would not survive a store.
+  const j = new CanonJournal();
+  const a = j.append(article("art-1"), "t");
+  const b = j.supersede(a.envelope.revision!, article("art-1", {}, { v: 2 }), "t");
+  const c = j.supersede(b.envelope.revision!, article("art-1", {}, { v: 3 }), "t");
+  j.append(article("art-2"), "t");
+  j.revoke(c.envelope.revision!, "t");
+
+  const derived = j.deriveIndexes();
+
+  // Compare against what the journal is actually using, via the public shape.
+  for (const entry of j.all()) {
+    const rev = entry.envelope.revision!;
+    assert.equal(entry.supersededBy, derived.successorOf.get(rev) ?? null,
+      `supersededBy for ${rev} disagrees with recomputation`);
+    assert.equal(entry.revoked, derived.revoked.has(rev),
+      `revoked for ${rev} disagrees with recomputation`);
+  }
+  assert.equal(derived.successorOf.size, 2, "two supersessions in the chain");
+  assert.deepEqual([...derived.revoked], [c.envelope.revision]);
+});
+
+test("current() is a query, expressible as the Postgres view it will become", () => {
+  const j = new CanonJournal();
+  const a = j.append(article("art-1"), "t");
+  const b = j.supersede(a.envelope.revision!, article("art-1", {}, { v: 2 }), "t");
+  const other = j.append(article("art-2"), "t");
+  j.revoke(other.envelope.revision!, "t");
+
+  // "A row is current when nothing supersedes it and no revoke receipt names
+  // it" — computed here from append-only data alone, with no help from the
+  // journal's own indexes.
+  const { successorOf, revoked } = j.deriveIndexes();
+  const expected = j.all()
+    .map((e) => e.envelope.revision!)
+    .filter((rev) => !successorOf.has(rev) && !revoked.has(rev))
+    .sort();
+
+  assert.deepEqual(j.current().map((e) => e.envelope.revision!).sort(), expected);
+  assert.deepEqual(expected, [b.envelope.revision!].sort());
+});

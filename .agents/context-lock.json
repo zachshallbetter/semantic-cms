@@ -9,14 +9,14 @@
     "repositories": [
       {
         "path": ".",
-        "commit": "4bd07dbc14b2fccdfb2a730f30c1a8d73ad1d9a9",
+        "commit": "cbe4c70d846db350c5c7d321d5662e54f3db33ea",
         "branch": "main",
         "dirty": true,
         "remote": "https://github.com/zachshallbetter/semantic-cms.git"
       }
     ]
   },
-  "aggregateSourceDigest": "6d9e28c73f853c39da95b4c7ee79253b8160b8899d7ffd2faa9aba8cec6e3ee8",
+  "aggregateSourceDigest": "938535e3ce4120b803378b7d37c20830cbd6f36e7036da79aeec71c79fc722dd",
   "sources": [
     {
       "path": ".agents/skills/compile-context/SKILL.md",
@@ -100,8 +100,8 @@
     },
     {
       "path": "SPEC_HEALTH.md",
-      "bytes": 22548,
-      "sha256": "9dd9b669514f08c6509ac473349243db44340f109c1676434bdd08a935f37f80"
+      "bytes": 22257,
+      "sha256": "b4e8e4a47b0e23de46fdc884d3ab9f8583d715178c03e90c1611e840aca53102"
     },
     {
       "path": "VERSION",
@@ -245,13 +245,13 @@
     },
     {
       "path": "impl/canon/src/journal.ts",
-      "bytes": 8963,
-      "sha256": "c8880d2e7c9c954d58b4789bd0efd7ce1b04798cbd7a1cee015b1edbed7facc0"
+      "bytes": 11629,
+      "sha256": "3926f6fab9070cb9dd52403b1eed25786ebf893a6979909b75387a6a0f9c4509"
     },
     {
       "path": "impl/canon/test/canon.test.ts",
-      "bytes": 16645,
-      "sha256": "82fc2494fd2f412255b162da68c70ba8cf66559c0fb2d010a934a9955be809c0"
+      "bytes": 20260,
+      "sha256": "93b9a7707b0d9e03d41e8354d5bb7051870a392e9e818e8889a43b3b213500ed"
     },
     {
       "path": "impl/contracts/package.json",
@@ -710,8 +710,8 @@
     },
     {
       "path": "work/GRAPH.md",
-      "bytes": 14010,
-      "sha256": "d2f32a6108ed746577d7144e39c37fb1a4f01f29ee7d05dc94bad45555844a08"
+      "bytes": 14966,
+      "sha256": "08db245ba2b98091ff7319ca7bf21b5bb4af220573538c0f7089d2604ad01c72"
     },
     {
       "path": "work/SCMS-001.md",
@@ -927,6 +927,11 @@
       "path": "work/SCMS-054.md",
       "bytes": 3527,
       "sha256": "b8f69fc860a2fef7cdf1f9f1a9347eb3a11daf2bc3aeb1092e5b9d753caad982"
+    },
+    {
+      "path": "work/SCMS-056.md",
+      "bytes": 2461,
+      "sha256": "a82ab9e5430465fa6465d8acd76c5c67f2743ce790f4c6e47c218109fb26925b"
     }
   ]
 }

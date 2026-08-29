@@ -69,6 +69,12 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-053 | Intra-group order as a declared non-property (closes SH-20) | E1 | Done — reported, not enforced; no conformance outcome changed | records/evidence.jsonl · scms-evidence-053 |
 | SCMS-054 | Evidence from evaluators that actually ran (NR-scms-016) | E3 | Done — fabricated PASSes replaced by real checks and blocking NOT_RUNs; articles now correctly unpublishable | records/evidence.jsonl · scms-evidence-054 |
 | SCMS-055 | Link and media evaluators (narrows SH-22) | E3 | Done — internal refs resolved, external URLs honestly INCONCLUSIVE; owner decision named | records/evidence.jsonl · scms-evidence-055 |
+| SCMS-056 | Derive supersession and revocation instead of storing them (closes SH-23) | E1 | Done — no row is rewritten; recomputation-equals-index vector | records/evidence.jsonl · scms-evidence-056 |
+| SCMS-057 | Canon in Postgres: schema, grants, and append-only by refusal | E13 | Ready — depends on SCMS-056; §13's sketch made real | — |
+| SCMS-058 | The outbox as a transactional trigger, not an in-process push | E13 | Ready — depends on SCMS-057; 'nothing happens without an emission' enforced by the store | — |
+| SCMS-059 | Authentication (closes SH-2) | E13 | Ready — the largest gap; semantic-cms currently has none | — |
+| SCMS-060 | Content-addressed blobs for prose and media (closes SH-4) | E13 | Ready — depends on SCMS-057; bodySha256 already exists in the model | — |
+| SCMS-061 | Cut over: deploy and decommission zach-core | E13 | **Blocked — protected action.** Owner authorization required at the time | — |
 | SCMS-044 | Route the editor through the surface pipeline it currently bypasses | E12 | Done — SH-16 closed; two duplicate access checks removed; awaiting owner verification | records/evidence.jsonl · scms-evidence-044 |
 | SCMS-018 | R1 live co-authoring — **free lane only** (convergent merge) | E1 | **Blocked** — awaiting disposition of P7/P22 on PR #28 | records/blockers · scms-blocker-001 |
 | SCMS-010 | S4 cross-domain portability: a materially unrelated project (outside this repository, per owner doctrine 2026-08-28) consumes @semantic-systems/surface unmodified | external | Backlog — executes outside scms; scms records the conformance result | — |
