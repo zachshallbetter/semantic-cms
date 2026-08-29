@@ -12,6 +12,7 @@ import { NOTE_PROFILE, ARTICLE_PROFILE, COMMITMENT_PROFILE, PROFILES } from "../
 import type { EvidenceRecord } from "../src/eqp.ts";
 import { qualify, requiredEvidence, applyException } from "../src/qualify.ts";
 import { CONTENT_PROMOTE, promoteHandler } from "../src/promote.ts";
+import { RECORD_EVIDENCE, recordEvidenceHandler, ATTEST, attestHandler, attestationFor, evidenceFor } from "../src/canon-evidence.ts";
 
 const STATE: RecordState = {
   semanticMaturity: "complete", evidenceState: "unqualified",
@@ -40,12 +41,52 @@ function setup() {
   const registry = new ContractRegistry();
   registry.register(CONTENT_REVISE, reviseHandler);
   registry.register(CONTENT_PROMOTE, promoteHandler);
+  registry.register(RECORD_EVIDENCE, recordEvidenceHandler);
+  registry.register(ATTEST, attestHandler);
   return { journal, registry, rev: seed.envelope.revision! };
 }
 
 // Authority is the CALLER's, proven by whatever authenticated the request —
 // never read from input (NR-scms-005).
 const ctx = { occurredAt: "2026-08-28T12:00:00Z", instanceId: "int_p1", authority: "owner" as const };
+
+/**
+ * Land evidence and attest through contracts — the only way an attestation can
+ * exist now that promotion reads it from Canon rather than accepting it from
+ * input (SCMS-036). Every promotion vector below runs through this, so each one
+ * exercises the real qualification path instead of a handed-in verdict.
+ *
+ * The pure `qualify()` unit tests above deliberately keep calling the function
+ * directly: they are testing the evaluator, not the write path.
+ */
+/**
+ * Evidence and attestations now share the journal with content, so positional
+ * lookups like `current()[0]` no longer mean "the note". Ask for the subject.
+ */
+const noteIn = (journal: CanonJournal) =>
+  journal.current().find((e) => e.envelope.subjectId === "note-1")!;
+const noteHistory = (journal: CanonJournal) =>
+  journal.all().filter((e) => e.envelope.subjectId === "note-1");
+
+let attestSeq = 0;
+function attestVia(
+  journal: CanonJournal, registry: ContractRegistry,
+  candidateRevision: string, profileId: "note" | "article" | "commitment",
+  evidence: EvidenceRecord[],
+) {
+  for (const e of evidence) {
+    registry.execute(journal, {
+      contract: "icp:interaction/qualification.record-evidence@1.0.0",
+      requestId: `ev-${attestSeq}`, actor: { id: "checker", role: "evaluator" },
+      input: { evidence: e, observedAt: ctx.occurredAt, expiresAt: "2027-01-01T00:00:00Z" },
+    } as never, { ...ctx, instanceId: `int_ev_${attestSeq++}` });
+  }
+  return registry.execute(journal, {
+    contract: "icp:interaction/qualification.attest@1.0.0",
+    requestId: `att-${attestSeq}`, actor: { id: "checker", role: "evaluator" },
+    input: { candidateRevision, profileId, qualificationAuthority: "checker" },
+  } as never, { ...ctx, instanceId: `int_att_${attestSeq++}` });
+}
 const promoteReq = (input: Record<string, unknown>) => ({
   contract: "icp:interaction/content.promote@1.0.0", requestId: "req_p1",
   actor: { id: "usr_1", role: "editor" }, input,
@@ -101,7 +142,7 @@ test("evidence from another revision does not qualify this candidate", () => {
 test("qualification does not publish: publicationState is untouched", () => {
   const { journal, rev } = setup();
   qualify(rev, NOTE_PROFILE, [ev("ob/schema-valid", rev), ev("ob/access-declared", rev)], "checker", ctx.occurredAt);
-  assert.equal(journal.current()[0].envelope.state.publicationState, "unpublished");
+  assert.equal(noteIn(journal).envelope.state.publicationState, "unpublished");
   assert.equal(journal.all().length, 1, "qualifying writes nothing to Canon");
 });
 
@@ -129,35 +170,35 @@ test("profiles declare their end — no gate creep", () => {
 
 test("promotion refuses a non-qualified candidate with executable recovery", () => {
   const { journal, registry, rev } = setup();
-  const blocked = qualify(rev, NOTE_PROFILE, [ev("ob/schema-valid", rev)], "checker", ctx.occurredAt);
+  attestVia(journal, registry, rev, "note", [ev("ob/schema-valid", rev)]);
   const r = registry.execute(journal, promoteReq({
-    subjectId: "note-1", candidateRevision: rev, attestation: blocked, profile: NOTE_PROFILE,
+    subjectId: "note-1", candidateRevision: rev, profile: NOTE_PROFILE,
     verificationPerformed: "reauthenticate", promotionAuthority: "project.owner",
   }), ctx);
   assert.equal(r.outcome, "needs_evidence");
   assert.equal(r.recovery[0].action, "replace_evidence");
   assert.match(r.recovery[0].data.missing, /ob\/access-declared/);
-  assert.equal(journal.current()[0].envelope.state.publicationState, "unpublished");
+  assert.equal(noteIn(journal).envelope.state.publicationState, "unpublished");
 });
 
 test("promotion refuses without the verification its consequence class demands", () => {
   const { journal, registry, rev } = setup();
-  const att = qualify(rev, NOTE_PROFILE, [ev("ob/schema-valid", rev), ev("ob/access-declared", rev)], "checker", ctx.occurredAt);
+  attestVia(journal, registry, rev, "note", [ev("ob/schema-valid", rev), ev("ob/access-declared", rev)]);
   const r = registry.execute(journal, promoteReq({
-    subjectId: "note-1", candidateRevision: rev, attestation: att, profile: NOTE_PROFILE,
+    subjectId: "note-1", candidateRevision: rev, profile: NOTE_PROFILE,
     verificationPerformed: "confirm", promotionAuthority: "project.owner",
   }), ctx);
   assert.equal(r.outcome, "verification_required");
   assert.equal(r.verification, "reauthenticate");
   assert.equal(r.recovery[0].action, "reauthenticate");
-  assert.equal(journal.all().length, 1, "refusal writes nothing");
+  assert.equal(noteHistory(journal).length, 1, "refusal writes nothing to the record");
 });
 
 test("promotion refuses when no authority is named", () => {
   const { journal, registry, rev } = setup();
-  const att = qualify(rev, NOTE_PROFILE, [ev("ob/schema-valid", rev), ev("ob/access-declared", rev)], "checker", ctx.occurredAt);
+  attestVia(journal, registry, rev, "note", [ev("ob/schema-valid", rev), ev("ob/access-declared", rev)]);
   const r = registry.execute(journal, promoteReq({
-    subjectId: "note-1", candidateRevision: rev, attestation: att, profile: NOTE_PROFILE,
+    subjectId: "note-1", candidateRevision: rev, profile: NOTE_PROFILE,
     verificationPerformed: "reauthenticate",
   }), ctx);
   assert.equal(r.outcome, "blocked");
@@ -166,10 +207,10 @@ test("promotion refuses when no authority is named", () => {
 
 test("a qualified, verified, authorised promotion moves only the publication axis", () => {
   const { journal, registry, rev } = setup();
-  const att = qualify(rev, NOTE_PROFILE, [ev("ob/schema-valid", rev), ev("ob/access-declared", rev)], "checker", ctx.occurredAt);
+  attestVia(journal, registry, rev, "note", [ev("ob/schema-valid", rev), ev("ob/access-declared", rev)]);
   const before = journal.get(rev)!.envelope.state;
   const r = registry.execute(journal, promoteReq({
-    subjectId: "note-1", candidateRevision: rev, attestation: att, profile: NOTE_PROFILE,
+    subjectId: "note-1", candidateRevision: rev, profile: NOTE_PROFILE,
     verificationPerformed: "reauthenticate", promotionAuthority: "project.owner",
   }), ctx);
 
@@ -181,7 +222,7 @@ test("a qualified, verified, authorised promotion moves only the publication axi
   assert.equal(r.receipt!.reversibility, "compensatable");
   assert.equal(r.receipt!.compensationInteraction, "icp:interaction/content.unpublish");
 
-  const after = journal.current()[0].envelope.state;
+  const after = noteIn(journal).envelope.state;
   assert.equal(after.publicationState, "promoted");
   assert.equal(after.semanticMaturity, before.semanticMaturity, "other axes untouched");
   assert.equal(after.evidenceState, before.evidenceState);
@@ -189,14 +230,22 @@ test("a qualified, verified, authorised promotion moves only the publication axi
   assert.equal(journal.verifyChain().valid, true);
 });
 
-test("an attestation for a different revision cannot promote this one", () => {
+test("an attestation for one revision cannot be borrowed by another", () => {
   const { journal, registry, rev } = setup();
-  const att = qualify(rev, NOTE_PROFILE, [ev("ob/schema-valid", rev), ev("ob/access-declared", rev)], "checker", ctx.occurredAt);
+  attestVia(journal, registry, rev, "note", [ev("ob/schema-valid", rev), ev("ob/access-declared", rev)]);
   const r = registry.execute(journal, promoteReq({
-    subjectId: "note-1", candidateRevision: "sha256:other", attestation: att, profile: NOTE_PROFILE,
+    subjectId: "note-1", candidateRevision: "sha256:other", profile: NOTE_PROFILE,
     verificationPerformed: "reauthenticate", promotionAuthority: "project.owner",
   }), ctx);
-  assert.equal(r.outcome, "conflict");
+  // Stronger than before. The attestation used to arrive in the request, so a
+  // mismatched one had to be *detected* and the outcome was `conflict`. It is
+  // now looked up in Canon BY the requested revision, so a borrowed attestation
+  // cannot be presented at all — the request simply has none, and promotion
+  // refuses for want of evidence. The mismatch became unrepresentable rather
+  // than merely caught.
+  assert.equal(r.outcome, "blocked");
+  assert.match(r.detail ?? "", /requires a QUALIFIED attestation; got none/);
+  assert.equal(noteIn(journal).envelope.state.publicationState, "unpublished");
 });
 
 // ---------------------------------------------------------------------------
@@ -207,9 +256,9 @@ import { CONTENT_UNPUBLISH, unpublishHandler } from "../src/unpublish.ts";
 function promoted() {
   const { journal, registry, rev } = setup();
   registry.register(CONTENT_UNPUBLISH, unpublishHandler);
-  const att = qualify(rev, NOTE_PROFILE, [ev("ob/schema-valid", rev), ev("ob/access-declared", rev)], "checker", ctx.occurredAt);
+  attestVia(journal, registry, rev, "note", [ev("ob/schema-valid", rev), ev("ob/access-declared", rev)]);
   const r = registry.execute(journal, promoteReq({
-    subjectId: "note-1", candidateRevision: rev, attestation: att, profile: NOTE_PROFILE,
+    subjectId: "note-1", candidateRevision: rev, profile: NOTE_PROFILE,
     verificationPerformed: "reauthenticate", promotionAuthority: "project.owner",
   }), ctx);
   return { journal, registry, promotedRevision: r.receipt!.afterVersion, promoteReceipt: r.receipt! };
@@ -241,7 +290,7 @@ test("unpublish compensates forward: a new revision, nothing erased", () => {
   assert.equal(journal.all().length, before + 1, "compensation appends");
   assert.equal(journal.get(promotedRevision)!.envelope.state.publicationState, "promoted",
     "the promoted revision is retained as history, unedited");
-  assert.equal(journal.current()[0].envelope.state.publicationState, "unpublished");
+  assert.equal(noteIn(journal).envelope.state.publicationState, "unpublished");
   assert.equal(journal.verifyChain().valid, true);
 });
 
@@ -279,19 +328,18 @@ test("round trip: promote → unpublish → promote, with all three landings in 
   }), { ...ctx, instanceId: "int_u6" });
   const backToDraft = un.receipt!.afterVersion;
 
-  const att2 = qualify(backToDraft, NOTE_PROFILE,
-    [ev("ob/schema-valid", backToDraft), ev("ob/access-declared", backToDraft)], "checker", ctx.occurredAt);
+  attestVia(journal, registry, backToDraft, "note", [ev("ob/schema-valid", backToDraft), ev("ob/access-declared", backToDraft)]);
   const re = registry.execute(journal, promoteReq({
-    subjectId: "note-1", candidateRevision: backToDraft, attestation: att2, profile: NOTE_PROFILE,
+    subjectId: "note-1", candidateRevision: backToDraft, profile: NOTE_PROFILE,
     verificationPerformed: "reauthenticate", promotionAuthority: "project.owner",
   }), { ...ctx, instanceId: "int_u7" });
 
   assert.equal(re.outcome, "completed");
-  assert.equal(journal.current()[0].envelope.state.publicationState, "promoted");
+  assert.equal(noteIn(journal).envelope.state.publicationState, "promoted");
   // Four landings: seed, promote, unpublish, re-promote. Nothing erased.
-  assert.equal(journal.all().length, 4);
+  assert.equal(noteHistory(journal).length, 4);
   assert.equal(journal.verifyChain().valid, true);
-  const publicationHistory = journal.all().map((e) => e.envelope.state.publicationState);
+  const publicationHistory = noteHistory(journal).map((e) => e.envelope.state.publicationState);
   assert.deepEqual(publicationHistory, ["unpublished", "promoted", "unpublished", "promoted"]);
 });
 
@@ -302,9 +350,9 @@ test("a forged consequence profile cannot weaken its own gate", () => {
   // that is byte-identical except for the one field that decides how hard the
   // gate is. Legitimate owner authority — no prototype trick, no stolen access.
   const { journal, registry, rev: seed } = setup();
+  attestVia(journal, registry, seed, "note", [ev("ob/schema-valid", seed), ev("ob/access-declared", seed)]);
   const res = registry.execute(journal, promoteReq({
       subjectId: "note-1", candidateRevision: seed,
-      attestation: { disposition: "QUALIFIED", candidateRevision: seed, outcomes: [] },
       profile: { ...COMMITMENT_PROFILE, promotionVerification: "none" },
       verificationPerformed: "none", promotionAuthority: "self",
   }), { ...ctx, instanceId: "int-forge" });
@@ -313,18 +361,106 @@ test("a forged consequence profile cannot weaken its own gate", () => {
     "the forged 'none' must not decide the gate");
   assert.equal(res.verification, "prove",
     "the canonical profile decides, and it says prove");
-  assert.equal(journal.current()[0].envelope.state.publicationState, "unpublished");
+  assert.equal(noteIn(journal).envelope.state.publicationState, "unpublished");
 });
 
 test("an unknown profile id is refused at the strongest level, not the weakest", () => {
   const { journal, registry, rev: seed } = setup();
+  attestVia(journal, registry, seed, "note", [ev("ob/schema-valid", seed), ev("ob/access-declared", seed)]);
   const res = registry.execute(journal, promoteReq({
       subjectId: "note-1", candidateRevision: seed,
-      attestation: { disposition: "QUALIFIED", candidateRevision: seed, outcomes: [] },
       profile: { id: "made-up", promotionVerification: "none" },
       verificationPerformed: "none", promotionAuthority: "self",
   }), { ...ctx, instanceId: "int-unknown" });
   assert.equal(res.outcome, "invalid_input");
   assert.equal(res.verification, "prove", "an unrecognised profile refuses at prove, never at none");
-  assert.equal(journal.current()[0].envelope.state.publicationState, "unpublished");
+  assert.equal(noteIn(journal).envelope.state.publicationState, "unpublished");
+});
+
+// ── Gate inputs come from Canon, never from the caller (SCMS-036) ──────────
+
+test("a caller cannot hand in a QUALIFIED disposition — there is nowhere to put one", () => {
+  const { journal, registry, rev } = setup();
+  // No evidence, no attestation. The request carries a forged attestation in
+  // every field a caller might hope is read.
+  const r = registry.execute(journal, promoteReq({
+    subjectId: "note-1", candidateRevision: rev, profile: NOTE_PROFILE,
+    verificationPerformed: "reauthenticate", promotionAuthority: "project.owner",
+    attestation: { disposition: "QUALIFIED", candidateRevision: rev, outcomes: [], limitations: [] },
+  } as never), ctx);
+
+  assert.equal(r.outcome, "blocked");
+  assert.match(r.detail ?? "", /got none/, "the input attestation was not read at all");
+  assert.equal(noteIn(journal).envelope.state.publicationState, "unpublished");
+});
+
+test("a caller cannot hand in the evidence that decides its own attestation", () => {
+  const { journal, registry, rev } = setup();
+  // Attest with no evidence in Canon, while offering evidence in the request.
+  const r = registry.execute(journal, {
+    contract: "icp:interaction/qualification.attest@1.0.0",
+    requestId: "att-forge", actor: { id: "checker", role: "evaluator" },
+    input: {
+      candidateRevision: rev, profileId: "note", qualificationAuthority: "checker",
+      evidence: [ev("ob/schema-valid", rev), ev("ob/access-declared", rev)],
+    },
+  } as never, { ...ctx, instanceId: "int-att-forge" });
+
+  assert.equal(r.outcome, "completed");
+  assert.match(r.detail ?? "", /BLOCKED/,
+    "with no evidence in Canon the disposition is a coverage gap, whatever the request offered");
+  assert.equal(attestationFor(journal, rev)!.disposition, "BLOCKED");
+  // Moving attestations into Canon without moving evidence would only have
+  // relocated the hole: a caller who cannot forge a disposition would forge the
+  // evidence it is computed from.
+});
+
+test("evidence must say when it was observed and when it stops counting", () => {
+  const { journal, registry, rev } = setup();
+  const r = registry.execute(journal, {
+    contract: "icp:interaction/qualification.record-evidence@1.0.0",
+    requestId: "ev-nobounds", actor: { id: "checker", role: "evaluator" },
+    input: { evidence: ev("ob/schema-valid", rev) },
+  } as never, { ...ctx, instanceId: "int-ev-nobounds" });
+
+  assert.equal(r.outcome, "invalid_input");
+  assert.deepEqual(r.recovery.map((x) => x.data.field).sort(), ["expiresAt", "observedAt"]);
+  assert.equal(evidenceFor(journal, rev).length, 0);
+  // Evidence is genuinely observed, and rr-rsp says observed records carry time
+  // bounds. Recording it without an expiry would mean classifying it as
+  // something it is not in order to avoid saying how long it is good for.
+});
+
+test("attesting requires owner authority, like every other write", () => {
+  const { journal, registry, rev } = setup();
+  const r = registry.execute(journal, {
+    contract: "icp:interaction/qualification.attest@1.0.0",
+    requestId: "att-anon", actor: { id: "anon", role: "anonymous" },
+    input: { candidateRevision: rev, profileId: "note", qualificationAuthority: "anon" },
+  } as never, { ...ctx, instanceId: "int-att-anon", authority: "public" });
+  assert.equal(r.outcome, "blocked");
+  assert.equal(attestationFor(journal, rev), undefined);
+});
+
+test("re-attesting supersedes the prior verdict rather than adding a second one", () => {
+  const { journal, registry, rev } = setup();
+  // First pass: one obligation covered, one not — a coverage gap.
+  attestVia(journal, registry, rev, "note", [ev("ob/schema-valid", rev)]);
+  assert.equal(attestationFor(journal, rev)!.disposition, "BLOCKED");
+
+  // The gap is closed and the candidate re-evaluated.
+  attestVia(journal, registry, rev, "note", [ev("ob/schema-valid", rev), ev("ob/access-declared", rev)]);
+  assert.equal(attestationFor(journal, rev)!.disposition, "QUALIFIED");
+
+  const currentAttestations = journal.current().filter(
+    (e) => e.envelope.subjectId === `attestation:${rev}`);
+  assert.equal(currentAttestations.length, 1, "exactly one current verdict");
+  const allAttestations = journal.all().filter(
+    (e) => e.envelope.subjectId === `attestation:${rev}`);
+  assert.equal(allAttestations.length, 2, "and both are kept in history");
+  assert.equal(journal.verifyChain().valid, true);
+
+  // Appending a second current record under the same subject would leave the
+  // gate reading whichever came first — the withdrawn one. A re-evaluation
+  // nobody can read is worse than none at all.
 });

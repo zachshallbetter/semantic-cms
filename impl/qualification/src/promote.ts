@@ -18,6 +18,7 @@ import type { ChangeReceipt, InstanceState } from "../../contracts/src/icp.ts";
 import type { Attestation } from "./qualify.ts";
 import type { ConsequenceProfile } from "./eqp.ts";
 import { PROFILES } from "./eqp.ts";
+import { attestationFor } from "./canon-evidence.ts";
 
 export const CONTENT_PROMOTE: ContractDefinition = {
   id: "icp:interaction/content.promote",
@@ -32,8 +33,8 @@ export const CONTENT_PROMOTE: ContractDefinition = {
 export interface PromoteInput {
   subjectId: string;
   candidateRevision: string;
-  attestation: Attestation;
-  profile: ConsequenceProfile;
+  /** Only the profile ID; the profile itself is canonical (NR-scms-006). */
+  profile: { id: ConsequenceProfile["id"] };
   /** Verification actually performed by the caller, if any. */
   verificationPerformed?: "none" | "acknowledge" | "confirm" | "reauthenticate" | "prove";
   /** The named authority acting. Promotion is never anonymous. */
@@ -70,7 +71,14 @@ export function promoteHandler(
   // GATE 1 — qualification. A candidate that is not QUALIFIED cannot promote,
   // and BLOCKED (coverage gap) is reported as needing evidence, not as a
   // finding against the candidate.
-  const att = input?.attestation;
+  //
+  // The attestation is read FROM CANON, never from input. Accepting it from the
+  // caller was the last reachable form of the defect recorded three times over:
+  // the party being gated supplying the value that decides the gate
+  // (NR-scms-005, NR-scms-006, SCMS-036). An attestation exists only if
+  // `qualification.attest@1` computed it from evidence that was itself landed
+  // through a contract.
+  const att = attestationFor(journal, input?.candidateRevision);
   if (!att || att.disposition !== "QUALIFIED") {
     const blocked = att?.disposition === "BLOCKED";
     return {
@@ -88,6 +96,8 @@ export function promoteHandler(
       detail: `promotion requires a QUALIFIED attestation; got ${att?.disposition ?? "none"}`,
     };
   }
+  /* istanbul ignore next — retained as a belt-and-braces check: the lookup is
+     keyed by revision, so a mismatch would mean Canon itself disagreed. */
   if (att.candidateRevision !== input.candidateRevision) {
     return {
       instanceId: ctx.instanceId, outcome: "conflict", states: [...states, "conflicted"], verification: required,

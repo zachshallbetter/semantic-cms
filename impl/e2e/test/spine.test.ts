@@ -21,6 +21,7 @@ import { NOTE_PROFILE } from "../../qualification/src/eqp.ts";
 import type { EvidenceRecord } from "../../qualification/src/eqp.ts";
 import { qualify } from "../../qualification/src/qualify.ts";
 import { CONTENT_PROMOTE, promoteHandler } from "../../qualification/src/promote.ts";
+import { RECORD_EVIDENCE, recordEvidenceHandler, ATTEST, attestHandler, attestationFor } from "../../qualification/src/canon-evidence.ts";
 import { resolveSurface } from "../../surface-resolver/src/resolver.ts";
 import { isFailure } from "../../surface-resolver/src/types.ts";
 import type { ResolvedSurface, SurfaceRequest } from "../../surface-resolver/src/types.ts";
@@ -34,6 +35,35 @@ const STATE: RecordState = {
   publicationState: "unpublished", deliveryState: "unpropagated",
 };
 const CTX = { occurredAt: "2026-08-28T12:00:00Z", instanceId: "int_e2e", authority: "owner" as const };
+
+/**
+ * Attestations live in Canon now (SCMS-036), so the spine earns one the same
+ * way anything else does: land evidence, then attest. The composed run is more
+ * honest for it — it exercises the real qualification path rather than handing
+ * the promotion gate a verdict.
+ */
+let e2eAttestSeq = 0;
+function attestVia(
+  journal: CanonJournal, registry: ContractRegistry,
+  candidateRevision: string, obligations: string[],
+) {
+  for (const ob of obligations) {
+    registry.execute(journal, {
+      contract: "icp:interaction/qualification.record-evidence@1.0.0",
+      requestId: `ev-${e2eAttestSeq}`, actor: { id: "checker", role: "evaluator" },
+      input: {
+        evidence: { id: `e-${e2eAttestSeq}`, obligation: ob, result: "PASS", validity: "VALID",
+                    candidateRevision, actor: "checker", independentEvaluator: true },
+        observedAt: CTX.occurredAt, expiresAt: "2027-01-01T00:00:00Z",
+      },
+    } as never, { ...CTX, instanceId: `int_ev_${e2eAttestSeq++}` });
+  }
+  return registry.execute(journal, {
+    contract: "icp:interaction/qualification.attest@1.0.0",
+    requestId: `att-${e2eAttestSeq}`, actor: { id: "checker", role: "evaluator" },
+    input: { candidateRevision, profileId: "note", qualificationAuthority: "checker" },
+  } as never, { ...CTX, instanceId: `int_att_${e2eAttestSeq++}` });
+}
 const ACTOR = { id: "editor-1", role: "editor" };
 
 function envelope(id: string, access: Envelope["minimumAccess"], body: Record<string, unknown>): Envelope {
@@ -74,6 +104,8 @@ function runSpine() {
   const registry = new ContractRegistry();
   registry.register(CONTENT_REVISE, reviseHandler);
   registry.register(CONTENT_PROMOTE, promoteHandler);
+  registry.register(RECORD_EVIDENCE, recordEvidenceHandler);
+  registry.register(ATTEST, attestHandler);
   // SCMS-022: the declared Article type is load-bearing here — the governed
   // write consults it, so a violation cannot land in the composed path either.
   const articleValidator = (body: Record<string, unknown>) =>
@@ -127,22 +159,24 @@ test("seam 4-5: qualification gates promotion, and promotion moves only the publ
   });
 
   // A missing obligation blocks promotion — a coverage gap, not a finding.
-  const blocked = qualify(revised, NOTE_PROFILE, [ev("ob/schema-valid")], "checker", CTX.occurredAt);
-  assert.equal(blocked.disposition, "BLOCKED");
+  // One obligation covered, one not: a coverage gap, so BLOCKED — and the
+  // attestation that lands in Canon says so.
+  attestVia(journal, registry, revised, ["ob/schema-valid"]);
+  assert.equal(attestationFor(journal, revised)!.disposition, "BLOCKED");
   const refused = registry.execute(journal, {
     contract: "icp:interaction/content.promote@1.0.0", requestId: "req_2", actor: ACTOR,
-    input: { subjectId: "art-1", candidateRevision: revised, attestation: blocked, profile: NOTE_PROFILE,
+    input: { subjectId: "art-1", candidateRevision: revised, profile: NOTE_PROFILE,
       verificationPerformed: "reauthenticate", promotionAuthority: "project.owner" },
   }, CTX);
   assert.equal(refused.outcome, "needs_evidence");
   assert.equal(journal.current().find((e) => e.envelope.subjectId === "art-1")!.envelope.state.publicationState, "unpublished");
 
   // Complete evidence qualifies; promotion then moves exactly one axis.
-  const att = qualify(revised, NOTE_PROFILE, [ev("ob/schema-valid"), ev("ob/access-declared")], "checker", CTX.occurredAt);
-  assert.equal(att.disposition, "QUALIFIED");
+  attestVia(journal, registry, revised, ["ob/schema-valid", "ob/access-declared"]);
+  assert.equal(attestationFor(journal, revised)!.disposition, "QUALIFIED");
   const promoted = registry.execute(journal, {
     contract: "icp:interaction/content.promote@1.0.0", requestId: "req_3", actor: ACTOR,
-    input: { subjectId: "art-1", candidateRevision: revised, attestation: att, profile: NOTE_PROFILE,
+    input: { subjectId: "art-1", candidateRevision: revised, profile: NOTE_PROFILE,
       verificationPerformed: "reauthenticate", promotionAuthority: "project.owner" },
   }, CTX);
   assert.equal(promoted.outcome, "completed");
@@ -237,10 +271,10 @@ test("composite invariant: no hidden subject appears anywhere in the whole run",
     id: `ev_${o}`, obligation: o, result: "PASS", validity: "VALID",
     candidateRevision: revised, actor: "checker", independentEvaluator: true,
   });
-  const att = qualify(revised, NOTE_PROFILE, [ev("ob/schema-valid"), ev("ob/access-declared")], "checker", CTX.occurredAt);
+  attestVia(journal, registry, revised, ["ob/schema-valid", "ob/access-declared"]);
   const promoted = registry.execute(journal, {
     contract: "icp:interaction/content.promote@1.0.0", requestId: "req_4", actor: ACTOR,
-    input: { subjectId: "art-1", candidateRevision: revised, attestation: att, profile: NOTE_PROFILE,
+    input: { subjectId: "art-1", candidateRevision: revised, profile: NOTE_PROFILE,
       verificationPerformed: "reauthenticate", promotionAuthority: "project.owner" },
   }, CTX);
 
@@ -260,7 +294,7 @@ test("composite invariant: no hidden subject appears anywhere in the whole run",
   // Everything a member-access viewer could ever see, in one string.
   const everythingVisible = JSON.stringify({
     surface: entry.surface, cacheEntry: { fp: entry.fingerprint, deps: entry.dependencies },
-    expressions: [a, b], attestation: att, promotionReceipt: promoted.receipt,
+    expressions: [a, b], promotionReceipt: promoted.receipt,
     consistency: state, chip: chip(state.state, { nowMs: 1, lastCheckedMs: 0, snapshotLabel: "Aug 28" }),
   });
   assert.ok(!everythingVisible.includes("sec-1"), "no hidden subject leaked into any stage");
@@ -329,10 +363,10 @@ test("seam 12: promote → unpublish → re-promote composes with the chain inta
     id: `ev_${o}`, obligation: o, result: "PASS", validity: "VALID",
     candidateRevision: revised, actor: "checker", independentEvaluator: true,
   });
-  const att = qualify(revised, NOTE_PROFILE, [ev("ob/schema-valid"), ev("ob/access-declared")], "checker", CTX.occurredAt);
+  attestVia(journal, registry, revised, ["ob/schema-valid", "ob/access-declared"]);
   const promoted = registry.execute(journal, {
     contract: "icp:interaction/content.promote@1.0.0", requestId: "req_p", actor: ACTOR,
-    input: { subjectId: "art-1", candidateRevision: revised, attestation: att, profile: NOTE_PROFILE,
+    input: { subjectId: "art-1", candidateRevision: revised, profile: NOTE_PROFILE,
       verificationPerformed: "reauthenticate", promotionAuthority: "project.owner" },
   }, CTX);
   assert.equal(promoted.outcome, "completed");
@@ -378,10 +412,10 @@ test("composite invariant, extended: no hidden subject in any artefact of the fu
     id: `ev_${o}`, obligation: o, result: "PASS", validity: "VALID",
     candidateRevision: revised, actor: "checker", independentEvaluator: true,
   });
-  const att = qualify(revised, NOTE_PROFILE, [ev("ob/schema-valid"), ev("ob/access-declared")], "checker", CTX.occurredAt);
+  attestVia(journal, registry, revised, ["ob/schema-valid", "ob/access-declared"]);
   const promoted = registry.execute(journal, {
     contract: "icp:interaction/content.promote@1.0.0", requestId: "req_x", actor: ACTOR,
-    input: { subjectId: "art-1", candidateRevision: revised, attestation: att, profile: NOTE_PROFILE,
+    input: { subjectId: "art-1", candidateRevision: revised, profile: NOTE_PROFILE,
       verificationPerformed: "reauthenticate", promotionAuthority: "project.owner" },
   }, CTX);
   const un = registry.execute(journal, {
@@ -401,7 +435,7 @@ test("composite invariant, extended: no hidden subject in any artefact of the fu
 
   const everythingVisible = JSON.stringify({
     surface: entry.surface, expressions: [expressStructural(entry.surface), expressLinear(entry.surface)],
-    attestation: att, promoteReceipt: promoted.receipt, compensationReceipt: un.receipt,
+    promoteReceipt: promoted.receipt, compensationReceipt: un.receipt,
     merge: merged, fanOutVisible: fanOut(subs, ["art-2"]), fanOutHidden: fanOut(subs, ["sec-1"]),
     consistency: consistencyState({
       subjectId: "art-1", atRevision: revised, hasLocalEdits: false,
