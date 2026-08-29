@@ -9,14 +9,14 @@
     "repositories": [
       {
         "path": ".",
-        "commit": "ab5d4ccbc6b8cfad7fe63bbe3353fad71b78de67",
+        "commit": "cf969f121ba32a5ef096098945f3c7e4800bf251",
         "branch": "main",
-        "dirty": true,
+        "dirty": false,
         "remote": "https://github.com/zachshallbetter/semantic-cms.git"
       }
     ]
   },
-  "aggregateSourceDigest": "e627622032bef3c79caee8a20ac181a506d4f998cd0014d6cf5ac83a09aa23c6",
+  "aggregateSourceDigest": "99c7e3dc46346c9ec0258d6af9071323ced02fbcb7c199538c0ca18c44683450",
   "sources": [
     {
       "path": ".agents/skills/compile-context/SKILL.md",
@@ -55,8 +55,8 @@
     },
     {
       "path": ".github/workflows/gates.yml",
-      "bytes": 3445,
-      "sha256": "6ffe42e18cae271c12dbc6c89427550ea20656653ec6032cba5c6ce72f7ffcaa"
+      "bytes": 3604,
+      "sha256": "01991409d14b0e3aa4b0c96be9b7a9413233197ea16a4e9f3b9be4e367737df1"
     },
     {
       "path": "AGENTS.md",
@@ -100,8 +100,8 @@
     },
     {
       "path": "SPEC_HEALTH.md",
-      "bytes": 9098,
-      "sha256": "ea172dc74352a7bc60509b62d90a6254629b098fbb996ee12de7aedabaf0208a"
+      "bytes": 10059,
+      "sha256": "a9a69c4231b38fc3a2e6bd2f1e5d905294b63faf0b36ad67e24cd91cd2782696"
     },
     {
       "path": "VERSION",
@@ -209,6 +209,11 @@
       "sha256": "427012a108e0b551cf656690da51c74675d0aa99cb138b8d4cf61bfa32691a22"
     },
     {
+      "path": "fixtures/zach-core-manifest.json",
+      "bytes": 169185,
+      "sha256": "d9d1effba80c14a8cdbb7a5de78b17cdfc2df497cb068114413c91a11e7a8c08"
+    },
+    {
       "path": "impl/canon/package.json",
       "bytes": 499,
       "sha256": "30ef327c197026651ecb22ee3d9017bb861f4bd3410b783fb521daf5b86446a9"
@@ -277,6 +282,21 @@
       "path": "impl/merge/test/bounded.test.ts",
       "bytes": 5932,
       "sha256": "bf7e7e68098207ecaf3194cfb8bf7d3dab0250436c565329bf7e2efc19042bf1"
+    },
+    {
+      "path": "impl/migrate/package.json",
+      "bytes": 427,
+      "sha256": "6d4efb7acde386ab4a36f84d048c3e363eb75096a48ec14ce7d6a6a634989558"
+    },
+    {
+      "path": "impl/migrate/src/zach-core.ts",
+      "bytes": 8474,
+      "sha256": "a1d56f937ee0b1ec87007bf6db7d1c5c40474b7f291d5dd1e3d31f07f0f5093d"
+    },
+    {
+      "path": "impl/migrate/test/migration.test.ts",
+      "bytes": 9568,
+      "sha256": "eafb39799abe3165eaef31518f8c0ef2959712febc600df049ff149dec224e6a"
     },
     {
       "path": "impl/notify/package.json",
@@ -505,8 +525,8 @@
     },
     {
       "path": "work/GRAPH.md",
-      "bytes": 8171,
-      "sha256": "65c2f03ad2e60f822c463a081542c034b3f8e200127db856116f71a4ec9c4cda"
+      "bytes": 8620,
+      "sha256": "108ce73d589cbe9e105f794c00b43ed44606ee0066beda5427604a1c80297335"
     },
     {
       "path": "work/SCMS-001.md",
@@ -632,6 +652,11 @@
       "path": "work/SCMS-027.md",
       "bytes": 2436,
       "sha256": "5f76b88af0e3522db6dfc60ec37fb471ed6126a8da55a776d08f093e5c5a4edb"
+    },
+    {
+      "path": "work/SCMS-028.md",
+      "bytes": 5052,
+      "sha256": "1d878d3305857a79b7fac7e3eb25f4892bf25c2e0b11aad32be05481d0ee9920"
     }
   ]
 }
