@@ -1,0 +1,219 @@
+/**
+ * The editor, running (SCMS-043, epic E12).
+ *
+ * The published preview was a static render — useful for judging the design,
+ * useless for the thing the owner actually asked for. P7 is to be settled by
+ * *real edits*, and a page that cannot save produces none. This serves the same
+ * view-model over a live Canon journal and lands every edit through
+ * `content.revise@1`, so using the editor is indistinguishable from any other
+ * governed write.
+ *
+ * Three deliberate choices:
+ *
+ * 1. **Content is read from the owner's checkout at runtime, never vendored.**
+ *    The repository holds a manifest of frontmatter and body digests; the prose
+ *    lives where the owner keeps it. `--content` points at it.
+ *
+ * 2. **Persistence is a local append-only journal file, and is not the
+ *    durability decision.** SH-1 leaves the persistence engine open, and this
+ *    does not close it — it is development-grade custody so a night's editing
+ *    is not lost to a restart. It writes outside the repository by default.
+ *
+ * 3. **Every edit records a P7 observation.** The instrument built in SCMS-042
+ *    only pays off if it is wired to the thing producing the workload.
+ */
+import { createServer } from "node:http";
+import { readFileSync, writeFileSync, appendFileSync, existsSync, mkdirSync, readdirSync } from "node:fs";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+import { CanonJournal } from "../../canon/src/journal.ts";
+import { narrowPathRegistry, CONTENT_REVISE, reviseHandler, CONTENT_CREATE, createHandler, ContractRegistry } from "../../contracts/src/runtime.ts";
+import { CONTENT_PROMOTE, promoteHandler } from "../../qualification/src/promote.ts";
+import { CONTENT_UNPUBLISH, unpublishHandler } from "../../qualification/src/unpublish.ts";
+import { RECORD_EVIDENCE, recordEvidenceHandler, ATTEST, attestHandler, attestationFor } from "../../qualification/src/canon-evidence.ts";
+import { migrateAll } from "../../migrate/src/zach-core.ts";
+import type { SourceEntry } from "../../migrate/src/zach-core.ts";
+import { governedImport } from "../../migrate/src/governed.ts";
+import { editorView, editorIndex } from "../src/viewmodel.ts";
+import { landEdit, summarizeP7 } from "../src/session.ts";
+import type { P7Observation } from "../src/session.ts";
+import { deriveOffer } from "../../authoring/src/editor.ts";
+
+const HERE = dirname(fileURLToPath(import.meta.url));
+const arg = (name: string, fallback: string): string => {
+  const i = process.argv.indexOf(`--${name}`);
+  return i >= 0 && process.argv[i + 1] ? process.argv[i + 1] : fallback;
+};
+const CONTENT_DIR = arg("content", join(process.env.HOME ?? "", "Projects/zach-core/content"));
+const DATA_DIR = arg("data", join(process.env.HOME ?? "", ".scms-data"));
+const PORT = Number(arg("port", "8788"));
+
+const OWNER = { id: "project.owner", role: "owner" };
+const authority = "owner" as const;
+const now = () => new Date().toISOString();
+
+// ── Load bodies from the owner's checkout ──────────────────────────────────
+function bodiesBySlug(): Map<string, string> {
+  const out = new Map<string, string>();
+  if (!existsSync(CONTENT_DIR)) return out;
+  for (const kind of readdirSync(CONTENT_DIR)) {
+    const dir = join(CONTENT_DIR, kind);
+    let files: string[] = [];
+    try { files = readdirSync(dir).filter((f) => f.endsWith(".md")); } catch { continue; }
+    for (const f of files) {
+      const raw = readFileSync(join(dir, f), "utf8");
+      const m = /^---\r?\n[\s\S]*?\r?\n---\r?\n?/.exec(raw);
+      out.set(f.replace(/\.md$/, ""), m ? raw.slice(m[0].length) : raw);
+    }
+  }
+  return out;
+}
+
+// ── Canon ──────────────────────────────────────────────────────────────────
+const manifest = JSON.parse(readFileSync(
+  join(HERE, "../../../fixtures/zach-core-manifest.json"), "utf8")) as { entries: SourceEntry[] };
+const bodies = bodiesBySlug();
+const migrated = migrateAll(manifest.entries.map((e) => ({
+  ...e, body: bodies.get(String(e.frontmatter.slug ?? "")) ?? undefined,
+})));
+
+const journal = new CanonJournal();
+/**
+ * Everything this system has actually implemented. The editor derives what it
+ * offers from this registry (SCMS-031), so registering less would understate
+ * the system rather than protect it — and an editor that hides a capability it
+ * has is as dishonest as one that offers a capability it lacks.
+ */
+const registry = new ContractRegistry();
+registry.register(CONTENT_CREATE, createHandler);
+registry.register(CONTENT_REVISE, reviseHandler);
+registry.register(CONTENT_PROMOTE, promoteHandler as never);
+registry.register(CONTENT_UNPUBLISH, unpublishHandler as never);
+registry.register(RECORD_EVIDENCE, recordEvidenceHandler as never);
+registry.register(ATTEST, attestHandler as never);
+const offer = deriveOffer(registry);
+
+mkdirSync(DATA_DIR, { recursive: true });
+const EDITS_LOG = join(DATA_DIR, "edits.jsonl");
+const P7_LOG = join(DATA_DIR, "p7-observations.jsonl");
+
+const imported = governedImport({
+  journal, registry, envelopes: migrated.content,
+  context: { occurredAt: now(), authority }, actor: OWNER,
+});
+
+/** Replay any edits from previous sessions, through the same contract path. */
+let replayed = 0;
+if (existsSync(EDITS_LOG)) {
+  for (const line of readFileSync(EDITS_LOG, "utf8").split("\n").filter(Boolean)) {
+    const e = JSON.parse(line) as { subjectId: string; changes: Record<string, unknown> };
+    const current = journal.current().find((x) => x.envelope.subjectId === e.subjectId);
+    if (!current) continue;
+    const r = landEdit({
+      journal, registry, subjectId: e.subjectId, session: "replay",
+      baselineRevision: current.envelope.revision!, changes: e.changes,
+      context: { occurredAt: now(), authority }, actor: OWNER,
+    });
+    if (r.outcome === "completed") replayed++;
+  }
+}
+
+const observations: P7Observation[] = existsSync(P7_LOG)
+  ? readFileSync(P7_LOG, "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l) as P7Observation)
+  : [];
+
+const findingsFor = (slug: string) =>
+  migrated.findings.filter((f) => f.entry.replace(/^.*\//, "").replace(/\.md$/, "") === slug);
+
+const freshness = () => ({ nowMs: Date.now(), lastCheckedMs: Date.now(), snapshotLabel: "live" });
+
+function viewFor(subject: string) {
+  const entry = journal.current().find((e) => e.envelope.subjectId === subject);
+  if (!entry) return null;
+  return editorView({
+    journal, subject, access: "owner", offer,
+    baseline: {
+      subjectId: subject, atRevision: entry.envelope.revision!, hasLocalEdits: false,
+      observedCanonEntries: journal.all().length, baselineEstablished: true,
+    },
+    freshness: freshness(), findings: findingsFor(subject),
+    // Read from Canon, like the promotion gate does. Nothing is qualified until
+    // evidence is recorded and an attestation lands (SCMS-036).
+    qualified: attestationFor(journal, entry.envelope.revision!)?.disposition === "QUALIFIED",
+  } as never);
+}
+
+// ── HTTP ───────────────────────────────────────────────────────────────────
+const json = (res: import("node:http").ServerResponse, code: number, body: unknown) => {
+  const payload = JSON.stringify(body);
+  res.writeHead(code, { "content-type": "application/json; charset=utf-8" });
+  res.end(payload);
+};
+
+const server = createServer((req, res) => {
+  const url = new URL(req.url ?? "/", `http://localhost:${PORT}`);
+
+  if (req.method === "GET" && (url.pathname === "/" || url.pathname === "/index.html")) {
+    res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+    res.end(readFileSync(join(HERE, "editor.html"), "utf8"));
+    return;
+  }
+  if (req.method === "GET" && url.pathname === "/api/index") {
+    return json(res, 200, {
+      rows: editorIndex(journal, "owner", migrated.findings),
+      p7: summarizeP7(observations),
+      imported: imported.landed.length, replayed,
+      contentLoaded: bodies.size,
+    });
+  }
+  if (req.method === "GET" && url.pathname.startsWith("/api/entry/")) {
+    const v = viewFor(decodeURIComponent(url.pathname.slice("/api/entry/".length)));
+    return v ? json(res, 200, v) : json(res, 404, { error: "not found" });
+  }
+  if (req.method === "POST" && url.pathname.startsWith("/api/entry/")) {
+    const subject = decodeURIComponent(url.pathname.slice("/api/entry/".length));
+    let raw = "";
+    req.on("data", (c) => { raw += c; });
+    req.on("end", () => {
+      let changes: Record<string, unknown>;
+      try { changes = JSON.parse(raw).changes as Record<string, unknown>; }
+      catch { return json(res, 400, { error: "bad body" }); }
+
+      const current = journal.current().find((e) => e.envelope.subjectId === subject);
+      if (!current) return json(res, 404, { error: "not found" });
+
+      const result = landEdit({
+        journal, registry, subjectId: subject, session: "editor",
+        baselineRevision: current.envelope.revision!, changes,
+        context: { occurredAt: now(), authority }, actor: OWNER,
+      });
+
+      observations.push(result.observation);
+      appendFileSync(P7_LOG, JSON.stringify(result.observation) + "\n");
+      if (result.outcome === "completed") {
+        appendFileSync(EDITS_LOG, JSON.stringify({ subjectId: subject, changes }) + "\n");
+      }
+      return json(res, 200, {
+        outcome: result.outcome,
+        view: viewFor(subject),
+        observation: result.observation,
+        p7: summarizeP7(observations),
+        events: journal.events().length,
+      });
+    });
+    return;
+  }
+  if (req.method === "GET" && url.pathname === "/api/p7") {
+    return json(res, 200, { summary: summarizeP7(observations), observations });
+  }
+  json(res, 404, { error: "no route" });
+});
+
+server.listen(PORT, () => {
+  process.stdout.write(
+    `Canon Editor on http://localhost:${PORT}\n`
+    + `  imported ${imported.landed.length} entries through content.create@1\n`
+    + `  bodies loaded from ${CONTENT_DIR}: ${bodies.size}\n`
+    + `  replayed ${replayed} prior edits\n`
+    + `  data in ${DATA_DIR}\n`);
+});

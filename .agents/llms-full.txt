@@ -1,6 +1,6 @@
 # PROJECT COMPILED CONTEXT
 Generator: 0.5.0
-Source digest: 8039b9edbd51a62009d3adaed840b16b65f4f3f48d8f4d47385b9ea4e111f6c1
+Source digest: 1628fad818753534d1755931ae37436f244e43e146976ea48cad172a02ac5aef
 
 > Generated projection. Canonical sources remain authoritative.
 
@@ -106,6 +106,23 @@ description: Use before recommending Done/Verified, promotion, release, or a con
 5. Distinguish executed, skipped, contradicted and human-required evidence.
 6. Do not edit the candidate during the verification pass.
 7. Return supported maturity, limitations and missing evidence.
+
+
+========================================================================
+FILE: .claude/launch.json
+========================================================================
+
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "canon-editor",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["impl/editor/server/serve.ts"],
+      "port": 8788
+    }
+  ]
+}
 
 
 ========================================================================
@@ -1493,6 +1510,7 @@ above its rung.
 | Content can only come into existence through a contract | **Implemented + Tested** | SCMS-041: `content.create@1` exists, the whole corpus enters through it with zero direct appends, the import is idempotent, and a created record cannot arrive published or qualified however the input is shaped | The same under concurrency, and a persistence engine (SH-1) |
 | Editing content does not destroy it | **Implemented + Tested** | SCMS-042 / NR-scms-008: a slot-level edit preserves its siblings, removal is explicit rather than by omission, and the receipt names the exact field that moved. Before this, editing an article's body silently deleted its title and summary while reporting success | Vectors for every write path against realistically-nested bodies, not flat fixtures |
 | No gate reads its deciding input from the caller | **Implemented + Tested** | SCMS-036: evidence and attestations are Canon records; a forged disposition is not read, forged evidence is not consulted, and a borrowed attestation is not expressible | Evaluator independence (SH-13), which is policy rather than repair |
+| A person can actually edit through the system | **Implemented + verified by interaction** | SCMS-043: the editor runs, imports through `content.create@1`, saves through `content.revise@1`, and records a P7 observation per edit. Verified by making an edit in a browser, not by vectors — a lower rung than the rest of this register | Vectors over the server, and the owner's own editing session |
 | The published artifacts match their canonical sources | **Tested** | scripts/check-projection-sync.py in CI, with a self-test | — |
 | The system is empirically useful | **NOT established** — but no longer untested against reality | SCMS-028: a real 215-entry corpus maps into Canon and resolves, and the mapping found a genuine modelling collapse in the owner's live data (dual-vocabulary `status`, 22 findings). That establishes the *mapping*, not usefulness: nothing is deployed, no human has used the result, rcp-001 remains an active obligation | A person doing real work through it — which needs the authoring surface (E12/SH-8) and a deployment |
 
@@ -10737,6 +10755,616 @@ FILE: impl/editor/package.json
   "description": "The editor's view-model (SCMS-040, epic E12): what an author sees, as testable data — publish weighted differently from save, withheld operations carrying their reason, the chip reused rather than reimplemented, and migration findings surfaced where a person can resolve them.",
   "scripts": { "test": "node --test test/editor.test.ts" }
 }
+
+
+========================================================================
+FILE: impl/editor/server/editor.html
+========================================================================
+
+<title>Canon Editor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500&family=Public+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --ground:#F4F6F8; --surface:#FFFFFF; --sunken:#EDF0F4;
+  --ink:#16191F; --muted:#5C6470; --faint:#828B98;
+  --rule:#DCE1E8; --rule-strong:#C3CBD6;
+  --accent:#3B4E9B; --accent-soft:#E6E9F5;
+  --open:#9A6314; --open-soft:#F7EEDC;
+  --settled:#2C6E52; --settled-soft:#E2F0E9;
+  --grave:#9C3A3F; --grave-soft:#F6E5E6;
+  --shadow:0 1px 2px rgba(22,25,31,.05),0 4px 16px rgba(22,25,31,.05);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --ground:#10131A; --surface:#171B24; --sunken:#12161E;
+  --ink:#E6E9EF; --muted:#96A0B0; --faint:#6C7686;
+  --rule:#262C38; --rule-strong:#39414F;
+  --accent:#93A2E4; --accent-soft:#1D2438;
+  --open:#D9A441; --open-soft:#2E2617;
+  --settled:#5FBF95; --settled-soft:#132720;
+  --grave:#E08287; --grave-soft:#2C1A1C;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 4px 16px rgba(0,0,0,.3);
+}}
+:root[data-theme="dark"]{
+  --ground:#10131A; --surface:#171B24; --sunken:#12161E;
+  --ink:#E6E9EF; --muted:#96A0B0; --faint:#6C7686;
+  --rule:#262C38; --rule-strong:#39414F;
+  --accent:#93A2E4; --accent-soft:#1D2438;
+  --open:#D9A441; --open-soft:#2E2617;
+  --settled:#5FBF95; --settled-soft:#132720;
+  --grave:#E08287; --grave-soft:#2C1A1C;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 4px 16px rgba(0,0,0,.3);
+}
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--ground); color:var(--ink);
+  font-family:"Public Sans",ui-sans-serif,system-ui,sans-serif;
+  font-size:15px; line-height:1.5; -webkit-font-smoothing:antialiased;
+}
+.mono{font-family:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace}
+
+/* ── frame ───────────────────────────────────────────── */
+header.bar{
+  display:flex; align-items:baseline; gap:14px; flex-wrap:wrap;
+  padding:14px 22px; border-bottom:1px solid var(--rule); background:var(--surface);
+}
+header.bar h1{
+  margin:0; font-family:"Newsreader",Georgia,serif; font-weight:500;
+  font-size:20px; letter-spacing:-.01em;
+}
+header.bar .sub{color:var(--muted); font-size:13px}
+header.bar .spacer{flex:1}
+.notice{
+  font-size:12px; color:var(--muted); border:1px solid var(--rule);
+  border-radius:999px; padding:3px 11px; background:var(--sunken);
+}
+
+.workspace{
+  display:grid; grid-template-columns:290px minmax(0,1fr) 320px;
+  gap:0; min-height:calc(100vh - 58px); align-items:start;
+}
+@media (max-width:1080px){ .workspace{grid-template-columns:1fr} }
+
+/* ── index ───────────────────────────────────────────── */
+.index{border-right:1px solid var(--rule); background:var(--surface); position:sticky; top:0; max-height:100vh; display:flex; flex-direction:column}
+@media (max-width:1080px){ .index{position:static; max-height:none; border-right:none; border-bottom:1px solid var(--rule)} }
+.index .tools{padding:12px 14px; border-bottom:1px solid var(--rule); display:flex; flex-direction:column; gap:9px}
+.index input[type=search]{
+  width:100%; padding:7px 10px; border:1px solid var(--rule-strong); border-radius:7px;
+  background:var(--ground); color:var(--ink); font:inherit; font-size:13px;
+}
+.index input[type=search]:focus-visible{outline:2px solid var(--accent); outline-offset:1px}
+.filters{display:flex; gap:5px; flex-wrap:wrap}
+.filters button{
+  font:inherit; font-size:12px; padding:3px 9px; border-radius:999px; cursor:pointer;
+  border:1px solid var(--rule-strong); background:var(--surface); color:var(--muted);
+}
+.filters button[aria-pressed="true"]{background:var(--accent); border-color:var(--accent); color:#fff}
+.filters button:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+.rows{overflow-y:auto; flex:1}
+.row{
+  display:block; width:100%; text-align:left; font:inherit; cursor:pointer;
+  padding:9px 14px; border:0; border-bottom:1px solid var(--rule);
+  border-left:3px solid transparent; background:transparent; color:inherit;
+}
+.row:hover{background:var(--sunken)}
+.row[aria-current="true"]{background:var(--accent-soft); border-left-color:var(--accent)}
+.row:focus-visible{outline:2px solid var(--accent); outline-offset:-2px}
+.row .t{display:block; font-weight:500; font-size:13.5px; line-height:1.35}
+.row .m{display:flex; gap:7px; align-items:center; margin-top:3px; font-size:11px; color:var(--faint)}
+.dot{width:6px; height:6px; border-radius:50%; flex:none}
+.dot.promoted{background:var(--settled)} .dot.unpublished{background:var(--rule-strong)}
+.flag{
+  font-size:10.5px; padding:1px 6px; border-radius:4px;
+  background:var(--open-soft); color:var(--open); font-weight:600;
+}
+
+/* ── entry ───────────────────────────────────────────── */
+.entry{padding:26px 34px 60px; min-width:0}
+@media (max-width:640px){ .entry{padding:20px 18px 40px} }
+.kindline{
+  font-size:11px; letter-spacing:.09em; text-transform:uppercase;
+  color:var(--faint); margin-bottom:7px;
+}
+.entry h2{
+  font-family:"Newsreader",Georgia,serif; font-weight:400; font-size:31px;
+  line-height:1.2; margin:0 0 4px; text-wrap:balance; letter-spacing:-.012em;
+}
+.slug{font-size:12px; color:var(--faint); margin-bottom:22px}
+.field{margin-bottom:20px; max-width:66ch}
+.field label{
+  display:block; font-size:11px; letter-spacing:.09em; text-transform:uppercase;
+  color:var(--muted); margin-bottom:5px; font-weight:600;
+}
+.field .box{
+  width:100%; padding:10px 12px; border:1px solid var(--rule-strong); border-radius:8px;
+  background:var(--surface); color:var(--ink); font:inherit; line-height:1.55;
+  min-height:42px; white-space:pre-wrap;
+}
+.field .box:focus-visible{outline:2px solid var(--accent); outline-offset:1px; border-color:var(--accent)}
+.field .box[aria-readonly="true"]{background:var(--sunken); color:var(--muted)}
+.field .box.body{min-height:150px; font-family:"Newsreader",Georgia,serif; font-size:16.5px}
+.hint{font-size:12px; color:var(--faint); margin-top:5px}
+
+.finding{
+  border:1px solid var(--open); border-left-width:3px; border-radius:8px;
+  background:var(--open-soft); padding:12px 14px; margin-bottom:20px; max-width:72ch;
+}
+.finding h3{
+  margin:0 0 5px; font-size:12px; letter-spacing:.07em; text-transform:uppercase;
+  color:var(--open); font-weight:600;
+}
+.finding p{margin:0; font-size:13.5px; color:var(--ink)}
+.finding .code{font-size:11px; color:var(--open)}
+
+/* ── governance rail ─────────────────────────────────── */
+.rail{
+  border-left:1px solid var(--rule); background:var(--surface);
+  padding:22px 20px 50px; position:sticky; top:0; max-height:100vh; overflow-y:auto;
+}
+@media (max-width:1080px){ .rail{position:static; max-height:none; border-left:none; border-top:1px solid var(--rule)} }
+.rail section{margin-bottom:26px}
+.rail h3{
+  margin:0 0 10px; font-size:11px; letter-spacing:.09em; text-transform:uppercase;
+  color:var(--muted); font-weight:600;
+}
+.chip{
+  display:inline-block; padding:6px 11px; border-radius:7px; font-size:12.5px;
+  border:1px solid var(--rule-strong); background:var(--sunken); color:var(--ink);
+}
+.chip.live{border-color:var(--settled); background:var(--settled-soft); color:var(--settled)}
+.chip.local{border-color:var(--open); background:var(--open-soft); color:var(--open)}
+.axes{display:grid; grid-template-columns:1fr; gap:6px}
+.axis{
+  display:flex; justify-content:space-between; align-items:baseline; gap:10px;
+  padding:6px 10px; border:1px solid var(--rule); border-radius:6px; background:var(--sunken);
+}
+.axis .n{font-size:11px; color:var(--faint); letter-spacing:.05em; text-transform:uppercase}
+.axis .v{font-size:12px; font-weight:500}
+.axis .v.promoted{color:var(--settled)}
+.axis .v.unqualified{color:var(--open)}
+
+.op{
+  display:block; width:100%; text-align:left; font:inherit; margin-bottom:9px;
+  padding:10px 12px; border-radius:8px; border:1px solid var(--rule-strong);
+  background:var(--surface); color:var(--ink); cursor:pointer;
+}
+.op:hover:not(:disabled){border-color:var(--accent); background:var(--accent-soft)}
+.op:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+.op:disabled{cursor:not-allowed; opacity:1; background:var(--sunken); color:var(--muted)}
+.op.consequential{border-left:3px solid var(--grave)}
+.op.consequential:hover:not(:disabled){border-color:var(--grave); background:var(--grave-soft)}
+.op .top{display:flex; justify-content:space-between; align-items:baseline; gap:8px}
+.op .lbl{font-weight:600; font-size:13.5px}
+.op .ec{font-size:10.5px; color:var(--faint); letter-spacing:.05em}
+.op.consequential .ec{color:var(--grave)}
+.op .why{display:block; font-size:11.5px; color:var(--muted); margin-top:4px; line-height:1.4}
+.op .comp{display:block; font-size:11px; color:var(--faint); margin-top:4px}
+.unavail{
+  font-size:12px; color:var(--muted); padding:8px 10px; border:1px dashed var(--rule-strong);
+  border-radius:7px; margin-bottom:8px;
+}
+.unavail b{color:var(--ink); font-weight:600}
+footer.note{
+  padding:16px 22px 28px; border-top:1px solid var(--rule); color:var(--muted);
+  font-size:12.5px; background:var(--surface);
+}
+footer.note strong{color:var(--ink)}
+@media (prefers-reduced-motion:reduce){*{animation:none!important; transition:none!important}}
+</style>
+
+<header class="bar">
+  <h1>Canon Editor</h1>
+  <span class="sub">zachshallbetter.com &middot; <span id="count"></span> entries &middot; <span id="stats"></span></span>
+  <span class="spacer"></span>
+  <span class="notice" id="p7"></span>
+</header>
+
+<div class="workspace">
+  <nav class="index" aria-label="Corpus">
+    <div class="tools">
+      <input type="search" id="q" placeholder="Search titles" aria-label="Search titles">
+      <div class="filters" id="filters">
+        <button data-f="all" aria-pressed="true">All</button>
+        <button data-f="attention" aria-pressed="false">Needs a decision</button>
+        <button data-f="promoted" aria-pressed="false">Published</button>
+      </div>
+    </div>
+    <div class="rows" id="rows"></div>
+  </nav>
+
+  <main class="entry" id="entry"></main>
+
+  <aside class="rail" id="rail" aria-label="Governance"></aside>
+</div>
+
+<footer class="note">
+  <strong>This one saves.</strong> Every save crosses <span class="mono">content.revise@1</span> like any
+  other governed write &mdash; it appends a revision, emits to the outbox, and records a P7 observation.
+  Nothing is overwritten. Edit the same entry from two browser tabs to see a conflict surface instead of
+  a silent winner.
+</footer>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+
+let INDEX = [], current = null, view = null, dirty = {}, filter = "all", query = "", lastOutcome = null;
+
+async function loadIndex() {
+  const r = await fetch("/api/index").then((x) => x.json());
+  INDEX = r.rows;
+  $("count").textContent = r.rows.length;
+  $("stats").textContent = `${r.contentLoaded} bodies loaded, ${r.replayed} edits replayed`;
+  renderP7(r.p7);
+  if (!current && INDEX.length) await open(INDEX[0].subject);
+  renderIndex();
+}
+
+function renderP7(p7) {
+  $("p7").textContent =
+    `P7: ${p7.overlappingFreeLaneEdits} overlapping prose edits of ${p7.totalEdits} \u2014 `
+    + (p7.sufficient ? "enough to read" : "not yet enough to decide from");
+}
+
+async function open(subject) {
+  current = subject; dirty = {}; lastOutcome = null;
+  view = await fetch(`/api/entry/${encodeURIComponent(subject)}`).then((x) => x.json());
+  renderIndex(); renderEntry(); renderRail();
+}
+
+function visible() {
+  return INDEX.filter((r) => {
+    if (filter === "attention" && r.openFindings === 0) return false;
+    if (filter === "promoted" && r.publicationState !== "promoted") return false;
+    if (query && !r.title.toLowerCase().includes(query)) return false;
+    return true;
+  });
+}
+
+function renderIndex() {
+  $("rows").innerHTML = visible().map((r) => `
+    <button class="row" data-s="${esc(r.subject)}" aria-current="${r.subject === current}">
+      <span class="t">${esc(r.title)}</span>
+      <span class="m">
+        <span class="dot ${r.publicationState}"></span><span>${esc(r.kind)}</span>
+        <span>&middot;</span><span>${r.publicationState === "promoted" ? "published" : "draft"}</span>
+        ${r.openFindings ? `<span class="flag">${r.openFindings} to decide</span>` : ""}
+        ${r.listed ? "" : `<span class="flag">unlisted</span>`}
+      </span>
+    </button>`).join("") || `<p style="padding:16px;color:var(--muted);font-size:13px">Nothing matches.</p>`;
+  $("rows").querySelectorAll(".row").forEach((b) => { b.onclick = () => open(b.dataset.s); });
+}
+
+function renderEntry() {
+  if (!view) { $("entry").innerHTML = ""; return; }
+  const slot = (name, cls) => {
+    const s = view.slots.find((x) => x.name === name);
+    if (!s) return "";
+    const val = name in dirty ? dirty[name] : (s.value === null ? "" : s.value);
+    return `<div class="field">
+      <label for="f-${name}">${name}</label>
+      <div class="box ${cls || ""}" id="f-${name}" data-slot="${name}"
+           ${s.editable ? 'contenteditable="plaintext-only" role="textbox"' : 'aria-readonly="true"'}
+      >${esc(val)}</div>
+      ${name === "body" && !val ? `<p class="hint">No prose loaded for this entry &mdash; start the server with <span class="mono">--content</span> pointing at your checkout.</p>` : ""}
+    </div>`;
+  };
+  $("entry").innerHTML = `
+    <p class="kindline">${esc(view.contentKind)}</p>
+    <h2>${esc(view.title)}</h2>
+    <p class="slug mono">${esc(view.subject)}</p>
+    ${view.findings.map((f) => `<div class="finding">
+      <h3>A decision the import refused to make for you</h3>
+      <p>${esc(f.detail)}</p><p class="code mono">${esc(f.code)}</p></div>`).join("")}
+    ${slot("title")}${slot("summary")}${slot("body","body")}`;
+
+  $("entry").querySelectorAll("[contenteditable]").forEach((b) => {
+    b.addEventListener("input", () => { dirty[b.dataset.slot] = b.textContent; renderRail(); });
+  });
+}
+
+async function save() {
+  const changes = { slots: {} };
+  for (const [name, value] of Object.entries(dirty)) {
+    const kind = name === "body" ? "prose" : "text";
+    changes.slots[name] = [{ kind, value }];
+  }
+  if (!Object.keys(changes.slots).length) return;
+  const r = await fetch(`/api/entry/${encodeURIComponent(current)}`, {
+    method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ changes }),
+  }).then((x) => x.json());
+
+  lastOutcome = r;
+  if (r.outcome === "completed") { dirty = {}; view = r.view; }
+  renderP7(r.p7); renderEntry(); renderRail();
+}
+
+function renderRail() {
+  if (!view) { $("rail").innerHTML = ""; return; }
+  const isDirty = Object.keys(dirty).length > 0;
+  const chipText = isDirty ? "local &middot; unsent" : view.chip;
+  const chipCls = isDirty ? "local" : (view.chip.startsWith("live") ? "live" : "");
+  const axis = (n, v) => `<div class="axis"><span class="n">${n}</span><span class="v ${esc(v)}">${esc(v)}</span></div>`;
+
+  const outcomeNote = lastOutcome
+    ? (lastOutcome.outcome === "completed"
+        ? `<p class="hint">Saved. Revision appended, outbox at ${lastOutcome.events} events.</p>`
+        : `<div class="finding"><h3>${esc(lastOutcome.outcome)}</h3>
+             <p>Nothing was written. Another session moved this record since you opened it${
+               lastOutcome.observation && lastOutcome.observation.overlapped
+                 ? " <strong>and touched the same field</strong>" : " (a different field)"}.</p></div>`)
+    : "";
+
+  $("rail").innerHTML = `
+    <section><h3>Provenance</h3><span class="chip mono ${chipCls}">${chipText}</span></section>
+    <section><h3>Save</h3>
+      <button class="op routine" id="saveBtn" ${isDirty ? "" : "disabled"}>
+        <span class="top"><span class="lbl">Save revision</span><span class="ec mono">E1</span></span>
+        ${isDirty ? "" : `<span class="why">nothing changed yet</span>`}
+      </button>
+      ${outcomeNote}
+    </section>
+    <section><h3>State</h3><div class="axes">
+      ${axis("maturity", view.state.semanticMaturity)}${axis("evidence", view.state.evidenceState)}
+      ${axis("publication", view.state.publicationState)}${axis("delivery", view.state.deliveryState)}
+    </div>
+    <p class="hint">Four axes, never one status.</p></section>
+    <section><h3>Reach</h3><div class="axes">
+      ${axis("access", view.access)}${axis("listed", String(view.listed))}
+    </div></section>
+    <section><h3>Actions</h3>
+      ${view.operations.filter((o) => o.intent !== "revise").map((op) => `
+        <button class="op ${op.weight}" ${op.enabled ? "" : "disabled"}>
+          <span class="top"><span class="lbl">${esc(op.label)}</span><span class="ec mono">${esc(op.effectClass)}</span></span>
+          ${op.reason ? `<span class="why">${esc(op.reason)}</span>` : ""}
+          ${op.compensation ? `<span class="comp mono">reversed by ${esc(op.compensation.split("/").pop())}</span>` : ""}
+        </button>`).join("")}
+      ${view.unavailable.map((u) => `<div class="unavail"><b>${esc(u.intent)}</b> &mdash; ${esc(u.reason)}</div>`).join("")}
+    </section>`;
+  const btn = $("saveBtn"); if (btn) btn.onclick = save;
+}
+
+$("q").addEventListener("input", (e) => { query = e.target.value.toLowerCase(); renderIndex(); });
+$("filters").addEventListener("click", (e) => {
+  const b = e.target.closest("button"); if (!b) return;
+  filter = b.dataset.f;
+  $("filters").querySelectorAll("button").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+  renderIndex();
+});
+document.addEventListener("keydown", (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key === "s") { e.preventDefault(); save(); }
+});
+
+loadIndex();
+</script>
+
+
+========================================================================
+FILE: impl/editor/server/serve.ts
+========================================================================
+
+/**
+ * The editor, running (SCMS-043, epic E12).
+ *
+ * The published preview was a static render — useful for judging the design,
+ * useless for the thing the owner actually asked for. P7 is to be settled by
+ * *real edits*, and a page that cannot save produces none. This serves the same
+ * view-model over a live Canon journal and lands every edit through
+ * `content.revise@1`, so using the editor is indistinguishable from any other
+ * governed write.
+ *
+ * Three deliberate choices:
+ *
+ * 1. **Content is read from the owner's checkout at runtime, never vendored.**
+ *    The repository holds a manifest of frontmatter and body digests; the prose
+ *    lives where the owner keeps it. `--content` points at it.
+ *
+ * 2. **Persistence is a local append-only journal file, and is not the
+ *    durability decision.** SH-1 leaves the persistence engine open, and this
+ *    does not close it — it is development-grade custody so a night's editing
+ *    is not lost to a restart. It writes outside the repository by default.
+ *
+ * 3. **Every edit records a P7 observation.** The instrument built in SCMS-042
+ *    only pays off if it is wired to the thing producing the workload.
+ */
+import { createServer } from "node:http";
+import { readFileSync, writeFileSync, appendFileSync, existsSync, mkdirSync, readdirSync } from "node:fs";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+import { CanonJournal } from "../../canon/src/journal.ts";
+import { narrowPathRegistry, CONTENT_REVISE, reviseHandler, CONTENT_CREATE, createHandler, ContractRegistry } from "../../contracts/src/runtime.ts";
+import { CONTENT_PROMOTE, promoteHandler } from "../../qualification/src/promote.ts";
+import { CONTENT_UNPUBLISH, unpublishHandler } from "../../qualification/src/unpublish.ts";
+import { RECORD_EVIDENCE, recordEvidenceHandler, ATTEST, attestHandler, attestationFor } from "../../qualification/src/canon-evidence.ts";
+import { migrateAll } from "../../migrate/src/zach-core.ts";
+import type { SourceEntry } from "../../migrate/src/zach-core.ts";
+import { governedImport } from "../../migrate/src/governed.ts";
+import { editorView, editorIndex } from "../src/viewmodel.ts";
+import { landEdit, summarizeP7 } from "../src/session.ts";
+import type { P7Observation } from "../src/session.ts";
+import { deriveOffer } from "../../authoring/src/editor.ts";
+
+const HERE = dirname(fileURLToPath(import.meta.url));
+const arg = (name: string, fallback: string): string => {
+  const i = process.argv.indexOf(`--${name}`);
+  return i >= 0 && process.argv[i + 1] ? process.argv[i + 1] : fallback;
+};
+const CONTENT_DIR = arg("content", join(process.env.HOME ?? "", "Projects/zach-core/content"));
+const DATA_DIR = arg("data", join(process.env.HOME ?? "", ".scms-data"));
+const PORT = Number(arg("port", "8788"));
+
+const OWNER = { id: "project.owner", role: "owner" };
+const authority = "owner" as const;
+const now = () => new Date().toISOString();
+
+// ── Load bodies from the owner's checkout ──────────────────────────────────
+function bodiesBySlug(): Map<string, string> {
+  const out = new Map<string, string>();
+  if (!existsSync(CONTENT_DIR)) return out;
+  for (const kind of readdirSync(CONTENT_DIR)) {
+    const dir = join(CONTENT_DIR, kind);
+    let files: string[] = [];
+    try { files = readdirSync(dir).filter((f) => f.endsWith(".md")); } catch { continue; }
+    for (const f of files) {
+      const raw = readFileSync(join(dir, f), "utf8");
+      const m = /^---\r?\n[\s\S]*?\r?\n---\r?\n?/.exec(raw);
+      out.set(f.replace(/\.md$/, ""), m ? raw.slice(m[0].length) : raw);
+    }
+  }
+  return out;
+}
+
+// ── Canon ──────────────────────────────────────────────────────────────────
+const manifest = JSON.parse(readFileSync(
+  join(HERE, "../../../fixtures/zach-core-manifest.json"), "utf8")) as { entries: SourceEntry[] };
+const bodies = bodiesBySlug();
+const migrated = migrateAll(manifest.entries.map((e) => ({
+  ...e, body: bodies.get(String(e.frontmatter.slug ?? "")) ?? undefined,
+})));
+
+const journal = new CanonJournal();
+/**
+ * Everything this system has actually implemented. The editor derives what it
+ * offers from this registry (SCMS-031), so registering less would understate
+ * the system rather than protect it — and an editor that hides a capability it
+ * has is as dishonest as one that offers a capability it lacks.
+ */
+const registry = new ContractRegistry();
+registry.register(CONTENT_CREATE, createHandler);
+registry.register(CONTENT_REVISE, reviseHandler);
+registry.register(CONTENT_PROMOTE, promoteHandler as never);
+registry.register(CONTENT_UNPUBLISH, unpublishHandler as never);
+registry.register(RECORD_EVIDENCE, recordEvidenceHandler as never);
+registry.register(ATTEST, attestHandler as never);
+const offer = deriveOffer(registry);
+
+mkdirSync(DATA_DIR, { recursive: true });
+const EDITS_LOG = join(DATA_DIR, "edits.jsonl");
+const P7_LOG = join(DATA_DIR, "p7-observations.jsonl");
+
+const imported = governedImport({
+  journal, registry, envelopes: migrated.content,
+  context: { occurredAt: now(), authority }, actor: OWNER,
+});
+
+/** Replay any edits from previous sessions, through the same contract path. */
+let replayed = 0;
+if (existsSync(EDITS_LOG)) {
+  for (const line of readFileSync(EDITS_LOG, "utf8").split("\n").filter(Boolean)) {
+    const e = JSON.parse(line) as { subjectId: string; changes: Record<string, unknown> };
+    const current = journal.current().find((x) => x.envelope.subjectId === e.subjectId);
+    if (!current) continue;
+    const r = landEdit({
+      journal, registry, subjectId: e.subjectId, session: "replay",
+      baselineRevision: current.envelope.revision!, changes: e.changes,
+      context: { occurredAt: now(), authority }, actor: OWNER,
+    });
+    if (r.outcome === "completed") replayed++;
+  }
+}
+
+const observations: P7Observation[] = existsSync(P7_LOG)
+  ? readFileSync(P7_LOG, "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l) as P7Observation)
+  : [];
+
+const findingsFor = (slug: string) =>
+  migrated.findings.filter((f) => f.entry.replace(/^.*\//, "").replace(/\.md$/, "") === slug);
+
+const freshness = () => ({ nowMs: Date.now(), lastCheckedMs: Date.now(), snapshotLabel: "live" });
+
+function viewFor(subject: string) {
+  const entry = journal.current().find((e) => e.envelope.subjectId === subject);
+  if (!entry) return null;
+  return editorView({
+    journal, subject, access: "owner", offer,
+    baseline: {
+      subjectId: subject, atRevision: entry.envelope.revision!, hasLocalEdits: false,
+      observedCanonEntries: journal.all().length, baselineEstablished: true,
+    },
+    freshness: freshness(), findings: findingsFor(subject),
+    // Read from Canon, like the promotion gate does. Nothing is qualified until
+    // evidence is recorded and an attestation lands (SCMS-036).
+    qualified: attestationFor(journal, entry.envelope.revision!)?.disposition === "QUALIFIED",
+  } as never);
+}
+
+// ── HTTP ───────────────────────────────────────────────────────────────────
+const json = (res: import("node:http").ServerResponse, code: number, body: unknown) => {
+  const payload = JSON.stringify(body);
+  res.writeHead(code, { "content-type": "application/json; charset=utf-8" });
+  res.end(payload);
+};
+
+const server = createServer((req, res) => {
+  const url = new URL(req.url ?? "/", `http://localhost:${PORT}`);
+
+  if (req.method === "GET" && (url.pathname === "/" || url.pathname === "/index.html")) {
+    res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+    res.end(readFileSync(join(HERE, "editor.html"), "utf8"));
+    return;
+  }
+  if (req.method === "GET" && url.pathname === "/api/index") {
+    return json(res, 200, {
+      rows: editorIndex(journal, "owner", migrated.findings),
+      p7: summarizeP7(observations),
+      imported: imported.landed.length, replayed,
+      contentLoaded: bodies.size,
+    });
+  }
+  if (req.method === "GET" && url.pathname.startsWith("/api/entry/")) {
+    const v = viewFor(decodeURIComponent(url.pathname.slice("/api/entry/".length)));
+    return v ? json(res, 200, v) : json(res, 404, { error: "not found" });
+  }
+  if (req.method === "POST" && url.pathname.startsWith("/api/entry/")) {
+    const subject = decodeURIComponent(url.pathname.slice("/api/entry/".length));
+    let raw = "";
+    req.on("data", (c) => { raw += c; });
+    req.on("end", () => {
+      let changes: Record<string, unknown>;
+      try { changes = JSON.parse(raw).changes as Record<string, unknown>; }
+      catch { return json(res, 400, { error: "bad body" }); }
+
+      const current = journal.current().find((e) => e.envelope.subjectId === subject);
+      if (!current) return json(res, 404, { error: "not found" });
+
+      const result = landEdit({
+        journal, registry, subjectId: subject, session: "editor",
+        baselineRevision: current.envelope.revision!, changes,
+        context: { occurredAt: now(), authority }, actor: OWNER,
+      });
+
+      observations.push(result.observation);
+      appendFileSync(P7_LOG, JSON.stringify(result.observation) + "\n");
+      if (result.outcome === "completed") {
+        appendFileSync(EDITS_LOG, JSON.stringify({ subjectId: subject, changes }) + "\n");
+      }
+      return json(res, 200, {
+        outcome: result.outcome,
+        view: viewFor(subject),
+        observation: result.observation,
+        p7: summarizeP7(observations),
+        events: journal.events().length,
+      });
+    });
+    return;
+  }
+  if (req.method === "GET" && url.pathname === "/api/p7") {
+    return json(res, 200, { summary: summarizeP7(observations), observations });
+  }
+  json(res, 404, { error: "no route" });
+});
+
+server.listen(PORT, () => {
+  process.stdout.write(
+    `Canon Editor on http://localhost:${PORT}\n`
+    + `  imported ${imported.landed.length} entries through content.create@1\n`
+    + `  bodies loaded from ${CONTENT_DIR}: ${bodies.size}\n`
+    + `  replayed ${replayed} prior edits\n`
+    + `  data in ${DATA_DIR}\n`);
+});
 
 
 ========================================================================
@@ -21033,6 +21661,7 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-040 | The editor in preview: a usable authoring surface over real content | E12 | Done — SH-8 closed; preview published; awaiting owner verification | records/evidence.jsonl · scms-evidence-040 |
 | SCMS-041 | Migrate the corpus through the governed path (content.create@1) | E8+E12 | Done — creation is governed at last; SH-15 raised; awaiting owner verification | records/evidence.jsonl · scms-evidence-041 |
 | SCMS-042 | The editing session and the P7 instrument | E12 | Done — instrument built, NR-scms-008 fixed; **P7 stays open pending real edits** | records/evidence.jsonl · scms-evidence-042 |
+| SCMS-043 | The editor, running: saves through contracts, records P7 observations | E12 | Done — verified by interaction; awaiting owner verification | records/evidence.jsonl · scms-evidence-043 |
 | SCMS-018 | R1 live co-authoring — **free lane only** (convergent merge) | E1 | **Blocked** — awaiting disposition of P7/P22 on PR #28 | records/blockers · scms-blocker-001 |
 | SCMS-010 | S4 cross-domain portability: a materially unrelated project (outside this repository, per owner doctrine 2026-08-28) consumes @semantic-systems/surface unmodified | external | Backlog — executes outside scms; scms records the conformance result | — |
 
@@ -23140,4 +23769,60 @@ field moved — the same loss of resolution in a different place.
 
 **Done — the editor writes, real editing is observable, and P7 stays open on purpose. The corpus
 also stopped destroying itself when edited.**
+
+
+========================================================================
+FILE: work/SCMS-043.md
+========================================================================
+
+# SCMS-043 — The editor, running
+
+**Intent ref:** PROJECT_INTENT.md · **Epic:** E12 · **Effect class:** E1
+**Assigned by:** owner — *"You'll want to load the editor too. You pointed me at an artifact."*
+**State:** Ready → Claimed → Done (closing state at bottom)
+
+## The gap
+
+The published preview was a static render. Useful for judging the design, useless for the thing it
+was built for: P7 is to be settled by **real edits**, and a page that cannot save produces none.
+The owner was right to push on this — I had delivered the appearance of the instrument.
+
+## What it does
+
+A zero-dependency Node server over the same view-model:
+
+- Imports all 215 entries through `content.create@1` at startup — the governed path, not a seed.
+- Loads prose from the owner's own checkout at runtime (`--content`). **Nothing is vendored**; the
+  repository still holds only frontmatter and body digests.
+- Lands every save through `content.revise@1`, so editing is indistinguishable from any other
+  governed write: a revision appends, the outbox emits, the receipt names the field that moved.
+- Records a P7 observation per edit, with lane and overlap, to a log outside the repository.
+- Registers **every** contract the system implements, not the narrow path. An editor that hides a
+  capability it has is as dishonest as one that offers a capability it lacks.
+- Reads `qualified` from Canon via the attestation, exactly as the promotion gate does — so
+  "Publish" is refused for the same reason in the UI as in the contract, not a second opinion.
+
+## Persistence, stated honestly
+
+Edits persist to an append-only JSONL outside the repository and replay through the contract path
+on restart. **This is not the durability decision** — SH-1 leaves the persistence engine open and
+this does not close it. It is development-grade custody so a night's work survives a restart.
+
+## What was found
+
+The corpus's Medium imports carry a stray `---` horizontal rule immediately after the frontmatter,
+so it renders as the first line of the body. That is the owner's content, not a parser defect, and
+it has been left alone: silently stripping characters from 140-odd articles is an edit, and edits
+are the owner's to make. It is visible in the editor, which is where it can be decided about.
+
+## Claim discipline
+
+The server is thin glue over modules that are individually vectored, and it is **verified by
+interaction rather than by vectors** — I opened it, made an edit, and confirmed the revision landed
+and the observation recorded. That is a lower rung than the rest of this system sits at, and the
+register says so rather than borrowing the view-model's coverage.
+
+## Closing state
+
+**Done — the editor saves. P7 can now accumulate evidence instead of waiting for it.**
 

@@ -9,3 +9,9 @@ __pycache__/
 !.agents/**
 !AGENTS.md
 .DS_Store
+
+# Editor working data: the owner's edits and P7 observations live outside the
+# repository. This repo does not vendor the content it manages, and that
+# includes revisions made through the editor.
+.scms-data/
+impl/editor/web/data.json
