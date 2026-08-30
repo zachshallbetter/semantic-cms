@@ -39,6 +39,15 @@ export interface PromoteInput {
   verificationPerformed?: "none" | "acknowledge" | "confirm" | "reauthenticate" | "prove";
   /** The named authority acting. Promotion is never anonymous. */
   promotionAuthority?: string;
+  /**
+   * An instant before which readers may not see this (SCMS-073).
+   *
+   * RFC 3339. Promotion still happens *now* — the publication axis moves, the
+   * receipt is written, the outbox emits — and readers simply do not resolve it
+   * until their declared temporal coordinate reaches this instant. That is why
+   * no scheduler is needed and why an embargo is replayable.
+   */
+  embargoUntil?: string;
 }
 
 const VERIFICATION_RANK = { none: 0, acknowledge: 1, confirm: 2, reauthenticate: 3, prove: 4 };
@@ -135,10 +144,34 @@ export function promoteHandler(
 
   // PROCESS — move ONLY the publication axis. Semantic maturity, evidence
   // state, and delivery state are other axes with other owners (§3.5).
+  // An embargo instant must be a real one. A malformed value would otherwise
+  // read as "no embargo" downstream — the direction that publishes early, which
+  // is the unrecoverable one (§6).
+  if (input.embargoUntil !== undefined) {
+    const t = Date.parse(input.embargoUntil);
+    if (Number.isNaN(t) || !/^\d{4}-\d{2}-\d{2}T/.test(input.embargoUntil)) {
+      return {
+        instanceId: ctx.instanceId, outcome: "invalid_input", states: [...states, "failed"],
+        verification: required,
+        recovery: [{ action: "focus_field", data: { field: "embargoUntil" } }],
+        detail: `embargoUntil must be an RFC 3339 instant; got '${input.embargoUntil}'`,
+      };
+    }
+  }
+
   states.push("processing");
   const before = current.envelope.state;
+  const priorBody = current.envelope.body as unknown as { attrs?: Record<string, unknown> };
   const next: Envelope = {
     ...current.envelope,
+    // The embargo rides on the record as an attribute, because that is what
+    // freeze() carries into a snapshot and therefore what a resolver can see.
+    ...(input.embargoUntil === undefined ? {} : {
+      body: {
+        ...(current.envelope.body as object),
+        attrs: { ...(priorBody.attrs ?? {}), embargoUntil: input.embargoUntil },
+      } as Envelope["body"],
+    }),
     state: { ...before, publicationState: "promoted" },
     revision: undefined,
   };

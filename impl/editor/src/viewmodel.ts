@@ -40,6 +40,9 @@
  * eligibility comes from state. SSS-INV-010 draws exactly that line.
  */
 import type { CanonJournal } from "../../canon/src/journal.ts";
+import { evidenceTone } from "../../qualification/src/tone.ts";
+import type { ToneReading } from "../../qualification/src/tone.ts";
+import { evidenceFor } from "../../qualification/src/canon-evidence.ts";
 import type { Envelope, AccessLevel } from "../../canon/src/envelope.ts";
 import { freeze } from "../../canon/src/freeze.ts";
 import { resolveSurface } from "../../surface-resolver/src/resolver.ts";
@@ -94,6 +97,14 @@ export interface SurfacePanel {
   }>;
   /** Subjects considered and not included, with the reason — absence is legible. */
   excluded: Array<{ subject: string; eligibility: string; reason: string }>;
+  /**
+   * How much evidence actually stands behind each group (SCMS-072).
+   *
+   * Semantic, not graphical: the panel may say a group is `fading` and may not
+   * say it should be smaller or later. What an adapter does with that is the
+   * adapter's business (SSS-INV-008/009).
+   */
+  tone: Array<{ group: string; reading: ToneReading }>;
 }
 
 /**
@@ -289,6 +300,18 @@ export function editorView(input: EditorInput): EditorView | { notFound: true } 
       })),
       excluded: resolved.explanation.excluded.map((e) => ({
         subject: e.subject, eligibility: e.eligibility, reason: e.reason,
+      })),
+      // Read per group, over the members the surface actually resolved. The
+      // lookup is bound to this journal and asked only for those members, so
+      // tone can look up and never look around.
+      tone: resolved.groups.map((g) => ({
+        group: g.id,
+        reading: evidenceTone(
+          g.members.map((m) => m.subject),
+          (subject) => {
+            const e = input.journal.current().find((x) => x.envelope.subjectId === subject);
+            return e ? evidenceFor(input.journal, e.envelope.revision!) : [];
+          }),
       })),
     },
     expression: {

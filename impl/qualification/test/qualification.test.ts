@@ -673,3 +673,55 @@ test("lookup is injected — tone cannot reach past the members it was given", (
   evidenceTone(["a", "b"], (s) => { asked.push(s); return []; });
   assert.deepEqual(asked, ["a", "b"]);
 });
+
+// ── SCMS-073 closed: an embargo can be set ─────────────────────────────────
+
+test("promotion can carry an embargo instant", () => {
+  const { journal, registry, rev } = setup();
+  attestVia(journal, registry, rev, "note",
+    [ev("ob/schema-valid", rev), ev("ob/access-declared", rev)]);
+  const res = registry.execute(journal, promoteReq({
+    subjectId: "note-1", candidateRevision: rev, profile: NOTE_PROFILE,
+    verificationPerformed: "reauthenticate", promotionAuthority: "project.owner",
+    embargoUntil: "2027-01-01T00:00:00Z",
+  }), { ...ctx, instanceId: "int-embargo" });
+
+  assert.equal(res.outcome, "completed");
+  const landed = journal.current().find((e) => e.envelope.subjectId === "note-1")!;
+  assert.equal(landed.envelope.state.publicationState, "promoted",
+    "promotion happens now; only readability is deferred");
+  assert.equal(
+    (landed.envelope.body as never as { attrs: Record<string, unknown> }).attrs.embargoUntil,
+    "2027-01-01T00:00:00Z");
+});
+
+test("a malformed embargo instant is refused, not ignored", () => {
+  // Ignoring it would read as "no embargo" downstream, which publishes early —
+  // the unrecoverable direction.
+  const { journal, registry, rev } = setup();
+  attestVia(journal, registry, rev, "note",
+    [ev("ob/schema-valid", rev), ev("ob/access-declared", rev)]);
+  for (const bad of ["soon", "2027-13-45", "1767225600", ""]) {
+    const res = registry.execute(journal, promoteReq({
+      subjectId: "note-1", candidateRevision: rev, profile: NOTE_PROFILE,
+      verificationPerformed: "reauthenticate",
+      promotionAuthority: "project.owner", embargoUntil: bad,
+    }), { ...ctx, instanceId: `int-bad-${bad || "empty"}` });
+    assert.equal(res.outcome, "invalid_input", `'${bad}' was accepted as an instant`);
+  }
+  assert.equal(journal.current().find((e) => e.envelope.subjectId === "note-1")!
+    .envelope.state.publicationState, "unpublished", "and nothing was promoted");
+});
+
+test("promoting without an embargo leaves no attribute behind", () => {
+  const { journal, registry, rev } = setup();
+  attestVia(journal, registry, rev, "note",
+    [ev("ob/schema-valid", rev), ev("ob/access-declared", rev)]);
+  registry.execute(journal, promoteReq({
+    subjectId: "note-1", candidateRevision: rev, profile: NOTE_PROFILE,
+    verificationPerformed: "reauthenticate", promotionAuthority: "project.owner",
+  }), { ...ctx, instanceId: "int-plain" });
+  const landed = journal.current().find((e) => e.envelope.subjectId === "note-1")!;
+  const attrs = (landed.envelope.body as never as { attrs?: Record<string, unknown> }).attrs ?? {};
+  assert.ok(!("embargoUntil" in attrs), "an absent embargo must not materialize as a key");
+});

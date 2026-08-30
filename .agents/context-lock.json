@@ -9,14 +9,14 @@
     "repositories": [
       {
         "path": ".",
-        "commit": "ac92a796cb6267cbefd4eea52c68ac459dd264a4",
+        "commit": "388d2538716cd035e094138da823479cafc21f29",
         "branch": "main",
         "dirty": true,
         "remote": "https://github.com/zachshallbetter/semantic-cms.git"
       }
     ]
   },
-  "aggregateSourceDigest": "3728ce6296b8fe41b639cd64bd19aa297d1f45b720d888f253fce20354629b18",
+  "aggregateSourceDigest": "4af2658f54973200ee607587bde4a916ca2834e506d37d363c02d6a8dd34b980",
   "sources": [
     {
       "path": ".agents/skills/compile-context/SKILL.md",
@@ -105,8 +105,8 @@
     },
     {
       "path": "SPEC_HEALTH.md",
-      "bytes": 25730,
-      "sha256": "29eccd18edb7856401040024961e923c6d11f63e8c8056e3ee895ec38c24334c"
+      "bytes": 25791,
+      "sha256": "9e3a93ac1fca4409bc05d06b2168179ce208228eebf2d920c8bbe169c400dda8"
     },
     {
       "path": "VERSION",
@@ -355,8 +355,8 @@
     },
     {
       "path": "impl/editor/src/viewmodel.ts",
-      "bytes": 16288,
-      "sha256": "6b8725843121626654efef1d6b0a176a07038ca1bd86ee313cf9b8937f150101"
+      "bytes": 17398,
+      "sha256": "bf4a7f7de9fddc810959bcc0444bf14637c1939a51c365287b1775a9cdfa47c2"
     },
     {
       "path": "impl/editor/test/build-preview-fixture.ts",
@@ -365,8 +365,8 @@
     },
     {
       "path": "impl/editor/test/editor.test.ts",
-      "bytes": 19888,
-      "sha256": "066d599e0423981583f3c08f53e0fc884845db6612fd4ae73b40f8ea9b9104a9"
+      "bytes": 21268,
+      "sha256": "654ee3697a9c65ea1e870022f7f6ec6f164c302f166818dec366c8fc5627a8bf"
     },
     {
       "path": "impl/materialize/package.json",
@@ -500,8 +500,8 @@
     },
     {
       "path": "impl/qualification/src/promote.ts",
-      "bytes": 7930,
-      "sha256": "a2b6ab71cc26b1733b5ff2534045861e525b7baa9aff3288e6cf159b94389c42"
+      "bytes": 9514,
+      "sha256": "d0be2a87845d5260be42ec0ca9c87426d9b6b4218b90b2d0714f2fe42d330447"
     },
     {
       "path": "impl/qualification/src/qualify.ts",
@@ -520,8 +520,8 @@
     },
     {
       "path": "impl/qualification/test/qualification.test.ts",
-      "bytes": 35192,
-      "sha256": "eb9668908641221c65badef9aa1b3cd19ce2ccd779748ffc2a41049398ab1013"
+      "bytes": 37957,
+      "sha256": "cf6d66576aa2d363283e55a9e29f054d91a51211a49696836abe667570168f97"
     },
     {
       "path": "impl/reader/package.json",
@@ -835,8 +835,8 @@
     },
     {
       "path": "work/GRAPH.md",
-      "bytes": 20055,
-      "sha256": "5e224bc2f89d82a4d37ee42ee705da37a0cff6fa1132dbc62e9fbfadca3089c1"
+      "bytes": 20001,
+      "sha256": "e7ebab4ccd3cc76c92ce45743cc8d10ff58d3042afc51c4f3f198527d53a8a96"
     },
     {
       "path": "work/SCMS-001.md",

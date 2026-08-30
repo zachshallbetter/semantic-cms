@@ -398,3 +398,33 @@ test("the Surface tab decides participation and the Expression tab decides form 
   const surfaceMembers = v.surface.groups.flatMap((g) => g.members.map((m) => m.subject)).sort();
   assert.deepEqual([...v.expression.presentedOrder].sort(), surfaceMembers);
 });
+
+// ── SCMS-072 closed: the tone is displayed, not merely computed ────────────
+
+test("the surface panel carries an evidence tone per group", () => {
+  const v = view(publicSubject);
+  assert.ok(Array.isArray(v.surface.tone), "the panel exposes tone");
+  assert.equal(v.surface.tone.length, v.surface.groups.length,
+    "one reading per resolved group");
+  for (const t of v.surface.tone) {
+    assert.ok(["earned", "steady", "fading", "unevidenced"].includes(t.reading.tone));
+    assert.ok(t.reading.basis.length > 0, "and states why, checkably");
+  }
+});
+
+test("an unqualified corpus reads unevidenced — the panel does not flatter it", () => {
+  // Nothing in the migrated corpus carries evidence yet, so the honest reading
+  // is that nothing is evidenced. A panel that showed `steady` here would be
+  // decoration.
+  const v = view(publicSubject);
+  assert.ok(v.surface.tone.every((t) => t.reading.tone === "unevidenced"),
+    "tone must reflect the evidence that exists, not the content that exists");
+});
+
+test("the panel's tone names no container form", () => {
+  const v = view(publicSubject);
+  const text = JSON.stringify(v.surface.tone).toLowerCase();
+  for (const f of ["hero", "rail", "grid", "matrix", "card", "large", "small", "column"]) {
+    assert.ok(!text.includes(f), `tone leaked morphology ('${f}') into the panel`);
+  }
+});
