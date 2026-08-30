@@ -1,6 +1,6 @@
 # PROJECT COMPILED CONTEXT
 Generator: 0.5.0
-Source digest: ffd34eee3895731a085c88221183d410876ce28a3edfca8e908cf6b394ad2b13
+Source digest: 73dc90e43c933291f31863956c14c9c13dfdd5d5a46d3e3350eb4085af9936d8
 
 > Generated projection. Canonical sources remain authoritative.
 
@@ -629,6 +629,18 @@ composition
 ```
 
 Only an irreducible distinction earns a new canonical concept.
+
+### Evidence record identity
+
+A finding that follows an already-recorded item gets **its own sequential id and
+its own graph row**. The `-a` suffix (`scms-evidence-037a`) is **deprecated**: it
+was minted to attach a finding to work already recorded, and it produced a second
+identifier grammar that no register cited — three such records existed with
+nothing pointing at them, so their content was write-only.
+
+`scripts/check-work-graph.py` fails on an evidence record the graph does not
+cite. Records are append-only, so the three existing addenda were given a
+citation path rather than rewritten.
 
 
 ========================================================================
@@ -27254,7 +27266,16 @@ survived. Three checks:
   3. **Every Done item cites an evidence record that exists.** A Done row whose
      evidence id is absent is a claim with nothing behind it — the exact shape
      of the claim/evidence drift this project keeps recording.
-  4. **Every Done item has a work file or a stated exemption.** The Ready
+  4. **No evidence record is unreachable from the graph.** Three addenda —
+     `-004a`, `-037a`, `-040a` — existed with nothing citing them, so their
+     content was write-only: `-037a` records a write-boundary violation CI
+     caught, and no register pointed at it (SCMS-071).
+
+     The `-a` suffix is deprecated. A follow-up finding gets its own sequential
+     id and its own row; fewer kinds of identifier is worth more than the
+     convenience that produced a second grammar.
+
+  5. **Every Done item has a work file or a stated exemption.** The Ready
      predicate — scope, exclusions, acceptance, stop conditions — held for the
      first forty items and thinned as the pace rose (SCMS-070).
 
@@ -27279,6 +27300,12 @@ EVIDENCE = ROOT / "records" / "evidence.jsonl"
 
 ITEM = re.compile(r"^\|\s*(SCMS-\d+)\s*\|([^|]*)\|\s*(E\d+(?:\+E\d+)?)\s*\|([^|]*)\|([^|]*)\|", re.M)
 EPIC = re.compile(r"^\|\s*(E\d+)\s*\|", re.M)
+
+
+def unreachable_evidence(graph_text: str, evidence_ids: set[str]) -> list[str]:
+    """Evidence records the graph never cites."""
+    cited = set(re.findall(r"(scms-evidence-[0-9a-z]+)", graph_text))
+    return sorted(evidence_ids - cited)
 
 
 def check(graph_text: str, evidence_ids: set[str]) -> list[str]:
@@ -27310,6 +27337,8 @@ def check(graph_text: str, evidence_ids: set[str]) -> list[str]:
             for ev in cited:
                 if ev not in evidence_ids:
                     problems.append(f"{item_id}: cites {ev}, which is not in records/evidence.jsonl")
+    for orphan in unreachable_evidence(graph_text, evidence_ids):
+        problems.append(f"{orphan}: exists in records/evidence.jsonl and no graph row cites it")
     return problems
 
 
@@ -27351,7 +27380,13 @@ def self_test() -> int:
                 "| records/evidence.jsonl · scms-evidence-001 |\n")
     assert check(exempted, {"scms-evidence-001"}) == [], check(exempted, {"scms-evidence-001"})
 
-    print("self-test ok (dangling epics, duplicate ids, dangling evidence and missing predicates all detected)")
+    orphan = ("| E1 | An epic | ref | state |\n"
+              "| SCMS-001 | A thing | E1 | Done | records/evidence.jsonl · scms-evidence-001 |\n")
+    got = check(orphan, {"scms-evidence-001", "scms-evidence-001a"})
+    assert any("scms-evidence-001a" in p and "no graph row cites it" in p for p in got), got
+
+    print("self-test ok (dangling epics, duplicate ids, dangling evidence, "
+          "missing predicates and unreachable records all detected)")
     return 0
 
 
@@ -27912,7 +27947,7 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-001 | Canonize the design; initialize the operating substrate | E1 | Done — awaiting owner verification | records/evidence.jsonl · scms-evidence-001 |
 | SCMS-002 | Review Titan and Infinite-Verse for concepts informing the CMS | E0+E1 | Done — proposals P1–P16 await owner disposition | records/evidence.jsonl · scms-evidence-002 |
 | SCMS-003 | Canonize the dependency isolation doctrine | E1 | Done — awaiting owner verification | records/evidence.jsonl · scms-evidence-003 |
-| SCMS-004 | Review titan-node, titan-observatory, and Tools | E0+E1 | Done — proposals P17–P28 await owner disposition (#5) | records/evidence.jsonl · scms-evidence-004 |
+| SCMS-004 | Review titan-node, titan-observatory, and Tools | E0+E1 | Done — proposals P17–P28 await owner disposition (#5) | records/evidence.jsonl · scms-evidence-004 + scms-evidence-004a |
 | SCMS-005 | Resolve the gap register (build excluded) | E1+E0 | Done — awaiting owner rulings on #26 (recipient) and #28 (v2 PR) | records/evidence.jsonl · scms-evidence-005 |
 | SCMS-006 | First upstream-first cycle: FPB v0.5.1 + SES packaging; re-pin | E1+E2 | Done — awaiting owner verification | records/evidence.jsonl · scms-evidence-006 |
 | SCMS-007 | Consumption boundaries for all pinned protocol resources | E1+E2 | Done — awaiting owner verification | records/evidence.jsonl · scms-evidence-007 |
@@ -27945,10 +27980,10 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-034 | Replay by last_event_id, no event loss, lagged disclosure (R2) | E5 | Done — landed with SCMS-033 · *no predicate: landed inside SCMS-033; not separately scoped* | records/evidence.jsonl · scms-evidence-033 |
 | SCMS-035 | The provenance chip driven by a real transport (R2 meets R3) | E6 | Done — freshness derived, not asserted; NR-scms-009 fixed; SH-17 raised · *no predicate: discipline lapsed 2026-08-29, see scms-evidence-068* | records/evidence.jsonl · scms-evidence-035 |
 | SCMS-036 | Evidence and attestations as Canon records | E3 | Done — forgery closed; SH-13 (self-attestation) remains owner policy | records/evidence.jsonl · scms-evidence-036 |
-| SCMS-037 | The site renders from Canon (consolidation, no deploy) | E8 | Done — third expression adapter, S3-checked; NR-scms-011 fixed; awaiting owner verification | records/evidence.jsonl · scms-evidence-037 |
+| SCMS-037 | The site renders from Canon (consolidation, no deploy) | E8 | Done — third expression adapter, S3-checked; NR-scms-011 fixed; awaiting owner verification | records/evidence.jsonl · scms-evidence-037 + scms-evidence-037a |
 | SCMS-038 | Independent adversarial verification of the load-bearing claims | E0 | Done — 3 defects found and fixed (NR-scms-012/013), access claim survived (NR-scms-014); **not Verified** — a subagent is not an independent party · *no predicate: discipline lapsed 2026-08-29, see scms-evidence-068* | records/evidence.jsonl · scms-evidence-038 |
 | SCMS-039 | Recommended dispositions for the 25 open proposals on PR #28 | E0 | Done — 25 recommendations with reasoning; 6 narrowed or declined; **ratification NOT exercised** · *no predicate: discipline lapsed 2026-08-29, see scms-evidence-068* | records/evidence.jsonl · scms-evidence-039 |
-| SCMS-040 | The editor in preview: a usable authoring surface over real content | E12 | Done — SH-8 closed; preview published; awaiting owner verification | records/evidence.jsonl · scms-evidence-040 |
+| SCMS-040 | The editor in preview: a usable authoring surface over real content | E12 | Done — SH-8 closed; preview published; awaiting owner verification | records/evidence.jsonl · scms-evidence-040 + scms-evidence-040a |
 | SCMS-041 | Migrate the corpus through the governed path (content.create@1) | E8+E12 | Done — creation is governed at last; SH-15 raised; awaiting owner verification | records/evidence.jsonl · scms-evidence-041 |
 | SCMS-042 | The editing session and the P7 instrument | E12 | Done — instrument built, NR-scms-008 fixed; **P7 stays open pending real edits** | records/evidence.jsonl · scms-evidence-042 |
 | SCMS-043 | The editor, running: saves through contracts, records P7 observations | E12 | Done — verified by interaction; awaiting owner verification | records/evidence.jsonl · scms-evidence-043 |
@@ -27970,7 +28005,7 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-060 | Content-addressed blobs for prose and media (closes SH-4) | E13 | Done — digest is the key, immutable by grant; 6 more refusal checks · *no predicate: discipline lapsed 2026-08-29, see scms-evidence-068* | records/evidence.jsonl · scms-evidence-060 |
 | SCMS-061 | Cut over: deploy and decommission zach-core | E13 | **Blocked — protected action.** Owner authorization required at the time | — |
 | SCMS-062 | Materialize expressions to the CAS under their fingerprint | E14 | Done — pure; digest names content, fingerprint invalidates, access is in the key · *no predicate: discipline lapsed 2026-08-29, see scms-evidence-068* | records/evidence.jsonl · scms-evidence-062 |
-| SCMS-063 | The live channel to a browser (invalidation keys over SSE) | E14 | Done — full loop verified; NR-scms-018 (a third path that leaked) found and fixed | work/SCMS-063.md |
+| SCMS-063 | The live channel to a browser (invalidation keys over SSE) | E14 | Done — full loop verified; NR-scms-018 (a third path that leaked) found and fixed | records/evidence.jsonl · scms-evidence-063 · work/SCMS-063.md |
 | SCMS-064 | The page builder: composition editing through the bounded lane | E14 | Ready — page structure is already Canon (SCMS-016) and socket population is already the bounded lane (SCMS-021); the UI is what is missing | — |
 | SCMS-065 | The Postgres store adapter (and this project's first runtime dependency) | E13 | **Ready — owner input invited on the driver.** The schema is proven; nothing in `impl/` reads or writes it. Needs `pg` or `postgres.js`, a lockfile, and `npm ci` in CI | — |
 | SCMS-066 | A migration runner | E13 | Ready — zach-core re-runs a declarative schema file and has none either, so this is a gap inherited rather than solved | — |
@@ -27978,7 +28013,7 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-068 | Document review and audit (2026-08-29) | E0 | Done — 8 findings; 4 register corrections applied; DESIGN.md needed none · *no predicate: discipline lapsed 2026-08-29, see scms-evidence-068* | records/evidence.jsonl · scms-evidence-068 |
 | SCMS-069 | A gate between the claim register and the work graph | E0 | Done — 4 rules, incl. proposal-disposition staleness; tested against the historical row | records/evidence.jsonl · scms-evidence-069 |
 | SCMS-070 | Done items carry a work file or a stated exemption | E0 | Done — rule 4 in the graph gate; 13 truthful markers, no retroactive predicates | records/evidence.jsonl · scms-evidence-070 |
-| SCMS-071 | Evidence addenda need a citation path | E0 | Ready — audit finding 7; three orphans are currently write-only | work/SCMS-071.md |
+| SCMS-071 | Evidence addenda need a citation path | E0 | Done — rule 5 in the graph gate; found a 4th orphan the audit's heuristic missed | records/evidence.jsonl · scms-evidence-071 |
 | SCMS-072 | Evidence tone (SPS's evidence-density half) | E5 | Ready — owner design direction; the half of `morphologyFor` that went to neither SSS nor the recipe | work/SCMS-072.md |
 | SCMS-073 | Embargoes | E3 | Ready — owner design direction; E3 because publishing early is unrecoverable, and it must not read a wall clock | work/SCMS-073.md |
 | SCMS-074 | Entitlement classes: entitled groups and staged access | E4 | **Registered, not scheduled** — P2 unratified, SH-2 open, and nothing to entitle yet | work/SCMS-074.md |

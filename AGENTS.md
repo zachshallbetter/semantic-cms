@@ -269,3 +269,15 @@ composition
 ```
 
 Only an irreducible distinction earns a new canonical concept.
+
+### Evidence record identity
+
+A finding that follows an already-recorded item gets **its own sequential id and
+its own graph row**. The `-a` suffix (`scms-evidence-037a`) is **deprecated**: it
+was minted to attach a finding to work already recorded, and it produced a second
+identifier grammar that no register cited — three such records existed with
+nothing pointing at them, so their content was write-only.
+
+`scripts/check-work-graph.py` fails on an evidence record the graph does not
+cite. Records are append-only, so the three existing addenda were given a
+citation path rather than rewritten.

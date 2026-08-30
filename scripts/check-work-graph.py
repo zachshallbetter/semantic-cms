@@ -16,7 +16,16 @@ survived. Three checks:
   3. **Every Done item cites an evidence record that exists.** A Done row whose
      evidence id is absent is a claim with nothing behind it — the exact shape
      of the claim/evidence drift this project keeps recording.
-  4. **Every Done item has a work file or a stated exemption.** The Ready
+  4. **No evidence record is unreachable from the graph.** Three addenda —
+     `-004a`, `-037a`, `-040a` — existed with nothing citing them, so their
+     content was write-only: `-037a` records a write-boundary violation CI
+     caught, and no register pointed at it (SCMS-071).
+
+     The `-a` suffix is deprecated. A follow-up finding gets its own sequential
+     id and its own row; fewer kinds of identifier is worth more than the
+     convenience that produced a second grammar.
+
+  5. **Every Done item has a work file or a stated exemption.** The Ready
      predicate — scope, exclusions, acceptance, stop conditions — held for the
      first forty items and thinned as the pace rose (SCMS-070).
 
@@ -41,6 +50,12 @@ EVIDENCE = ROOT / "records" / "evidence.jsonl"
 
 ITEM = re.compile(r"^\|\s*(SCMS-\d+)\s*\|([^|]*)\|\s*(E\d+(?:\+E\d+)?)\s*\|([^|]*)\|([^|]*)\|", re.M)
 EPIC = re.compile(r"^\|\s*(E\d+)\s*\|", re.M)
+
+
+def unreachable_evidence(graph_text: str, evidence_ids: set[str]) -> list[str]:
+    """Evidence records the graph never cites."""
+    cited = set(re.findall(r"(scms-evidence-[0-9a-z]+)", graph_text))
+    return sorted(evidence_ids - cited)
 
 
 def check(graph_text: str, evidence_ids: set[str]) -> list[str]:
@@ -72,6 +87,8 @@ def check(graph_text: str, evidence_ids: set[str]) -> list[str]:
             for ev in cited:
                 if ev not in evidence_ids:
                     problems.append(f"{item_id}: cites {ev}, which is not in records/evidence.jsonl")
+    for orphan in unreachable_evidence(graph_text, evidence_ids):
+        problems.append(f"{orphan}: exists in records/evidence.jsonl and no graph row cites it")
     return problems
 
 
@@ -113,7 +130,13 @@ def self_test() -> int:
                 "| records/evidence.jsonl · scms-evidence-001 |\n")
     assert check(exempted, {"scms-evidence-001"}) == [], check(exempted, {"scms-evidence-001"})
 
-    print("self-test ok (dangling epics, duplicate ids, dangling evidence and missing predicates all detected)")
+    orphan = ("| E1 | An epic | ref | state |\n"
+              "| SCMS-001 | A thing | E1 | Done | records/evidence.jsonl · scms-evidence-001 |\n")
+    got = check(orphan, {"scms-evidence-001", "scms-evidence-001a"})
+    assert any("scms-evidence-001a" in p and "no graph row cites it" in p for p in got), got
+
+    print("self-test ok (dangling epics, duplicate ids, dangling evidence, "
+          "missing predicates and unreachable records all detected)")
     return 0
 
 

@@ -20,7 +20,7 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-001 | Canonize the design; initialize the operating substrate | E1 | Done — awaiting owner verification | records/evidence.jsonl · scms-evidence-001 |
 | SCMS-002 | Review Titan and Infinite-Verse for concepts informing the CMS | E0+E1 | Done — proposals P1–P16 await owner disposition | records/evidence.jsonl · scms-evidence-002 |
 | SCMS-003 | Canonize the dependency isolation doctrine | E1 | Done — awaiting owner verification | records/evidence.jsonl · scms-evidence-003 |
-| SCMS-004 | Review titan-node, titan-observatory, and Tools | E0+E1 | Done — proposals P17–P28 await owner disposition (#5) | records/evidence.jsonl · scms-evidence-004 |
+| SCMS-004 | Review titan-node, titan-observatory, and Tools | E0+E1 | Done — proposals P17–P28 await owner disposition (#5) | records/evidence.jsonl · scms-evidence-004 + scms-evidence-004a |
 | SCMS-005 | Resolve the gap register (build excluded) | E1+E0 | Done — awaiting owner rulings on #26 (recipient) and #28 (v2 PR) | records/evidence.jsonl · scms-evidence-005 |
 | SCMS-006 | First upstream-first cycle: FPB v0.5.1 + SES packaging; re-pin | E1+E2 | Done — awaiting owner verification | records/evidence.jsonl · scms-evidence-006 |
 | SCMS-007 | Consumption boundaries for all pinned protocol resources | E1+E2 | Done — awaiting owner verification | records/evidence.jsonl · scms-evidence-007 |
@@ -53,10 +53,10 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-034 | Replay by last_event_id, no event loss, lagged disclosure (R2) | E5 | Done — landed with SCMS-033 · *no predicate: landed inside SCMS-033; not separately scoped* | records/evidence.jsonl · scms-evidence-033 |
 | SCMS-035 | The provenance chip driven by a real transport (R2 meets R3) | E6 | Done — freshness derived, not asserted; NR-scms-009 fixed; SH-17 raised · *no predicate: discipline lapsed 2026-08-29, see scms-evidence-068* | records/evidence.jsonl · scms-evidence-035 |
 | SCMS-036 | Evidence and attestations as Canon records | E3 | Done — forgery closed; SH-13 (self-attestation) remains owner policy | records/evidence.jsonl · scms-evidence-036 |
-| SCMS-037 | The site renders from Canon (consolidation, no deploy) | E8 | Done — third expression adapter, S3-checked; NR-scms-011 fixed; awaiting owner verification | records/evidence.jsonl · scms-evidence-037 |
+| SCMS-037 | The site renders from Canon (consolidation, no deploy) | E8 | Done — third expression adapter, S3-checked; NR-scms-011 fixed; awaiting owner verification | records/evidence.jsonl · scms-evidence-037 + scms-evidence-037a |
 | SCMS-038 | Independent adversarial verification of the load-bearing claims | E0 | Done — 3 defects found and fixed (NR-scms-012/013), access claim survived (NR-scms-014); **not Verified** — a subagent is not an independent party · *no predicate: discipline lapsed 2026-08-29, see scms-evidence-068* | records/evidence.jsonl · scms-evidence-038 |
 | SCMS-039 | Recommended dispositions for the 25 open proposals on PR #28 | E0 | Done — 25 recommendations with reasoning; 6 narrowed or declined; **ratification NOT exercised** · *no predicate: discipline lapsed 2026-08-29, see scms-evidence-068* | records/evidence.jsonl · scms-evidence-039 |
-| SCMS-040 | The editor in preview: a usable authoring surface over real content | E12 | Done — SH-8 closed; preview published; awaiting owner verification | records/evidence.jsonl · scms-evidence-040 |
+| SCMS-040 | The editor in preview: a usable authoring surface over real content | E12 | Done — SH-8 closed; preview published; awaiting owner verification | records/evidence.jsonl · scms-evidence-040 + scms-evidence-040a |
 | SCMS-041 | Migrate the corpus through the governed path (content.create@1) | E8+E12 | Done — creation is governed at last; SH-15 raised; awaiting owner verification | records/evidence.jsonl · scms-evidence-041 |
 | SCMS-042 | The editing session and the P7 instrument | E12 | Done — instrument built, NR-scms-008 fixed; **P7 stays open pending real edits** | records/evidence.jsonl · scms-evidence-042 |
 | SCMS-043 | The editor, running: saves through contracts, records P7 observations | E12 | Done — verified by interaction; awaiting owner verification | records/evidence.jsonl · scms-evidence-043 |
@@ -78,7 +78,7 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-060 | Content-addressed blobs for prose and media (closes SH-4) | E13 | Done — digest is the key, immutable by grant; 6 more refusal checks · *no predicate: discipline lapsed 2026-08-29, see scms-evidence-068* | records/evidence.jsonl · scms-evidence-060 |
 | SCMS-061 | Cut over: deploy and decommission zach-core | E13 | **Blocked — protected action.** Owner authorization required at the time | — |
 | SCMS-062 | Materialize expressions to the CAS under their fingerprint | E14 | Done — pure; digest names content, fingerprint invalidates, access is in the key · *no predicate: discipline lapsed 2026-08-29, see scms-evidence-068* | records/evidence.jsonl · scms-evidence-062 |
-| SCMS-063 | The live channel to a browser (invalidation keys over SSE) | E14 | Done — full loop verified; NR-scms-018 (a third path that leaked) found and fixed | work/SCMS-063.md |
+| SCMS-063 | The live channel to a browser (invalidation keys over SSE) | E14 | Done — full loop verified; NR-scms-018 (a third path that leaked) found and fixed | records/evidence.jsonl · scms-evidence-063 · work/SCMS-063.md |
 | SCMS-064 | The page builder: composition editing through the bounded lane | E14 | Ready — page structure is already Canon (SCMS-016) and socket population is already the bounded lane (SCMS-021); the UI is what is missing | — |
 | SCMS-065 | The Postgres store adapter (and this project's first runtime dependency) | E13 | **Ready — owner input invited on the driver.** The schema is proven; nothing in `impl/` reads or writes it. Needs `pg` or `postgres.js`, a lockfile, and `npm ci` in CI | — |
 | SCMS-066 | A migration runner | E13 | Ready — zach-core re-runs a declarative schema file and has none either, so this is a gap inherited rather than solved | — |
@@ -86,7 +86,7 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-068 | Document review and audit (2026-08-29) | E0 | Done — 8 findings; 4 register corrections applied; DESIGN.md needed none · *no predicate: discipline lapsed 2026-08-29, see scms-evidence-068* | records/evidence.jsonl · scms-evidence-068 |
 | SCMS-069 | A gate between the claim register and the work graph | E0 | Done — 4 rules, incl. proposal-disposition staleness; tested against the historical row | records/evidence.jsonl · scms-evidence-069 |
 | SCMS-070 | Done items carry a work file or a stated exemption | E0 | Done — rule 4 in the graph gate; 13 truthful markers, no retroactive predicates | records/evidence.jsonl · scms-evidence-070 |
-| SCMS-071 | Evidence addenda need a citation path | E0 | Ready — audit finding 7; three orphans are currently write-only | work/SCMS-071.md |
+| SCMS-071 | Evidence addenda need a citation path | E0 | Done — rule 5 in the graph gate; found a 4th orphan the audit's heuristic missed | records/evidence.jsonl · scms-evidence-071 |
 | SCMS-072 | Evidence tone (SPS's evidence-density half) | E5 | Ready — owner design direction; the half of `morphologyFor` that went to neither SSS nor the recipe | work/SCMS-072.md |
 | SCMS-073 | Embargoes | E3 | Ready — owner design direction; E3 because publishing early is unrecoverable, and it must not read a wall clock | work/SCMS-073.md |
 | SCMS-074 | Entitlement classes: entitled groups and staged access | E4 | **Registered, not scheduled** — P2 unratified, SH-2 open, and nothing to entitle yet | work/SCMS-074.md |
