@@ -1,6 +1,6 @@
 # Project Context Index
 > Generator: 0.5.0
-> Source digest: `8f82f137f9f46bdd20c278febc102342bc6d063a72eee6ea8322e531859dff0e`
+> Source digest: `6d2215077d3a85f2c475c81d8f93e15f828f16091a8659048e530c8f03e1f4dc`
 
 > Generated projection. Canonical sources remain authoritative.
 
@@ -36,7 +36,7 @@
 - `docs/EXECUTION_PROVIDER_CONTRACT.md` | 1669 bytes | `e9587fea1bd67229f6588600512e6b9539d510ba000c0190b2c05f67eda0cf19`
 - `docs/EXISTING_PROJECT_ADOPTION.md` | 4530 bytes | `6cfaf7daa1669ed717571ecd43e3b5950151d39641d1adaff6a16843a954c6c7`
 - `docs/FORMAL_RESOURCES.md` | 2845 bytes | `bf93374182ba0212c7e64328a751c9dc3cfacd816779f983eca50f9157851289`
-- `docs/HANDOFF-2026-08-30.md` | 6991 bytes | `27d954d4dbd53105d907dd14131b0b5c6b80f5f6d922365b13f4a642224da2c1`
+- `docs/HANDOFF-2026-08-30.md` | 8615 bytes | `17c462d59e0a9e7fc6ce7bf3a2ae0bcb9e53d086e06d4c0d05a22d6cf92ace42`
 - `docs/INITIAL_EPICS_TEMPLATE.md` | 1234 bytes | `c3e6414393bbfb7905b4113f10571a695204538c19bbab90b5a486e7ae6a3039`
 - `docs/LANDING_AND_PROMOTION.md` | 1135 bytes | `675a228edb135427a399e08c7fdf3a983a7802da5a20d63deb83af40fe366a23`
 - `docs/MULTI_AGENT_COORDINATION.md` | 2078 bytes | `c27fc5594ef31ff4574582b4c6f2e69dc684bb897b9f9455fce1b50ca44f968a`
@@ -169,7 +169,7 @@
 - `scripts/check-projection-sync.py` | 3585 bytes | `cceb026b05da54d231f6bbb2da42ff1cc9cb4fb785c3218631653105e61b1c06`
 - `scripts/check-records-append-only.py` | 2614 bytes | `05a1addaf9d271ca01475afef92f8b9fa9b466407bc10b2781b602674b1e541b`
 - `scripts/check-tracked.py` | 3610 bytes | `d10080807270d0aa4157a7b4e7f2d598cbe6c6f43dc07ea445338d4fdfcaad5c`
-- `scripts/check-work-graph.py` | 10430 bytes | `a07bd8744c69419239a560574d917d5f5b15bfd9d1d4eeeddfc57e6c72c98dae`
+- `scripts/check-work-graph.py` | 12275 bytes | `cea7a81050634609adf74f57c2c41c18ba9aa40ae455e01fb9fdd6d06c926e6c`
 - `scripts/gen-context.py` | 8036 bytes | `819eb2f67a5ec3943bae509d78eebfd690febff6b157a75fafa05f1b047848fa`
 - `scripts/next-id.py` | 5685 bytes | `ab97cb462db8ae3850b778efe400df47c751180742723deeafd67d84073dcadf`
 - `scripts/validate-bootstrap.py` | 4120 bytes | `b3881974ac4d1259a0fa084c1aa80bfcdc1af4b3873f05c9057697e61bb1fb95`

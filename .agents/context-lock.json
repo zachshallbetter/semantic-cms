@@ -9,14 +9,14 @@
     "repositories": [
       {
         "path": ".",
-        "commit": "b6b8229854f46a7bcf9bf5e4d5d0ff14ee2f5acd",
+        "commit": "77889f3a981494d7654608ac6d740ea8727b7fc0",
         "branch": "main",
         "dirty": true,
         "remote": "https://github.com/zachshallbetter/semantic-cms.git"
       }
     ]
   },
-  "aggregateSourceDigest": "8f82f137f9f46bdd20c278febc102342bc6d063a72eee6ea8322e531859dff0e",
+  "aggregateSourceDigest": "6d2215077d3a85f2c475c81d8f93e15f828f16091a8659048e530c8f03e1f4dc",
   "sources": [
     {
       "path": ".agents/skills/compile-context/SKILL.md",
@@ -180,8 +180,8 @@
     },
     {
       "path": "docs/HANDOFF-2026-08-30.md",
-      "bytes": 6991,
-      "sha256": "27d954d4dbd53105d907dd14131b0b5c6b80f5f6d922365b13f4a642224da2c1"
+      "bytes": 8615,
+      "sha256": "17c462d59e0a9e7fc6ce7bf3a2ae0bcb9e53d086e06d4c0d05a22d6cf92ace42"
     },
     {
       "path": "docs/INITIAL_EPICS_TEMPLATE.md",
@@ -845,8 +845,8 @@
     },
     {
       "path": "scripts/check-work-graph.py",
-      "bytes": 10430,
-      "sha256": "a07bd8744c69419239a560574d917d5f5b15bfd9d1d4eeeddfc57e6c72c98dae"
+      "bytes": 12275,
+      "sha256": "cea7a81050634609adf74f57c2c41c18ba9aa40ae455e01fb9fdd6d06c926e6c"
     },
     {
       "path": "scripts/gen-context.py",

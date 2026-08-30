@@ -1,6 +1,6 @@
 # PROJECT COMPILED CONTEXT
 Generator: 0.5.0
-Source digest: 8f82f137f9f46bdd20c278febc102342bc6d063a72eee6ea8322e531859dff0e
+Source digest: 6d2215077d3a85f2c475c81d8f93e15f828f16091a8659048e530c8f03e1f4dc
 
 > Generated projection. Canonical sources remain authoritative.
 
@@ -3040,6 +3040,25 @@ the sweep iterated by file *suffix* and an extensionless name matched nothing. T
 found it during handoff review (NR-scms-024, now gated). When a check filters by an attribute, the
 filter **is** the blind spot — say so when reporting coverage. "Every tracked file" meant every
 tracked file whose shape I had anticipated.
+
+**And the fix for the blind spot had the same hole (NR-scms-025).** The new gate ran, but
+`self_test()` never exercised it — and NR-scms-024's correction field asserted coverage that did not
+exist ("the self-test asserts the junk-name set is populated"; it did not). Trap 3 a third time, one
+level up each round: a guard on one table, then a sweep keyed on suffix, then a *fix* nobody proved
+could fail. The detection is now a pure `classify_stray()` — it was untestable precisely by being
+inline — with both arms and two negative controls asserted, and demonstrated by mutation: empty
+`JUNK`, the self-test fails; disable the emptiness arm, it fails. **A correction is not done when the
+code changes; it is done when something would fail if the change were reverted.** Demonstrate that by
+mutation *before* writing the record that claims it.
+
+**Then I did it a fourth time, in that same commit (NR-scms-026).** I verified with
+`for s in scripts/check-*.py`, reported "all 7 gates pass", and CI failed on `gen-context.py --check`
+— the workflow runs **39** steps and my glob matched 7. A filename filter, used to certify
+completeness, one commit after writing down that filters are the blind spot. Knowing the lesson did
+not prevent repeating it, so the defense is now mechanical: **`scripts/run-ci-steps.sh` parses the
+step list out of `.github/workflows/` and runs it** (with each step's `working-directory` — without
+that, 20 node vector steps "pass" by not being found). Run it before you push. It is *not* a gate:
+it cannot reproduce a clean checkout, so trap 2 still stands and `gh run list` still decides.
 
 
 ========================================================================
@@ -28716,6 +28735,11 @@ survived. Three checks:
      So the thirteen items that lack one carry a marker saying so truthfully,
      rather than a predicate invented in hindsight.
 
+  6. **No tracked file is a shell accident.** A zero-byte `NaN` at the root
+     survived a sweep that iterated by suffix (NR-scms-024). This check keys on
+     the name and on emptiness instead, and the self-test exercises it — an
+     unexercised detection is what let the first blind spot through.
+
     python3 scripts/check-work-graph.py
     python3 scripts/check-work-graph.py --self-test
 """
@@ -28742,6 +28766,27 @@ def unreachable_evidence(graph_text: str, evidence_ids: set[str]) -> list[str]:
 JUNK = {"NaN", "undefined", "null", "true", "false", ".DS_Store", "Thumbs.db"}
 
 
+def classify_stray(rel: str, size: int | None) -> str | None:
+    """Decide whether one tracked path is a shell accident. Pure, so it is testable.
+
+    The detection lived inline in the git loop, which meant the self-test could
+    not reach it without staging a real file — so it shipped untested, and
+    NR-scms-024 recorded a coverage claim the self-test did not support. That is
+    the recorded blind spot arriving one level up: a check keyed on the shape it
+    expects, then a *test* keyed on the checks it expects. Splitting the decision
+    out of the traversal is what lets the gate prove it can fail.
+
+    `size` is None when the path is not a regular file on disk.
+    """
+    if pathlib.Path(rel).name in JUNK:
+        return f"{rel}: tracked junk file — almost certainly a shell redirect accident"
+    # An empty tracked file with no extension is the same accident wearing a
+    # different name. Empty files WITH an extension can be legitimate.
+    if not pathlib.Path(rel).suffix and size == 0:
+        return f"{rel}: tracked, zero bytes, no extension — likely a stray redirect"
+    return None
+
+
 def stray_tracked_files() -> list[str]:
     """Tracked files that are almost certainly shell accidents.
 
@@ -28757,15 +28802,11 @@ def stray_tracked_files() -> list[str]:
         rel = rel.strip()
         if not rel:
             continue
-        name = pathlib.Path(rel).name
-        if name in JUNK:
-            problems.append(f"{rel}: tracked junk file — almost certainly a shell redirect accident")
-            continue
         path = ROOT / rel
-        # An empty tracked file with no extension is the same accident wearing
-        # a different name. Empty files WITH an extension can be legitimate.
-        if not pathlib.Path(rel).suffix and path.is_file() and path.stat().st_size == 0:
-            problems.append(f"{rel}: tracked, zero bytes, no extension — likely a stray redirect")
+        size = path.stat().st_size if path.is_file() else None
+        problem = classify_stray(rel, size)
+        if problem:
+            problems.append(problem)
     return problems
 
 
@@ -28881,8 +28922,19 @@ def self_test() -> int:
     got = check(orphan, {"scms-evidence-001", "scms-evidence-001a"})
     assert any("scms-evidence-001a" in p and "no graph row cites it" in p for p in got), got
 
+    # Rule 6. The junk set must not be silently emptied, and each arm of the
+    # detection must fire — this is the coverage NR-scms-024 claimed before it
+    # existed, so the assertions come first and the record follows them.
+    assert JUNK, "junk-name set is empty — the name arm of the detection is dead"
+    assert classify_stray("NaN", 0), "junk name at the root not caught"
+    assert classify_stray("scripts/.DS_Store", 12), "junk name in a subdirectory not caught"
+    assert classify_stray("sweep", 0), "zero-byte extensionless file not caught"
+    assert classify_stray("work/GRAPH.md", 0) is None, "empty file WITH an extension is legitimate"
+    assert classify_stray("scripts/check-work-graph.py", 4096) is None, "honest file flagged"
+
     print("self-test ok (dangling epics, duplicate ids, dangling evidence, "
-          "missing predicates and unreachable records all detected)")
+          "missing predicates, unreachable records and stray tracked files "
+          "all detected)")
     return 0
 
 
