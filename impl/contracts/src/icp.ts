@@ -40,9 +40,9 @@ export type VerificationLevel = "none" | "acknowledge" | "confirm" | "reauthenti
 /** DESIGN.md §5 effect classes. */
 export type EffectClass = "E0" | "E1" | "E2" | "E3" | "E4";
 
-export const VERIFICATION_FOR_EFFECT: Record<EffectClass, VerificationLevel> = {
+export const VERIFICATION_FOR_EFFECT: Record<EffectClass, VerificationLevel> = Object.assign(Object.create(null), {
   E0: "none", E1: "none", E2: "confirm", E3: "reauthenticate", E4: "prove",
-};
+});
 
 export interface Recovery {
   action: RecoveryAction;

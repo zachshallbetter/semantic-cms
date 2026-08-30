@@ -26,7 +26,7 @@ import type { AccessLevel } from "../../surface-resolver/src/types.ts";
  * one vocabulary for "who is this", used for both what may be SEEN and what may
  * be DONE, so the two can never quietly disagree.
  */
-const ACCESS_RANK: Record<AccessLevel, number> = { public: 0, member: 1, owner: 2, admin: 3 };
+const ACCESS_RANK: Record<AccessLevel, number> = Object.assign(Object.create(null), { public: 0, member: 1, owner: 2, admin: 3 });
 
 /**
  * Resolve an authority string to its rank, or `null` if it is not one of the

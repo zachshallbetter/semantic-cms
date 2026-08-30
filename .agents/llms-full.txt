@@ -1,6 +1,6 @@
 # PROJECT COMPILED CONTEXT
 Generator: 0.5.0
-Source digest: c55f11529ee4bd8b25b54a15e2d03c5765e885f640cd7fd46872d32a11ca5683
+Source digest: 200f116ed69b16eac536f52db85d86ac13ccaa87e79a99e522fbd14c185260d7
 
 > Generated projection. Canonical sources remain authoritative.
 
@@ -1592,7 +1592,7 @@ above its rung.
 | Dependencies are pinned and consumable | **Documented + hash-locked** | All pins content-digested (alignment record); SES and FPB re-pinned upstream-first | Admission scans (P17) per pin; UD-8/UD-9 closed |
 | Surface resolution is access-safe | **Implemented + Tested** | SCMS-008/014: hidden state never enters a dependency set, and cannot move an output, trace, or invalidation (byte-identical results) | Adversarial review of the access boundary by an independent party |
 | One surface can be expressed **three** materially different ways | **S3 conformance (narrow path)** | SCMS-009 established two adapters and six preserved properties; SCMS-037 added a third (`reader-web`) and held it to the same contract rather than trusting it. The checker itself was corrected twice — NR-scms-011 (substring false positives) and NR-scms-013 (silent false negatives on encoded identities) — so the instrument is younger than the claim | S4, which must run **outside** this repository (SCMS-010); and SH-19, since the leak scan guards against accident rather than deliberate encoding |
-| Publishing is qualification **plus** promotion, never a boolean | **Implemented + Tested — with one claim corrected and one gap open** | SCMS-013/020: promotion refuses non-qualified, under-verified, and mismatched candidates; compensation exists and round-trips. **This row previously also claimed 'unauthorised'. That was false** — NR-scms-005 showed no handler authorized anything, and an anonymous caller could promote an owner-private draft. Authorization now exists (SCMS-031) and is tested by reason, not just by outcome | Attestations a caller cannot write for themselves (scms-blocker-003 / SH-13). **SCMS-050 corrected a larger gap: until then the read path never consulted publication at all, so this entire gate had no effect on what a reader saw** |
+| Publishing is qualification **plus** promotion, never a boolean | **Implemented + Tested — twice corrected, one gap open** | SCMS-013/020: promotion refuses non-qualified, under-verified, and mismatched candidates; compensation exists and round-trips. **This row previously also claimed 'unauthorised'. That was false** — NR-scms-005 showed no handler authorized anything, and an anonymous caller could promote an owner-private draft. Authorization now exists (SCMS-031) and is tested by reason, not just by outcome. **NR-scms-021 then found a forged profile id skipping the verification gate entirely** — the same prototype-chain defect in a second table, written in the same commit as the first fix; every canonical table now has a null prototype | Attestations a caller cannot write for themselves (scms-blocker-003 / SH-13). **SCMS-050 corrected a larger gap: until then the read path never consulted publication at all, so this entire gate had no effect on what a reader saw** |
 | No persistent mutation outside a registered contract | **Implemented + Tested (source-level), and authorized as of SCMS-031** | SCMS-012 write path; SCMS-023 boundary gate with a self-test proving it can fail; SCMS-031 adds the authority gate the write path had been missing entirely (NR-scms-005), and NR-scms-006 corrects that gate after an adversarial pass found it failing OPEN on prototype-chain keys | Runtime capability enforcement, not just source-level |
 | Declared content types are enforced | **Implemented + Tested — and this row was overstated until 2026-08-29** | SCMS-022 made the governed write consult the declared type *when a validator is supplied*. **NR-scms-016 found that `governedImport` supplied none**, so all 215 records were created without their type ever being consulted, and `ARTICLE_TYPE` did not declare the `summary` slot the corpus actually carries. Both fixed in SCMS-054 | **Closed by SCMS-076:** every kind in the corpus has a declared type and all 215 records conform. Attr *values* are checked for shape but not for meaning — a `period` of `"banana"` passes |
 | R1 live co-authoring | **Partially established** | `required` lane proven (SCMS-012), `bounded` lane proven (SCMS-021); **free lane NOT built** — blocked on **P7 only** (P22 was accepted 2026-08-28; this row said P7/P22 until the 2026-08-29 audit) | P7's disposition, which the owner has said should be settled from the editor workload rather than from a fixture |
@@ -10433,9 +10433,9 @@ export type VerificationLevel = "none" | "acknowledge" | "confirm" | "reauthenti
 /** DESIGN.md §5 effect classes. */
 export type EffectClass = "E0" | "E1" | "E2" | "E3" | "E4";
 
-export const VERIFICATION_FOR_EFFECT: Record<EffectClass, VerificationLevel> = {
+export const VERIFICATION_FOR_EFFECT: Record<EffectClass, VerificationLevel> = Object.assign(Object.create(null), {
   E0: "none", E1: "none", E2: "confirm", E3: "reauthenticate", E4: "prove",
-};
+});
 
 export interface Recovery {
   action: RecoveryAction;
@@ -10494,7 +10494,7 @@ import type { AccessLevel } from "../../surface-resolver/src/types.ts";
  * one vocabulary for "who is this", used for both what may be SEEN and what may
  * be DONE, so the two can never quietly disagree.
  */
-const ACCESS_RANK: Record<AccessLevel, number> = { public: 0, member: 1, owner: 2, admin: 3 };
+const ACCESS_RANK: Record<AccessLevel, number> = Object.assign(Object.create(null), { public: 0, member: 1, owner: 2, admin: 3 });
 
 /**
  * Resolve an authority string to its rank, or `null` if it is not one of the
@@ -16775,9 +16775,23 @@ export const COMMITMENT_PROFILE: ConsequenceProfile = {
   promotionVerification: "prove",
 };
 
-export const PROFILES: Record<ConsequenceProfile["id"], ConsequenceProfile> = {
+/**
+ * Canonical lookup tables have a **null prototype** (NR-scms-021).
+ *
+ * A plain object literal inherits `constructor`, `toString`, `__proto__` and the
+ * rest, so `TABLE[userSuppliedString]` can return a truthy built-in and sail
+ * past a `if (!row)` guard. NR-scms-006 fixed exactly that for one table by
+ * adding an `Object.hasOwn` check — and the table below was written in the same
+ * commit with a bare bracket lookup, so the defect survived in a second place
+ * and promoted content with the verification gate skipped.
+ *
+ * Guarding each lookup puts the burden on every future caller. Removing the
+ * prototype makes the defect **unrepresentable**: an inherited key is simply not
+ * there, so every bracket access is safe without anyone remembering.
+ */
+export const PROFILES: Record<ConsequenceProfile["id"], ConsequenceProfile> = Object.assign(Object.create(null), {
   note: NOTE_PROFILE, article: ARTICLE_PROFILE, commitment: COMMITMENT_PROFILE,
-};
+});
 
 
 ========================================================================
@@ -18288,6 +18302,59 @@ test("promoting without an embargo leaves no attribute behind", () => {
   assert.ok(!("embargoUntil" in attrs), "an absent embargo must not materialize as a key");
 });
 
+// ── NR-scms-021: canonical tables must not answer for inherited keys ───────
+
+const PROTO_KEYS = ["constructor", "toString", "__proto__", "valueOf",
+                    "hasOwnProperty", "isPrototypeOf", "propertyIsEnumerable"];
+
+test("no canonical lookup table resolves an inherited key", async () => {
+  const { PROFILES } = await import("../src/eqp.ts");
+  const { CONTENT_TYPES } = await import("../../schema/src/schema.ts");
+  const { VERIFICATION_FOR_EFFECT } = await import("../../contracts/src/icp.ts");
+  const { ACCESS_RANK } = await import("../../surface-resolver/src/types.ts");
+
+  const tables: Array<[string, Record<string, unknown>]> = [
+    ["PROFILES", PROFILES as never],
+    ["CONTENT_TYPES", CONTENT_TYPES as never],
+    ["VERIFICATION_FOR_EFFECT", VERIFICATION_FOR_EFFECT as never],
+    ["ACCESS_RANK", ACCESS_RANK as never],
+  ];
+  for (const [name, table] of tables) {
+    for (const key of PROTO_KEYS) {
+      assert.equal(table[key], undefined,
+        `${name}['${key}'] resolves — a bracket lookup on it can pass a truthy built-in to a guard`);
+    }
+    // Control: the table still answers for its real keys, so this is not
+    // passing by being empty.
+    assert.ok(Object.keys(table).length > 0, `${name} has no keys at all`);
+  }
+});
+
+test("a forged profile id cannot skip the verification gate (NR-scms-021)", () => {
+  // The exploit: PROFILES["constructor"] used to return the Object constructor,
+  // truthy, so `if (!profile)` passed and `profile.promotionVerification` was
+  // undefined — making `VERIFICATION_RANK[performed] < undefined` false and
+  // skipping the gate entirely. A commitment-tier record promoted with
+  // verificationPerformed "none".
+  const { journal, registry, rev } = setup();
+  attestVia(journal, registry, rev, "note",
+    [toneEv("ob/schema-valid", rev), toneEv("ob/access-declared", rev)]);
+
+  for (const forged of PROTO_KEYS) {
+    const res = registry.execute(journal, promoteReq({
+      subjectId: "note-1", candidateRevision: rev,
+      profile: { id: forged }, verificationPerformed: "none",
+      promotionAuthority: "attacker",
+    }), { ...ctx, instanceId: `int-forged-${forged}` });
+
+    assert.equal(res.outcome, "invalid_input", `profile id '${forged}' was accepted`);
+    assert.equal(res.verification, "prove",
+      "an unrecognised profile refuses at the strongest level, never the weakest");
+  }
+  assert.equal(journal.current().find((e) => e.envelope.subjectId === "note-1")!
+    .envelope.state.publicationState, "unpublished", "and nothing was promoted");
+});
+
 
 ========================================================================
 FILE: impl/reader/package.json
@@ -18953,9 +19020,9 @@ export const ROLE_TYPE: ContentTypeSchema = {
  * which is four chances to disagree — the shape behind NR-scms-004, -006 and
  * -018.
  */
-export const CONTENT_TYPES: Record<string, ContentTypeSchema> = {
+export const CONTENT_TYPES: Record<string, ContentTypeSchema> = Object.assign(Object.create(null), {
   article: ARTICLE_TYPE, note: NOTE_TYPE, project: PROJECT_TYPE, role: ROLE_TYPE,
-};
+});
 
 export function typeFor(contentKind: string): ContentTypeSchema | undefined {
   return Object.prototype.hasOwnProperty.call(CONTENT_TYPES, contentKind)
@@ -22470,12 +22537,12 @@ FILE: impl/surface-resolver/src/types.ts
 // rr-rsp total order, imported semantics (bindings: "Provenance class", "Envelope").
 export type AccessLevel = "public" | "member" | "owner" | "admin";
 
-export const ACCESS_RANK: Record<AccessLevel, number> = {
+export const ACCESS_RANK: Record<AccessLevel, number> = Object.assign(Object.create(null), {
   public: 0,
   member: 1,
   owner: 2,
   admin: 3,
-};
+});
 
 /** Canon-shaped input. The snapshot is frozen by the caller (commit-cycle "freeze"). */
 export interface SubjectRecord {
@@ -29287,7 +29354,7 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-075 | Link liveness as a Field signal, not a qualification gate | E5 | Ready — depends on SH-22's disposition; blocks 78% of articles today while checking 5 references | work/SCMS-075.md |
 | SCMS-076 | Declared content types for `project` and `role` | E1 | Done — all 215 conform, zero NOT_APPLICABLE; four type decisions collapsed to one registry | records/evidence.jsonl · scms-evidence-076 |
 | SCMS-077 | Run the editing workload and disposition P7 | E1 | **Blocked on SCMS-045** — running it first would count autosave races as concurrent authorship | work/SCMS-077.md |
-| SCMS-078 | Exhaustive audit: every file, reference, record, issue | E0 | Done — NR-scms-020 (editor edits never type-checked) found and fixed; 8 DESIGN.md contradictions; 13 untracked SH entries; PR #28 stale and conflicting · *no predicate: audit requested directly; scope was the owner's sentence* | records/evidence.jsonl · scms-evidence-078 |
+| SCMS-078 | Exhaustive audit: every file, reference, record, issue | E0 | Done — NR-scms-021 (forged profile id skipped the verification gate) and NR-scms-020 (editor edits never type-checked) found and fixed; 8 DESIGN.md contradictions; 13 untracked SH entries; PR #28 stale and conflicting · *no predicate: audit requested directly; scope was the owner's sentence* | records/evidence.jsonl · scms-evidence-078 |
 | SCMS-044 | Route the editor through the surface pipeline it currently bypasses | E12 | Done — SH-16 closed; two duplicate access checks removed; awaiting owner verification · *no predicate: discipline lapsed 2026-08-29, see scms-evidence-068* | records/evidence.jsonl · scms-evidence-044 |
 | SCMS-018 | R1 live co-authoring — **free lane only** (convergent merge) | E1 | **Blocked on P7 only** — P22 was accepted 2026-08-28; P7 is deferred with a revisit condition the owner has since named (settle it from the editor workload) | records/blockers · scms-blocker-001 |
 | SCMS-010 | S4 cross-domain portability: a materially unrelated project (outside this repository, per owner doctrine 2026-08-28) consumes @semantic-systems/surface unmodified | external | Backlog — executes outside scms; scms records the conformance result | — |

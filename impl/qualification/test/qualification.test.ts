@@ -725,3 +725,56 @@ test("promoting without an embargo leaves no attribute behind", () => {
   const attrs = (landed.envelope.body as never as { attrs?: Record<string, unknown> }).attrs ?? {};
   assert.ok(!("embargoUntil" in attrs), "an absent embargo must not materialize as a key");
 });
+
+// ── NR-scms-021: canonical tables must not answer for inherited keys ───────
+
+const PROTO_KEYS = ["constructor", "toString", "__proto__", "valueOf",
+                    "hasOwnProperty", "isPrototypeOf", "propertyIsEnumerable"];
+
+test("no canonical lookup table resolves an inherited key", async () => {
+  const { PROFILES } = await import("../src/eqp.ts");
+  const { CONTENT_TYPES } = await import("../../schema/src/schema.ts");
+  const { VERIFICATION_FOR_EFFECT } = await import("../../contracts/src/icp.ts");
+  const { ACCESS_RANK } = await import("../../surface-resolver/src/types.ts");
+
+  const tables: Array<[string, Record<string, unknown>]> = [
+    ["PROFILES", PROFILES as never],
+    ["CONTENT_TYPES", CONTENT_TYPES as never],
+    ["VERIFICATION_FOR_EFFECT", VERIFICATION_FOR_EFFECT as never],
+    ["ACCESS_RANK", ACCESS_RANK as never],
+  ];
+  for (const [name, table] of tables) {
+    for (const key of PROTO_KEYS) {
+      assert.equal(table[key], undefined,
+        `${name}['${key}'] resolves — a bracket lookup on it can pass a truthy built-in to a guard`);
+    }
+    // Control: the table still answers for its real keys, so this is not
+    // passing by being empty.
+    assert.ok(Object.keys(table).length > 0, `${name} has no keys at all`);
+  }
+});
+
+test("a forged profile id cannot skip the verification gate (NR-scms-021)", () => {
+  // The exploit: PROFILES["constructor"] used to return the Object constructor,
+  // truthy, so `if (!profile)` passed and `profile.promotionVerification` was
+  // undefined — making `VERIFICATION_RANK[performed] < undefined` false and
+  // skipping the gate entirely. A commitment-tier record promoted with
+  // verificationPerformed "none".
+  const { journal, registry, rev } = setup();
+  attestVia(journal, registry, rev, "note",
+    [toneEv("ob/schema-valid", rev), toneEv("ob/access-declared", rev)]);
+
+  for (const forged of PROTO_KEYS) {
+    const res = registry.execute(journal, promoteReq({
+      subjectId: "note-1", candidateRevision: rev,
+      profile: { id: forged }, verificationPerformed: "none",
+      promotionAuthority: "attacker",
+    }), { ...ctx, instanceId: `int-forged-${forged}` });
+
+    assert.equal(res.outcome, "invalid_input", `profile id '${forged}' was accepted`);
+    assert.equal(res.verification, "prove",
+      "an unrecognised profile refuses at the strongest level, never the weakest");
+  }
+  assert.equal(journal.current().find((e) => e.envelope.subjectId === "note-1")!
+    .envelope.state.publicationState, "unpublished", "and nothing was promoted");
+});

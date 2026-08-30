@@ -12,12 +12,12 @@
 // rr-rsp total order, imported semantics (bindings: "Provenance class", "Envelope").
 export type AccessLevel = "public" | "member" | "owner" | "admin";
 
-export const ACCESS_RANK: Record<AccessLevel, number> = {
+export const ACCESS_RANK: Record<AccessLevel, number> = Object.assign(Object.create(null), {
   public: 0,
   member: 1,
   owner: 2,
   admin: 3,
-};
+});
 
 /** Canon-shaped input. The snapshot is frozen by the caller (commit-cycle "freeze"). */
 export interface SubjectRecord {

@@ -101,6 +101,20 @@ export const COMMITMENT_PROFILE: ConsequenceProfile = {
   promotionVerification: "prove",
 };
 
-export const PROFILES: Record<ConsequenceProfile["id"], ConsequenceProfile> = {
+/**
+ * Canonical lookup tables have a **null prototype** (NR-scms-021).
+ *
+ * A plain object literal inherits `constructor`, `toString`, `__proto__` and the
+ * rest, so `TABLE[userSuppliedString]` can return a truthy built-in and sail
+ * past a `if (!row)` guard. NR-scms-006 fixed exactly that for one table by
+ * adding an `Object.hasOwn` check — and the table below was written in the same
+ * commit with a bare bracket lookup, so the defect survived in a second place
+ * and promoted content with the verification gate skipped.
+ *
+ * Guarding each lookup puts the burden on every future caller. Removing the
+ * prototype makes the defect **unrepresentable**: an inherited key is simply not
+ * there, so every bracket access is safe without anyone remembering.
+ */
+export const PROFILES: Record<ConsequenceProfile["id"], ConsequenceProfile> = Object.assign(Object.create(null), {
   note: NOTE_PROFILE, article: ARTICLE_PROFILE, commitment: COMMITMENT_PROFILE,
-};
+});

@@ -177,9 +177,9 @@ export const ROLE_TYPE: ContentTypeSchema = {
  * which is four chances to disagree — the shape behind NR-scms-004, -006 and
  * -018.
  */
-export const CONTENT_TYPES: Record<string, ContentTypeSchema> = {
+export const CONTENT_TYPES: Record<string, ContentTypeSchema> = Object.assign(Object.create(null), {
   article: ARTICLE_TYPE, note: NOTE_TYPE, project: PROJECT_TYPE, role: ROLE_TYPE,
-};
+});
 
 export function typeFor(contentKind: string): ContentTypeSchema | undefined {
   return Object.prototype.hasOwnProperty.call(CONTENT_TYPES, contentKind)

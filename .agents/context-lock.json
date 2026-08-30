@@ -9,14 +9,14 @@
     "repositories": [
       {
         "path": ".",
-        "commit": "c8597ce5f8b437c72a0179b1625db2f4bc0cc405",
+        "commit": "e8e9b4e1e961be97b6f551f215390370a379f493",
         "branch": "main",
         "dirty": true,
         "remote": "https://github.com/zachshallbetter/semantic-cms.git"
       }
     ]
   },
-  "aggregateSourceDigest": "c55f11529ee4bd8b25b54a15e2d03c5765e885f640cd7fd46872d32a11ca5683",
+  "aggregateSourceDigest": "200f116ed69b16eac536f52db85d86ac13ccaa87e79a99e522fbd14c185260d7",
   "sources": [
     {
       "path": ".agents/skills/compile-context/SKILL.md",
@@ -105,8 +105,8 @@
     },
     {
       "path": "SPEC_HEALTH.md",
-      "bytes": 25879,
-      "sha256": "5d582f3b9568869fd6a94df31d6d36176f2876c74d9e40dfb5b84042eca455d4"
+      "bytes": 26102,
+      "sha256": "04dcbab4e748def5ebf50dba39330fbcfee2cbb611767f8d03dc52bc917f478b"
     },
     {
       "path": "VERSION",
@@ -310,13 +310,13 @@
     },
     {
       "path": "impl/contracts/src/icp.ts",
-      "bytes": 3014,
-      "sha256": "259b882a9924277ded341bd8512a1055e93089a613d0ab3926e92effddd08ed7"
+      "bytes": 3050,
+      "sha256": "83c7e1905157b1b0be1738abe9ff386d82fb8be95daffb2bb971539164ee9f15"
     },
     {
       "path": "impl/contracts/src/runtime.ts",
-      "bytes": 20370,
-      "sha256": "419295fd86e476189083fdb4e934482dc0c70d0f9fcc51de0042d7dc148c5dcd"
+      "bytes": 20406,
+      "sha256": "4a601ae3ab9e5804a3b882d2cb431d5760bd597f0186985b8488d26b4c657996"
     },
     {
       "path": "impl/contracts/test/contracts.test.ts",
@@ -490,8 +490,8 @@
     },
     {
       "path": "impl/qualification/src/eqp.ts",
-      "bytes": 4571,
-      "sha256": "b68f5d56b6314b811c8bc4735245aa2377d6268ef8159f3c96a4b9fdc39644a1"
+      "bytes": 5377,
+      "sha256": "7461946a33cb1431476009b720136b6aa4620c1825d2409d966b12a1e018454c"
     },
     {
       "path": "impl/qualification/src/evaluators.ts",
@@ -520,8 +520,8 @@
     },
     {
       "path": "impl/qualification/test/qualification.test.ts",
-      "bytes": 37957,
-      "sha256": "cf6d66576aa2d363283e55a9e29f054d91a51211a49696836abe667570168f97"
+      "bytes": 40530,
+      "sha256": "bf59d9e3af9073e7a3550eb723bfda642139ab3d2ae7219d9ad78f3405335749"
     },
     {
       "path": "impl/reader/package.json",
@@ -545,8 +545,8 @@
     },
     {
       "path": "impl/schema/src/schema.ts",
-      "bytes": 12514,
-      "sha256": "9f0100ebf2323af0be67a22c292b7da9f234edb78c62dad3441e443bb3323ccd"
+      "bytes": 12550,
+      "sha256": "7b19e03fa1e373d6dda9ed9f2d64452ddbc1ed10ee59ab6817dc25021da1859e"
     },
     {
       "path": "impl/schema/test/schema.test.ts",
@@ -675,8 +675,8 @@
     },
     {
       "path": "impl/surface-resolver/src/types.ts",
-      "bytes": 6255,
-      "sha256": "cac59136fb7f0f364d618430d8202ca3515b9ee028865dc1a1f671257cb834f2"
+      "bytes": 6291,
+      "sha256": "319591152f6911a5642d2891416ce135606111b59487e9808cef7a2e612c753a"
     },
     {
       "path": "impl/surface-resolver/test/resolver.test.ts",
@@ -860,8 +860,8 @@
     },
     {
       "path": "work/GRAPH.md",
-      "bytes": 20481,
-      "sha256": "16bd7648295764b8116bd91f818727cef262132825d7d0df82424e8db952b534"
+      "bytes": 20547,
+      "sha256": "817c6a826c8322d9a31f979be25c1cf3f6af7b2790123b71470ab030743cd728"
     },
     {
       "path": "work/SCMS-001.md",
