@@ -1,0 +1,21 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "canon-editor",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "impl/editor/server/serve.ts"
+      ],
+      "port": 8788
+    },
+    {
+      "name": "site",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "impl/site/server/serve.ts"
+      ],
+      "port": 8789
+    }
+  ]
+}

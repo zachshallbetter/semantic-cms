@@ -9,14 +9,14 @@
     "repositories": [
       {
         "path": ".",
-        "commit": "6a54fab56f1789bedbc323b84bbc8db5bfc5452c",
+        "commit": "3882db61dbfafe4cf013ed889364e4b44ad495f0",
         "branch": "main",
         "dirty": true,
         "remote": "https://github.com/zachshallbetter/semantic-cms.git"
       }
     ]
   },
-  "aggregateSourceDigest": "422374c07bd04704c613f6f42052663c025d12b0be2e21609c232492905fe661",
+  "aggregateSourceDigest": "e37d864af3343e4084c115a978ccd266842a9b54ca2fd41c08b05dfcbcac6dcb",
   "sources": [
     {
       "path": ".agents/skills/compile-context/SKILL.md",
@@ -44,6 +44,11 @@
       "sha256": "331bcc9c5179eef021d9edf48e76bedcaaef6fed17f97e91c6d20a20f1199117"
     },
     {
+      "path": ".claude/launch.json",
+      "bytes": 374,
+      "sha256": "0cdc9f914c5b663b01ecc7867b4f82ea38d2b0394d9034d0b6b2701033d8c544"
+    },
+    {
       "path": ".formal-bootstrap.json",
       "bytes": 280,
       "sha256": "7fa912028d7ee4ad128c719342834ec735a28354ad614a13cd9a91599d0e7c0d"
@@ -55,8 +60,8 @@
     },
     {
       "path": ".github/workflows/gates.yml",
-      "bytes": 5926,
-      "sha256": "cc5ad36f75c38f947d39f6a0524c08303073edac2bf98ed79d7064a3565daee2"
+      "bytes": 6150,
+      "sha256": "b19038d8cf8f4091a283da2f25bffdc9eb03226ad1564825c9d6169b173def5d"
     },
     {
       "path": "AGENTS.md",
@@ -792,6 +797,11 @@
       "path": "scripts/check-records-append-only.py",
       "bytes": 2614,
       "sha256": "05a1addaf9d271ca01475afef92f8b9fa9b466407bc10b2781b602674b1e541b"
+    },
+    {
+      "path": "scripts/check-tracked.py",
+      "bytes": 3610,
+      "sha256": "d10080807270d0aa4157a7b4e7f2d598cbe6c6f43dc07ea445338d4fdfcaad5c"
     },
     {
       "path": "scripts/check-work-graph.py",

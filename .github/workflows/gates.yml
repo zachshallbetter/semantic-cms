@@ -135,6 +135,12 @@ jobs:
         run: node --test test/spine.test.ts
         working-directory: impl/e2e
 
+      - name: Tracked CI dependencies — self-test (gate can fail)
+        run: python3 scripts/check-tracked.py --self-test
+
+      - name: Every CI-referenced path is tracked
+        run: python3 scripts/check-tracked.py
+
       - name: Work graph — self-test (gate can fail)
         run: python3 scripts/check-work-graph.py --self-test
 

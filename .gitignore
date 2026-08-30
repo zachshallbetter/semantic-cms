@@ -15,3 +15,11 @@ __pycache__/
 # includes revisions made through the editor.
 .scms-data/
 impl/editor/web/data.json
+
+# `.claude/launch.json` is project configuration — how to run the editor and the
+# site — not local tooling, and the user-global excludes file hides the whole
+# directory. Left untracked it exists only on one machine, which is the same
+# class of defect as NR-scms-002 and NR-scms-019: a path the project needs,
+# invisible from the working copy because the working copy has it.
+!.claude/
+!.claude/launch.json
