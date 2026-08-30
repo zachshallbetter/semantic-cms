@@ -9,14 +9,14 @@
     "repositories": [
       {
         "path": ".",
-        "commit": "2a25b2d6f8cd76d3f4c4d2bb943bde321668c5f3",
+        "commit": "b6d0fa4b0965402b3d9ae8ed5a074a855904c845",
         "branch": "main",
         "dirty": true,
         "remote": "https://github.com/zachshallbetter/semantic-cms.git"
       }
     ]
   },
-  "aggregateSourceDigest": "0876a10577ab07d3408b1bd11c13cdc700e2e606913958aea829ca0825713e45",
+  "aggregateSourceDigest": "190fb3f9fe4299304d81a836d337be6fd627e635fc6e3dc4259a92a74616d024",
   "sources": [
     {
       "path": ".agents/skills/compile-context/SKILL.md",
@@ -840,8 +840,8 @@
     },
     {
       "path": "scripts/check-work-graph.py",
-      "bytes": 7349,
-      "sha256": "e0eadace23fe0b3a7e3b98b7500cc8dc550b8e63e37319ac569fe89559fa5c3f"
+      "bytes": 8995,
+      "sha256": "65167a52e3340ea16eb294f28a15f2d92a122fc18845ea505bf7e7845ea9b604"
     },
     {
       "path": "scripts/gen-context.py",

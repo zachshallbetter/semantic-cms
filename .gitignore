@@ -7,6 +7,11 @@ __pycache__/
 # a tree the author never had. (NR-scms-002)
 !.agents/
 !.agents/**
+# ...but the re-inclusion above overrides the .DS_Store rule at the top of this
+# file, and duly committed one. An exclusion that a later re-inclusion silently
+# cancels is the shape of most .gitignore bugs.
+.agents/.DS_Store
+**/.DS_Store
 !AGENTS.md
 .DS_Store
 

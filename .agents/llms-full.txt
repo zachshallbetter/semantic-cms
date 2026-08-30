@@ -1,6 +1,6 @@
 # PROJECT COMPILED CONTEXT
 Generator: 0.5.0
-Source digest: 0876a10577ab07d3408b1bd11c13cdc700e2e606913958aea829ca0825713e45
+Source digest: 190fb3f9fe4299304d81a836d337be6fd627e635fc6e3dc4259a92a74616d024
 
 > Generated projection. Canonical sources remain authoritative.
 
@@ -28427,6 +28427,41 @@ def unreachable_evidence(graph_text: str, evidence_ids: set[str]) -> list[str]:
     return sorted(evidence_ids - cited)
 
 
+def unreachable_records() -> list[str]:
+    """Records in ANY register that nothing anywhere cites.
+
+    Rule 5 originally covered only `evidence.jsonl`, so an orphan in another
+    register went unnoticed.
+
+    Scope is deliberately narrow: it covers registers whose records *support a
+    claim* — evidence and negative results — and not the journals.
+    `alignment.jsonl` is a chronological log of owner directives and is not meant
+    to be cited from anywhere; `upstream-debts` and `blockers` are tracked as
+    GitHub issues, which the graph header names as the board of record, so
+    demanding a local citation too would double-count. A first draft of this
+    rule covered all five and reported eleven "orphans" that were nothing of the
+    kind — the cry-wolf failure mode these gates are supposed to avoid.
+    """
+    corpus = []
+    for p in ROOT.rglob("*"):
+        if p.is_file() and p.suffix in (".md", ".jsonl") and ".agents" not in str(p):
+            corpus.append(p.read_text(encoding="utf-8", errors="ignore"))
+    text = "\n".join(corpus)
+    problems = []
+    for reg in ("negative-results",):
+        path = ROOT / "records" / f"{reg}.jsonl"
+        if not path.exists():
+            continue
+        for line in path.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            rid = json.loads(line).get("id")
+            # One occurrence is its own defining line.
+            if rid and len(re.findall(re.escape(rid), text)) <= 1:
+                problems.append(f"{rid}: defined in {reg}.jsonl and cited nowhere")
+    return problems
+
+
 def check(graph_text: str, evidence_ids: set[str]) -> list[str]:
     problems: list[str] = []
     epics = set(EPIC.findall(graph_text))
@@ -28512,7 +28547,7 @@ def self_test() -> int:
 def main() -> int:
     if "--self-test" in sys.argv:
         return self_test()
-    problems = check(GRAPH.read_text(encoding="utf-8"), evidence_ids())
+    problems = check(GRAPH.read_text(encoding="utf-8"), evidence_ids()) + unreachable_records()
     if problems:
         for p in problems:
             print(f"WORK GRAPH: {p}")

@@ -1,6 +1,6 @@
 # Project Context Index
 > Generator: 0.5.0
-> Source digest: `0876a10577ab07d3408b1bd11c13cdc700e2e606913958aea829ca0825713e45`
+> Source digest: `190fb3f9fe4299304d81a836d337be6fd627e635fc6e3dc4259a92a74616d024`
 
 > Generated projection. Canonical sources remain authoritative.
 
@@ -168,7 +168,7 @@
 - `scripts/check-projection-sync.py` | 3585 bytes | `cceb026b05da54d231f6bbb2da42ff1cc9cb4fb785c3218631653105e61b1c06`
 - `scripts/check-records-append-only.py` | 2614 bytes | `05a1addaf9d271ca01475afef92f8b9fa9b466407bc10b2781b602674b1e541b`
 - `scripts/check-tracked.py` | 3610 bytes | `d10080807270d0aa4157a7b4e7f2d598cbe6c6f43dc07ea445338d4fdfcaad5c`
-- `scripts/check-work-graph.py` | 7349 bytes | `e0eadace23fe0b3a7e3b98b7500cc8dc550b8e63e37319ac569fe89559fa5c3f`
+- `scripts/check-work-graph.py` | 8995 bytes | `65167a52e3340ea16eb294f28a15f2d92a122fc18845ea505bf7e7845ea9b604`
 - `scripts/gen-context.py` | 8036 bytes | `819eb2f67a5ec3943bae509d78eebfd690febff6b157a75fafa05f1b047848fa`
 - `scripts/next-id.py` | 5685 bytes | `ab97cb462db8ae3850b778efe400df47c751180742723deeafd67d84073dcadf`
 - `scripts/validate-bootstrap.py` | 4120 bytes | `b3881974ac4d1259a0fa084c1aa80bfcdc1af4b3873f05c9057697e61bb1fb95`
