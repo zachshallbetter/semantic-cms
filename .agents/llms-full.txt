@@ -1,6 +1,6 @@
 # PROJECT COMPILED CONTEXT
 Generator: 0.5.0
-Source digest: 73dc90e43c933291f31863956c14c9c13dfdd5d5a46d3e3350eb4085af9936d8
+Source digest: e0a11fec6c4e29f3a1a1844b4d03b6de9d76ebb90cf7d4e15d753c2362bbdc3c
 
 > Generated projection. Canonical sources remain authoritative.
 
@@ -1602,6 +1602,7 @@ above its rung.
 | Canon can live somewhere that refuses to be rewritten | **Implemented + Tested against real Postgres** | SCMS-057: append-only is a **grant**, not a convention — fifteen conformance checks attempt the forbidden thing and require failure. The outbox is written only by a `SECURITY DEFINER` trigger, so an event exists iff a receipt does, and `canon_current`/`canon_revoked` are views. SCMS-056 first made supersession and revocation derived, so no row is rewritten | An adapter (SCMS-065) — nothing in `impl/` reads or writes these tables yet; auth (SH-2); a migration runner (SCMS-066) |
 | Bytes are named by their content, and cannot change under the name | **Implemented + Tested** | SCMS-060: `canon_blob` keys on the SHA-256 digest, so dedup follows from naming; immutable by grant; a CHECK keeps stored length agreeing with the bytes so the corpus manifest and the store cannot drift | Derivative classes and codec selection, which SH-4 places in delivery projections rather than here |
 | A static page is a materialized expression, safely cacheable | **Implemented + Tested** | SCMS-062: bytes named by their content digest, invalidated by the surface fingerprint — two keys, because surfaces with different dependency sets can render identical bytes. Access is in the artifact key, and a private change cannot invalidate a public artifact, since the fingerprint covers only the accessible dependency set | Storage (SCMS-065) and serving; nothing is served from an artifact yet |
+| Publication can be scheduled without a scheduler | **Implemented + Tested (reading half)** | SCMS-073: an embargoed record is ineligible for a reader until the resolution's declared coordinate reaches its instant, and the resolver reads no clock — so an embargo is replayable and needs no background job. An absent coordinate fails closed, because absent is not now and guessing publishes early | A contract that can *set* an embargo; promote takes no such input yet |
 | The published artifacts match their canonical sources | **Tested** | scripts/check-projection-sync.py in CI, with a self-test | — |
 | The system is empirically useful | **NOT established** — but no longer untested against reality | SCMS-028: a real 215-entry corpus maps into Canon and resolves, and the mapping found a genuine modelling collapse in the owner's live data (dual-vocabulary `status`, 22 findings). That establishes the *mapping*, not usefulness: nothing is deployed, no human has used the result, rcp-001 remains an active obligation | A person doing real work through it — which needs the authoring surface (E12/SH-8) and a deployment |
 
@@ -21435,6 +21436,7 @@ export function resolveSurface(
   // BIND CONTEXT — only the declared temporal coordinate enters resolution.
   const contextAt = request.context?.temporal?.at ?? null;
 
+
   // APPLY LENS — deterministic candidate discovery.
   const traversals: TraceTraversal[] = [];
   const candidates: Candidate[] = [];
@@ -21474,7 +21476,7 @@ export function resolveSurface(
   }
 
   // EVALUATE ELIGIBILITY — outcomes stay non-interchangeable (SSS §10, INV-013).
-  const evaluated = candidates.map((c) => ({ c, ...evaluateEligibility(c, request, rank) }));
+  const evaluated = candidates.map((c) => ({ c, ...evaluateEligibility(c, request, rank, contextAt) }));
 
   // RESOLVE MEMBERSHIP + GROUP.
   const members: SurfaceMembership[] = [];
@@ -21591,6 +21593,7 @@ function evaluateEligibility(
   c: Candidate,
   request: SurfaceRequest,
   rank: number,
+  contextAt: string | null,
 ): { outcome: EligibilityOutcome; reason: string; basis: ResolutionBasis[] } {
   const isAnchor = request.profile === "focus" && c.depth === 0;
 
@@ -21632,6 +21635,38 @@ function evaluateEligibility(
   if (c.subject.entitled === true && rank < ACCESS_RANK.owner) {
     // Withheld is not absent: the subject is visible, participation is gated.
     return { outcome: "withheld", reason: "entitlement-gated participation", basis: [] };
+  }
+
+  /**
+   * Embargo (SCMS-073). A promoted record may still declare an instant before
+   * which it is not readable. Two properties, both deliberate:
+   *
+   * 1. **Nothing reads a wall clock.** A record becomes readable because a later
+   *    resolution is *asked at a later coordinate*, not because something woke
+   *    up. That is the same explicit-clock discipline the rest of the resolver
+   *    keeps, and it is what lets an embargo be replayed.
+   * 2. **An absent coordinate fails closed.** A caller who declares no `at` sees
+   *    embargoed content as ineligible rather than the resolver assuming "now".
+   *    Absent is not now, and guessing in the other direction publishes early —
+   *    which is the unrecoverable direction (NR-scms-004's rule, applied to
+   *    time).
+   *
+   * `ineligible` rather than `withheld`, because before its instant the record
+   * is not a gated participant — it is simply not yet part of the readable
+   * world, exactly like an unpromoted draft. The owner is unaffected: an embargo
+   * hides a record from readers, never from its author.
+   */
+  const embargoUntil = c.subject.attrs?.embargoUntil;
+  if (typeof embargoUntil === "string" && rank < ACCESS_RANK.owner) {
+    if (contextAt === null || contextAt < embargoUntil) {
+      return {
+        outcome: "ineligible",
+        reason: contextAt === null
+          ? "embargoed, and no temporal coordinate was declared"
+          : `embargoed until ${embargoUntil}`,
+        basis: [],
+      };
+    }
   }
   const basis: ResolutionBasis[] = isAnchor
     ? [{ rule: "subject-anchor" }]
@@ -22073,6 +22108,73 @@ test("resolver version is part of fingerprint identity", () => {
   const base = resolveSurface(fixture(), focusRequest()) as ResolvedSurface;
   assert.ok(base.fingerprint.match(/^[0-9a-f]{64}$/));
   assert.equal(base.resolutionId, "res_" + base.fingerprint.slice(0, 16));
+});
+
+// ── SCMS-073: embargoes ────────────────────────────────────────────────────
+
+function embargoSnapshot(until: string): FrozenSnapshot {
+  return {
+    snapshotId: "embargo-w0",
+    subjects: [
+      { id: "ready-now", kind: "article", access: "public", revision: "r1",
+        publicationState: "promoted", attrs: { listed: true } },
+      { id: "under-embargo", kind: "article", access: "public", revision: "r2",
+        publicationState: "promoted", attrs: { listed: true, embargoUntil: until } },
+    ],
+    relations: [],
+  } as unknown as FrozenSnapshot;
+}
+
+const readerAt = (at: string | null) => ({
+  profile: "collection" as const, purpose: "discover" as const, access: "public" as const,
+  lens: { include: { kinds: ["article"] } },
+  ...(at === null ? {} : { context: { temporal: { at } } }),
+});
+
+test("an embargoed record is absent before its instant", () => {
+  const s = resolveSurface(embargoSnapshot("2026-12-01T00:00:00Z"),
+    readerAt("2026-08-29T00:00:00Z")) as ResolvedSurface;
+  const members = s.groups.flatMap((g) => g.members.map((m) => m.subject));
+  assert.deepEqual(members, ["ready-now"]);
+});
+
+test("...and present at or after it — because a later coordinate was asked, not because time passed", () => {
+  const at = resolveSurface(embargoSnapshot("2026-12-01T00:00:00Z"),
+    readerAt("2026-12-01T00:00:00Z")) as ResolvedSurface;
+  assert.ok(at.groups.flatMap((g) => g.members.map((m) => m.subject)).includes("under-embargo"));
+
+  const after = resolveSurface(embargoSnapshot("2026-12-01T00:00:00Z"),
+    readerAt("2027-01-01T00:00:00Z")) as ResolvedSurface;
+  assert.ok(after.groups.flatMap((g) => g.members.map((m) => m.subject)).includes("under-embargo"));
+});
+
+test("an absent temporal coordinate fails closed — absent is not now", () => {
+  // The dangerous default would be to assume the current time and publish
+  // early, which is the unrecoverable direction.
+  const s = resolveSurface(embargoSnapshot("2026-12-01T00:00:00Z"), readerAt(null)) as ResolvedSurface;
+  assert.deepEqual(s.groups.flatMap((g) => g.members.map((m) => m.subject)), ["ready-now"]);
+});
+
+test("an embargo hides a record from readers, never from its author", () => {
+  const owner = resolveSurface(embargoSnapshot("2026-12-01T00:00:00Z"),
+    { ...readerAt("2026-08-29T00:00:00Z"), access: "owner" }) as ResolvedSurface;
+  assert.ok(owner.groups.flatMap((g) => g.members.map((m) => m.subject)).includes("under-embargo"),
+    "the author must be able to see and revise what they have scheduled");
+});
+
+test("nothing reads a wall clock — the same snapshot resolves two ways at two coordinates", () => {
+  const snap = embargoSnapshot("2026-12-01T00:00:00Z");
+  const before = resolveSurface(snap, readerAt("2026-08-29T00:00:00Z")) as ResolvedSurface;
+  const after = resolveSurface(snap, readerAt("2027-01-01T00:00:00Z")) as ResolvedSurface;
+
+  assert.notDeepEqual(
+    before.groups.flatMap((g) => g.members.map((m) => m.subject)),
+    after.groups.flatMap((g) => g.members.map((m) => m.subject)));
+
+  // Re-asking the earlier coordinate gives the earlier answer, so an embargo is
+  // replayable rather than a one-way event.
+  const replay = resolveSurface(snap, readerAt("2026-08-29T00:00:00Z")) as ResolvedSurface;
+  assert.deepEqual(replay.fingerprint, before.fingerprint);
 });
 
 
@@ -28015,7 +28117,7 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-070 | Done items carry a work file or a stated exemption | E0 | Done — rule 4 in the graph gate; 13 truthful markers, no retroactive predicates | records/evidence.jsonl · scms-evidence-070 |
 | SCMS-071 | Evidence addenda need a citation path | E0 | Done — rule 5 in the graph gate; found a 4th orphan the audit's heuristic missed | records/evidence.jsonl · scms-evidence-071 |
 | SCMS-072 | Evidence tone (SPS's evidence-density half) | E5 | Ready — owner design direction; the half of `morphologyFor` that went to neither SSS nor the recipe | work/SCMS-072.md |
-| SCMS-073 | Embargoes | E3 | Ready — owner design direction; E3 because publishing early is unrecoverable, and it must not read a wall clock | work/SCMS-073.md |
+| SCMS-073 | Embargoes | E3 | Done — reading half; no wall clock, absent coordinate fails closed. Setting an embargo is a contract change, not yet built | records/evidence.jsonl · scms-evidence-073 |
 | SCMS-074 | Entitlement classes: entitled groups and staged access | E4 | **Registered, not scheduled** — P2 unratified, SH-2 open, and nothing to entitle yet | work/SCMS-074.md |
 | SCMS-075 | Link liveness as a Field signal, not a qualification gate | E5 | Ready — depends on SH-22's disposition; blocks 78% of articles today while checking 5 references | work/SCMS-075.md |
 | SCMS-076 | Declared content types for `project` and `role` | E1 | Done — all 215 conform, zero NOT_APPLICABLE; four type decisions collapsed to one registry | records/evidence.jsonl · scms-evidence-076 |

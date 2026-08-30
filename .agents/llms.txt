@@ -1,6 +1,6 @@
 # Project Context Index
 > Generator: 0.5.0
-> Source digest: `73dc90e43c933291f31863956c14c9c13dfdd5d5a46d3e3350eb4085af9936d8`
+> Source digest: `e0a11fec6c4e29f3a1a1844b4d03b6de9d76ebb90cf7d4e15d753c2362bbdc3c`
 
 > Generated projection. Canonical sources remain authoritative.
 
@@ -21,7 +21,7 @@
 - `PROJECT_INTENT.md` | 6368 bytes | `b45adbb652c63b7327a77e70325204c2e8a50033f6d4d6f8e156e402683f4bf1`
 - `PROJECT_PROFILE.json` | 1921 bytes | `a2e82bd569b5897551b55fe21f099baf1d8f7217feaf1fc8e9d7e9d9239b1e81`
 - `README.md` | 1362 bytes | `a5bac3eb91bd706f53ca55b85963b16c2beaef8f42b9ab976f4e89567080cf1e`
-- `SPEC_HEALTH.md` | 25257 bytes | `6f66de60766c8650353e3b31807ebef721fba490fbe3c64568ac596fd7ed1c11`
+- `SPEC_HEALTH.md` | 25730 bytes | `29eccd18edb7856401040024961e923c6d11f63e8c8056e3ee895ec38c24334c`
 - `VERSION` | 6 bytes | `a0ad50640139a524f86591157145bf1d4674ea9c065bfea21558f0f7b04430c8`
 - `bindings/PROJECT_BINDINGS.yaml` | 13060 bytes | `7141154bb8cbcfd25e7a96003cb731538aae1a36c70888f401a12b29ff28d04e`
 - `contracts/README.md` | 387 bytes | `574c6218c0c957efb2eb3bfa4bf51fbf3ab0165cc81a033a249d4ba4cc2af78e`
@@ -131,9 +131,9 @@
 - `impl/surface-expression/test/s3.test.ts` | 11061 bytes | `8af7e1b63253c743a6f00837365be369adb908f86e8286c5874660d95e3a2009`
 - `impl/surface-resolver/package.json` | 564 bytes | `5b14928ca71c3378bf7b20781c1ac36b845384a75f719b9e85178506d17a9aee`
 - `impl/surface-resolver/src/fingerprint.ts` | 1041 bytes | `df49c2be520d77f14ee67f4ea11828672fe4905e4d94ae5cab19c991d4a96405`
-- `impl/surface-resolver/src/resolver.ts` | 14461 bytes | `048ef518acfe8eed929a85b828e4014a35004ac70824eae2249b85d80259f661`
+- `impl/surface-resolver/src/resolver.ts` | 16016 bytes | `387f939d8034b38291df0787178e719681513e010260e75beebf1df2482d3348`
 - `impl/surface-resolver/src/types.ts` | 6255 bytes | `cac59136fb7f0f364d618430d8202ca3515b9ee028865dc1a1f671257cb834f2`
-- `impl/surface-resolver/test/resolver.test.ts` | 8990 bytes | `b045ec1258e3100b663f96134e032d0e7e85c491d66e896a655b877e534905f1`
+- `impl/surface-resolver/test/resolver.test.ts` | 12401 bytes | `4c8819b5c90728473fc22e12066755f174f53ddd54f0517aaa280fd844bcf2b3`
 - `impl/transport/package.json` | 384 bytes | `4152c93a5cd3e755559d2f0003ca4ce3e8eff37230a7e34c6da6b098cc8d26e5`
 - `impl/transport/src/freshness.ts` | 3077 bytes | `f331bdc6b982966f29fa7996f79fd9a4f1e01a4559a851f3eeb32722ad72b522`
 - `impl/transport/src/wire.ts` | 7974 bytes | `0cc232869aef4dd5aee59708dccd046958f2a21bd79f198a65338f452f59350c`
@@ -166,7 +166,7 @@
 - `scripts/gen-context.py` | 8036 bytes | `819eb2f67a5ec3943bae509d78eebfd690febff6b157a75fafa05f1b047848fa`
 - `scripts/next-id.py` | 5685 bytes | `ab97cb462db8ae3850b778efe400df47c751180742723deeafd67d84073dcadf`
 - `scripts/validate-bootstrap.py` | 4120 bytes | `b3881974ac4d1259a0fa084c1aa80bfcdc1af4b3873f05c9057697e61bb1fb95`
-- `work/GRAPH.md` | 19987 bytes | `e287a6582b60678089296abbdaa7e2e61168a38a0a73e081846858572b5abb2f`
+- `work/GRAPH.md` | 20025 bytes | `f2458d80483e8d728a02478903667943d90df99d03629e520df4c08f3c312a2e`
 - `work/SCMS-001.md` | 2155 bytes | `99c5bc6ed57cfd3b84eb813d1aadee333af8e706120003d34285cc6e20beffd9`
 - `work/SCMS-002.md` | 2769 bytes | `0fdb32c56443212ade358f5e06c6b45cb9be3b6b8a8bdaa1a7eec61264406a33`
 - `work/SCMS-003.md` | 1448 bytes | `b93754ca3c9f8e039abc83cfdb59c49f86f9dadf4f64da55fc76caf82fec6943`

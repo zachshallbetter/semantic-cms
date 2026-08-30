@@ -184,3 +184,70 @@ test("resolver version is part of fingerprint identity", () => {
   assert.ok(base.fingerprint.match(/^[0-9a-f]{64}$/));
   assert.equal(base.resolutionId, "res_" + base.fingerprint.slice(0, 16));
 });
+
+// ── SCMS-073: embargoes ────────────────────────────────────────────────────
+
+function embargoSnapshot(until: string): FrozenSnapshot {
+  return {
+    snapshotId: "embargo-w0",
+    subjects: [
+      { id: "ready-now", kind: "article", access: "public", revision: "r1",
+        publicationState: "promoted", attrs: { listed: true } },
+      { id: "under-embargo", kind: "article", access: "public", revision: "r2",
+        publicationState: "promoted", attrs: { listed: true, embargoUntil: until } },
+    ],
+    relations: [],
+  } as unknown as FrozenSnapshot;
+}
+
+const readerAt = (at: string | null) => ({
+  profile: "collection" as const, purpose: "discover" as const, access: "public" as const,
+  lens: { include: { kinds: ["article"] } },
+  ...(at === null ? {} : { context: { temporal: { at } } }),
+});
+
+test("an embargoed record is absent before its instant", () => {
+  const s = resolveSurface(embargoSnapshot("2026-12-01T00:00:00Z"),
+    readerAt("2026-08-29T00:00:00Z")) as ResolvedSurface;
+  const members = s.groups.flatMap((g) => g.members.map((m) => m.subject));
+  assert.deepEqual(members, ["ready-now"]);
+});
+
+test("...and present at or after it — because a later coordinate was asked, not because time passed", () => {
+  const at = resolveSurface(embargoSnapshot("2026-12-01T00:00:00Z"),
+    readerAt("2026-12-01T00:00:00Z")) as ResolvedSurface;
+  assert.ok(at.groups.flatMap((g) => g.members.map((m) => m.subject)).includes("under-embargo"));
+
+  const after = resolveSurface(embargoSnapshot("2026-12-01T00:00:00Z"),
+    readerAt("2027-01-01T00:00:00Z")) as ResolvedSurface;
+  assert.ok(after.groups.flatMap((g) => g.members.map((m) => m.subject)).includes("under-embargo"));
+});
+
+test("an absent temporal coordinate fails closed — absent is not now", () => {
+  // The dangerous default would be to assume the current time and publish
+  // early, which is the unrecoverable direction.
+  const s = resolveSurface(embargoSnapshot("2026-12-01T00:00:00Z"), readerAt(null)) as ResolvedSurface;
+  assert.deepEqual(s.groups.flatMap((g) => g.members.map((m) => m.subject)), ["ready-now"]);
+});
+
+test("an embargo hides a record from readers, never from its author", () => {
+  const owner = resolveSurface(embargoSnapshot("2026-12-01T00:00:00Z"),
+    { ...readerAt("2026-08-29T00:00:00Z"), access: "owner" }) as ResolvedSurface;
+  assert.ok(owner.groups.flatMap((g) => g.members.map((m) => m.subject)).includes("under-embargo"),
+    "the author must be able to see and revise what they have scheduled");
+});
+
+test("nothing reads a wall clock — the same snapshot resolves two ways at two coordinates", () => {
+  const snap = embargoSnapshot("2026-12-01T00:00:00Z");
+  const before = resolveSurface(snap, readerAt("2026-08-29T00:00:00Z")) as ResolvedSurface;
+  const after = resolveSurface(snap, readerAt("2027-01-01T00:00:00Z")) as ResolvedSurface;
+
+  assert.notDeepEqual(
+    before.groups.flatMap((g) => g.members.map((m) => m.subject)),
+    after.groups.flatMap((g) => g.members.map((m) => m.subject)));
+
+  // Re-asking the earlier coordinate gives the earlier answer, so an embargo is
+  // replayable rather than a one-way event.
+  const replay = resolveSurface(snap, readerAt("2026-08-29T00:00:00Z")) as ResolvedSurface;
+  assert.deepEqual(replay.fingerprint, before.fingerprint);
+});

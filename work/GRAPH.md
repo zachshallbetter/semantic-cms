@@ -88,7 +88,7 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-070 | Done items carry a work file or a stated exemption | E0 | Done — rule 4 in the graph gate; 13 truthful markers, no retroactive predicates | records/evidence.jsonl · scms-evidence-070 |
 | SCMS-071 | Evidence addenda need a citation path | E0 | Done — rule 5 in the graph gate; found a 4th orphan the audit's heuristic missed | records/evidence.jsonl · scms-evidence-071 |
 | SCMS-072 | Evidence tone (SPS's evidence-density half) | E5 | Ready — owner design direction; the half of `morphologyFor` that went to neither SSS nor the recipe | work/SCMS-072.md |
-| SCMS-073 | Embargoes | E3 | Ready — owner design direction; E3 because publishing early is unrecoverable, and it must not read a wall clock | work/SCMS-073.md |
+| SCMS-073 | Embargoes | E3 | Done — reading half; no wall clock, absent coordinate fails closed. Setting an embargo is a contract change, not yet built | records/evidence.jsonl · scms-evidence-073 |
 | SCMS-074 | Entitlement classes: entitled groups and staged access | E4 | **Registered, not scheduled** — P2 unratified, SH-2 open, and nothing to entitle yet | work/SCMS-074.md |
 | SCMS-075 | Link liveness as a Field signal, not a qualification gate | E5 | Ready — depends on SH-22's disposition; blocks 78% of articles today while checking 5 references | work/SCMS-075.md |
 | SCMS-076 | Declared content types for `project` and `role` | E1 | Done — all 215 conform, zero NOT_APPLICABLE; four type decisions collapsed to one registry | records/evidence.jsonl · scms-evidence-076 |

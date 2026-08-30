@@ -105,6 +105,7 @@ export function resolveSurface(
   // BIND CONTEXT — only the declared temporal coordinate enters resolution.
   const contextAt = request.context?.temporal?.at ?? null;
 
+
   // APPLY LENS — deterministic candidate discovery.
   const traversals: TraceTraversal[] = [];
   const candidates: Candidate[] = [];
@@ -144,7 +145,7 @@ export function resolveSurface(
   }
 
   // EVALUATE ELIGIBILITY — outcomes stay non-interchangeable (SSS §10, INV-013).
-  const evaluated = candidates.map((c) => ({ c, ...evaluateEligibility(c, request, rank) }));
+  const evaluated = candidates.map((c) => ({ c, ...evaluateEligibility(c, request, rank, contextAt) }));
 
   // RESOLVE MEMBERSHIP + GROUP.
   const members: SurfaceMembership[] = [];
@@ -261,6 +262,7 @@ function evaluateEligibility(
   c: Candidate,
   request: SurfaceRequest,
   rank: number,
+  contextAt: string | null,
 ): { outcome: EligibilityOutcome; reason: string; basis: ResolutionBasis[] } {
   const isAnchor = request.profile === "focus" && c.depth === 0;
 
@@ -302,6 +304,38 @@ function evaluateEligibility(
   if (c.subject.entitled === true && rank < ACCESS_RANK.owner) {
     // Withheld is not absent: the subject is visible, participation is gated.
     return { outcome: "withheld", reason: "entitlement-gated participation", basis: [] };
+  }
+
+  /**
+   * Embargo (SCMS-073). A promoted record may still declare an instant before
+   * which it is not readable. Two properties, both deliberate:
+   *
+   * 1. **Nothing reads a wall clock.** A record becomes readable because a later
+   *    resolution is *asked at a later coordinate*, not because something woke
+   *    up. That is the same explicit-clock discipline the rest of the resolver
+   *    keeps, and it is what lets an embargo be replayed.
+   * 2. **An absent coordinate fails closed.** A caller who declares no `at` sees
+   *    embargoed content as ineligible rather than the resolver assuming "now".
+   *    Absent is not now, and guessing in the other direction publishes early —
+   *    which is the unrecoverable direction (NR-scms-004's rule, applied to
+   *    time).
+   *
+   * `ineligible` rather than `withheld`, because before its instant the record
+   * is not a gated participant — it is simply not yet part of the readable
+   * world, exactly like an unpromoted draft. The owner is unaffected: an embargo
+   * hides a record from readers, never from its author.
+   */
+  const embargoUntil = c.subject.attrs?.embargoUntil;
+  if (typeof embargoUntil === "string" && rank < ACCESS_RANK.owner) {
+    if (contextAt === null || contextAt < embargoUntil) {
+      return {
+        outcome: "ineligible",
+        reason: contextAt === null
+          ? "embargoed, and no temporal coordinate was declared"
+          : `embargoed until ${embargoUntil}`,
+        basis: [],
+      };
+    }
   }
   const basis: ResolutionBasis[] = isAnchor
     ? [{ rule: "subject-anchor" }]
