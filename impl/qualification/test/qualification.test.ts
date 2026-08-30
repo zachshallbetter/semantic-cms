@@ -8,6 +8,8 @@ import assert from "node:assert/strict";
 import { CanonJournal } from "../../canon/src/journal.ts";
 import type { Envelope, RecordState } from "../../canon/src/envelope.ts";
 import { ContractRegistry, CONTENT_REVISE, reviseHandler } from "../../contracts/src/runtime.ts";
+import { evidenceTone } from "../src/tone.ts";
+import type { EvidenceRecord } from "../src/eqp.ts";
 import { NOTE_PROFILE, ARTICLE_PROFILE, COMMITMENT_PROFILE, PROFILES } from "../src/eqp.ts";
 import type { EvidenceRecord } from "../src/eqp.ts";
 import { qualify, requiredEvidence, applyException } from "../src/qualify.ts";
@@ -611,4 +613,63 @@ test("media alt text is checked on the media that exists (SCMS-055)", async () =
   assert.equal(run([{ kind: "image", value: "a.png", alt: "   " }]).evidence.result, "FAIL",
     "whitespace is not alt text");
   assert.equal(run([]).evidence.result, "PASS", "no media is satisfied, not vacuous");
+});
+
+// ── SCMS-072: evidence tone ────────────────────────────────────────────────
+
+const toneEv = (result: string, validity: string): EvidenceRecord => ({
+  id: "e", obligation: "ob/x", result, validity,
+  candidateRevision: "r", actor: "a", independentEvaluator: false,
+} as EvidenceRecord);
+
+test("a fully evidenced group is earned; a partly evidenced one is steady", () => {
+  const all = evidenceTone(["a", "b"], () => [toneEv("PASS", "VALID")]);
+  assert.equal(all.tone, "earned");
+  assert.equal(all.supported, 2);
+
+  const some = evidenceTone(["a", "b"], (s) => (s === "a" ? [toneEv("PASS", "VALID")] : []));
+  assert.equal(some.tone, "steady");
+  assert.equal(some.basis, "1 of 2 carry valid evidence");
+});
+
+test("evidence that lapsed is not evidence that never existed", () => {
+  // §6 keeps an unrun check distinct from a failed one; this keeps a lapsed
+  // check distinct from an absent one.
+  const fading = evidenceTone(["a", "b"], () => [toneEv("PASS", "STALE")]);
+  assert.equal(fading.tone, "fading");
+  assert.equal(fading.lapsed, 2);
+
+  const never = evidenceTone(["a", "b"], () => []);
+  assert.equal(never.tone, "unevidenced");
+  assert.equal(never.lapsed, 0);
+});
+
+test("a failed check does not count as support", () => {
+  assert.equal(evidenceTone(["a"], () => [toneEv("FAIL", "VALID")]).tone, "unevidenced");
+  assert.equal(evidenceTone(["a"], () => [toneEv("NOT_RUN", "VALID")]).tone, "unevidenced");
+  // PARTIAL does, because it is a real if incomplete result.
+  assert.equal(evidenceTone(["a"], () => [toneEv("PARTIAL", "VALID")]).tone, "earned");
+});
+
+test("tone names no container form — it is semantic, not graphical", () => {
+  const readings = [
+    evidenceTone(["a"], () => [toneEv("PASS", "VALID")]),
+    evidenceTone(["a"], () => [toneEv("PASS", "STALE")]),
+    evidenceTone([], () => []),
+  ];
+  const forbidden = ["hero", "rail", "grid", "matrix", "card", "large", "small",
+                     "top", "first", "centered", "bleed", "column"];
+  for (const r of readings) {
+    const text = JSON.stringify(r).toLowerCase();
+    for (const f of forbidden) {
+      assert.ok(!text.includes(f),
+        `tone reading mentions '${f}' — SSS-INV-009 puts morphology outside this`);
+    }
+  }
+});
+
+test("lookup is injected — tone cannot reach past the members it was given", () => {
+  const asked: string[] = [];
+  evidenceTone(["a", "b"], (s) => { asked.push(s); return []; });
+  assert.deepEqual(asked, ["a", "b"]);
 });

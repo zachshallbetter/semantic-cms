@@ -87,7 +87,7 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-069 | A gate between the claim register and the work graph | E0 | Done — 4 rules, incl. proposal-disposition staleness; tested against the historical row | records/evidence.jsonl · scms-evidence-069 |
 | SCMS-070 | Done items carry a work file or a stated exemption | E0 | Done — rule 4 in the graph gate; 13 truthful markers, no retroactive predicates | records/evidence.jsonl · scms-evidence-070 |
 | SCMS-071 | Evidence addenda need a citation path | E0 | Done — rule 5 in the graph gate; found a 4th orphan the audit's heuristic missed | records/evidence.jsonl · scms-evidence-071 |
-| SCMS-072 | Evidence tone (SPS's evidence-density half) | E5 | Ready — owner design direction; the half of `morphologyFor` that went to neither SSS nor the recipe | work/SCMS-072.md |
+| SCMS-072 | Evidence tone (SPS's evidence-density half) | E5 | **Partly done** — the reading exists and is vectored; nothing displays it yet (panel half outstanding) | records/evidence.jsonl · scms-evidence-072 |
 | SCMS-073 | Embargoes | E3 | Done — reading half; no wall clock, absent coordinate fails closed. Setting an embargo is a contract change, not yet built | records/evidence.jsonl · scms-evidence-073 |
 | SCMS-074 | Entitlement classes: entitled groups and staged access | E4 | **Registered, not scheduled** — P2 unratified, SH-2 open, and nothing to entitle yet | work/SCMS-074.md |
 | SCMS-075 | Link liveness as a Field signal, not a qualification gate | E5 | Ready — depends on SH-22's disposition; blocks 78% of articles today while checking 5 references | work/SCMS-075.md |
