@@ -1,6 +1,6 @@
 # Project Context Index
 > Generator: 0.5.0
-> Source digest: `a9318b0f6bafb946a0d334b3d1e9a5ed229de541525f7adab98e20cc274169f0`
+> Source digest: `d9187c112ac48e9fcbc5a48a7bced2298bd0205ee50c8ceaa07138f9199c6f24`
 
 > Generated projection. Canonical sources remain authoritative.
 
@@ -16,12 +16,12 @@
 - `AGENTS.md` | 7498 bytes | `93362a4ff5f38de2e2352bc34499b880b5ba2cdcfef959189226229e5320fbd1`
 - `CONTEXT_SOURCES.json` | 914 bytes | `1a0e0db180b061204f20b4a550f8b634fb2a220569592bd63fed13eb875dda0e`
 - `DESIGN.md` | 35290 bytes | `62603e98c3ac16360001e13396a40e54b671ce4545a5a9cd654f5257a56760c5`
-- `FORMAL_RESOURCE_MANIFEST.json` | 12094 bytes | `fdf6f710c00e1429ff34d4a2ab8ed81fadc48dd812cf040354a327751d2d3fd2`
+- `FORMAL_RESOURCE_MANIFEST.json` | 14629 bytes | `34721692f8b95cf5a6d03c267ea34ab7f2fb3e553951ef7af71f75426adf92ae`
 - `NEW_AGENT_PROMPT.md` | 1021 bytes | `5df98ccb46c4e6511e59e10a2783a67454cbc29b3ee0af507061789592993cfc`
 - `PROJECT_INTENT.md` | 6430 bytes | `aa9fa7805702ad934d0920ef4f6445845b787c0b6a5c5545032ede47ab305989`
 - `PROJECT_PROFILE.json` | 1921 bytes | `a2e82bd569b5897551b55fe21f099baf1d8f7217feaf1fc8e9d7e9d9239b1e81`
 - `README.md` | 1802 bytes | `a844d7c44767ce1053af3c2ce427061208bae53c67415cc6a7c285e3a649b996`
-- `SPEC_HEALTH.md` | 26102 bytes | `04dcbab4e748def5ebf50dba39330fbcfee2cbb611767f8d03dc52bc917f478b`
+- `SPEC_HEALTH.md` | 27176 bytes | `749b0742bee3b2acc5f9e3693e3582a686f8df2c357c10a7b9ac9916b1769380`
 - `VERSION` | 6 bytes | `a0ad50640139a524f86591157145bf1d4674ea9c065bfea21558f0f7b04430c8`
 - `bindings/PROJECT_BINDINGS.yaml` | 13060 bytes | `7141154bb8cbcfd25e7a96003cb731538aae1a36c70888f401a12b29ff28d04e`
 - `contracts/README.md` | 387 bytes | `574c6218c0c957efb2eb3bfa4bf51fbf3ab0165cc81a033a249d4ba4cc2af78e`
@@ -36,7 +36,7 @@
 - `docs/EXECUTION_PROVIDER_CONTRACT.md` | 1669 bytes | `e9587fea1bd67229f6588600512e6b9539d510ba000c0190b2c05f67eda0cf19`
 - `docs/EXISTING_PROJECT_ADOPTION.md` | 4530 bytes | `6cfaf7daa1669ed717571ecd43e3b5950151d39641d1adaff6a16843a954c6c7`
 - `docs/FORMAL_RESOURCES.md` | 2845 bytes | `bf93374182ba0212c7e64328a751c9dc3cfacd816779f983eca50f9157851289`
-- `docs/HANDOFF-2026-08-30.md` | 9309 bytes | `2f7ecac9cf9f2af6618befca40ed24e0416532569067b53d2beea09660972eb2`
+- `docs/HANDOFF-2026-08-30.md` | 11533 bytes | `8a0463c0ae7280272e7b4938a48dbc8831aaefeab9cf695e55765c009cf78692`
 - `docs/INITIAL_EPICS_TEMPLATE.md` | 1234 bytes | `c3e6414393bbfb7905b4113f10571a695204538c19bbab90b5a486e7ae6a3039`
 - `docs/LANDING_AND_PROMOTION.md` | 1135 bytes | `675a228edb135427a399e08c7fdf3a983a7802da5a20d63deb83af40fe366a23`
 - `docs/MULTI_AGENT_COORDINATION.md` | 2078 bytes | `c27fc5594ef31ff4574582b4c6f2e69dc684bb897b9f9455fce1b50ca44f968a`
@@ -157,6 +157,11 @@
 - `research/proposal-dispositions.md` | 12485 bytes | `673a87721ca53d8b1ce67a58dd2875eef1f916c90e8d1cb15155523f57a5b0de`
 - `research/titan-infinite-verse-review.md` | 39140 bytes | `2584c50c3e338b54b559745e167b868cb7fd59ae92a9cdf1ed4f84dbce1326e9`
 - `research/titan-node-observatory-tools-review.md` | 30465 bytes | `5d6435f0484e8c017267519bade19495f6c5341a2031bbfc6e1d2e665bd0fb7d`
+- `research/upstream/fpb-pin-digest-procedure/PROPOSAL.md` | 5363 bytes | `db4e6c00092fb4dff9cadb49a54552f14ecc1d7e34ccb27fc62f4fb67d043cf8`
+- `research/upstream/fpb-pin-digest-procedure/README.md` | 1125 bytes | `419259233465408eea10554a4dd8538c80ba0b5cd6d0396a1906d83870dadc7c`
+- `research/upstream/fpb-pin-digest-procedure/docs/FORMAL_RESOURCES.pinning.md` | 1704 bytes | `be652fbc83cbdb9a353ded05dab54dcf3c9ab7f47e29faf23e5281205ad698c0`
+- `research/upstream/fpb-pin-digest-procedure/schemas/resource-fields.md` | 904 bytes | `3145f6c957500405128558fa42ca53de3c8c1cd22382a54246e0138d3d269e50`
+- `research/upstream/fpb-pin-digest-procedure/scripts/verify-pins.py` | 10840 bytes | `86e28f2f9ae323e1feb4221439874efd7b5d27c46967c7a624d0303351e765c9`
 - `schemas/agent-message.schema.json` | 2269 bytes | `88c346d6ce2cf34d3bba9f35e2ef54e77776707b125b22bbc4ecc910ac33bedc`
 - `schemas/context-lock.schema.json` | 2526 bytes | `395e44e6dcc74b3169463d96e5db4836befdd1cae8ffc19857645c4e8ea5993b`
 - `schemas/formal-resource-manifest.schema.json` | 1676 bytes | `465c3eae445d530087e1149d7f14e267400b32df00fa5b506e0b3af278a9b928`
@@ -174,7 +179,8 @@
 - `scripts/next-id.py` | 5685 bytes | `ab97cb462db8ae3850b778efe400df47c751180742723deeafd67d84073dcadf`
 - `scripts/run-ci-steps.sh` | 3107 bytes | `8037ce51e5cd66dcf943456a7f0ca58f5c3efb64a5b2098f7bfcd4b7f4cc8b03`
 - `scripts/validate-bootstrap.py` | 4120 bytes | `b3881974ac4d1259a0fa084c1aa80bfcdc1af4b3873f05c9057697e61bb1fb95`
-- `work/GRAPH.md` | 20547 bytes | `817c6a826c8322d9a31f979be25c1cf3f6af7b2790123b71470ab030743cd728`
+- `scripts/verify-pins.py` | 10371 bytes | `06cf24b02b016a40ee20a0669ae04915cffdf4a366b0bfc0ff4722bc174dbc67`
+- `work/GRAPH.md` | 21183 bytes | `b18c1ce4d3906bf3a272fda56bc84c301594a0c53ac33016c8091c5560dbb2a8`
 - `work/SCMS-001.md` | 2155 bytes | `99c5bc6ed57cfd3b84eb813d1aadee333af8e706120003d34285cc6e20beffd9`
 - `work/SCMS-002.md` | 2769 bytes | `0fdb32c56443212ade358f5e06c6b45cb9be3b6b8a8bdaa1a7eec61264406a33`
 - `work/SCMS-003.md` | 1448 bytes | `b93754ca3c9f8e039abc83cfdb59c49f86f9dadf4f64da55fc76caf82fec6943`

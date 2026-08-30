@@ -7,7 +7,7 @@
       "kind": "protocol",
       "required": true,
       "version": "1.0.0",
-      "revisionOrDigest": "sha256:97e0ef3b16528588ed7ab644f691b112b682d6c467d829620e29921b541462ee",
+      "revisionOrDigest": "sha256:e00eac0f2577454b223f0049f22cf0c561f856d2ca184dc16ae7a8354579c5d8",
       "canonicalSource": "/Users/zachshallbetter/Projects/_Protocols/semantic-expression-system",
       "mountOrAddress": "/Users/zachshallbetter/Projects/_Protocols/semantic-expression-system",
       "authorityRole": "Semantic model (Element/Slot/Block/Socket/Composition/Variant/State/Operation), expression cascade, Projection Contracts, typed invariance, conformance vocabulary.",
@@ -20,14 +20,22 @@
         "semantics": "bound-as-declared",
         "authority": "imported, never enlarged"
       },
-      "sourceState": "git repository, clean at 40e543653112 (SES-041: adds package.json for downstream pinning; no normative change); digest is aggregate sha256 of file sha256s over the mount (.git/node_modules excluded), computed 2026-08-28"
+      "sourceState": "git repository, clean at 40e543653112 (SES-041: adds package.json for downstream pinning; no normative change); digest is aggregate sha256 of file sha256s over the mount (.git/node_modules excluded), computed 2026-08-28",
+      "priorDigest": {
+        "value": "sha256:97e0ef3b16528588ed7ab644f691b112b682d6c467d829620e29921b541462ee",
+        "recordedAt": "2026-08-28",
+        "status": "procedure unrecorded; not reproducible as of 2026-08-30 (NR-scms-028)"
+      },
+      "digestProcedure": "fpb-aggregate-v1",
+      "digestFileCount": 240,
+      "digestComputedAt": "2026-08-30"
     },
     {
       "id": "sps",
       "kind": "protocol",
       "required": true,
       "version": "0.1.0",
-      "revisionOrDigest": "sha256:05d3403e356ce741040ec8a0c9cc589837b866cff8152efb89d7151e54136dbd",
+      "revisionOrDigest": "sha256:f8f5cf71cf3d55c313c5b849059e5aebcbd038faadc53b41ec48b3cd1bb7e708",
       "canonicalSource": "/Users/zachshallbetter/Projects/_Protocols/semantic-publication-substrate",
       "mountOrAddress": "/Users/zachshallbetter/Projects/_Protocols/semantic-publication-substrate",
       "authorityRole": "Publication layering (six-layer stack, source-of-truth ownership), evidence-resolved morphology, protected-resource discovery boundary.",
@@ -40,14 +48,22 @@
         "semantics": "bound-as-declared",
         "authority": "imported, never enlarged"
       },
-      "sourceState": "local directory, not under version control; consumption boundary added 2026-08-28 (package.json + work/SPS-002 + evidence, house style; additive, no normative change; private/UNLICENSED pending owner license selection, scms UD-12); aggregate content digest recomputed at re-pin"
+      "sourceState": "local directory, not under version control; consumption boundary added 2026-08-28 (package.json + work/SPS-002 + evidence, house style; additive, no normative change; private/UNLICENSED pending owner license selection, scms UD-12); aggregate content digest recomputed at re-pin",
+      "priorDigest": {
+        "value": "sha256:05d3403e356ce741040ec8a0c9cc589837b866cff8152efb89d7151e54136dbd",
+        "recordedAt": "2026-08-28",
+        "status": "procedure unrecorded; not reproducible as of 2026-08-30 (NR-scms-028)"
+      },
+      "digestProcedure": "fpb-aggregate-v1",
+      "digestFileCount": 34,
+      "digestComputedAt": "2026-08-30"
     },
     {
       "id": "icp",
       "kind": "protocol",
       "required": true,
       "version": "0.1.0",
-      "revisionOrDigest": "sha256:8d789eb987428fa2b5e43f832854237604fefd709177ed74d989c9d5a624af14",
+      "revisionOrDigest": "sha256:c7b4b97e1f07270f75525ced8d35bfeada0113f515c405f1cb90aa8902a56656",
       "canonicalSource": "/Users/zachshallbetter/Projects/_Protocols/interaction-contract-protocol",
       "mountOrAddress": "/Users/zachshallbetter/Projects/_Protocols/interaction-contract-protocol",
       "authorityRole": "Governed consequential interaction: contract tuple, canonical instance states, outcome classes, change receipts, executable recovery, verification levels.",
@@ -58,14 +74,22 @@
         "semantics": "bound-as-declared",
         "authority": "imported, never enlarged"
       },
-      "sourceState": "local directory, not under version control; consumption boundary added 2026-08-28 (package.json + protocol-manifest.json per its own identity grammar; additive, no normative change; private/UNLICENSED pending owner license selection, scms UD-12); aggregate content digest recomputed at re-pin"
+      "sourceState": "local directory, not under version control; consumption boundary added 2026-08-28 (package.json + protocol-manifest.json per its own identity grammar; additive, no normative change; private/UNLICENSED pending owner license selection, scms UD-12); aggregate content digest recomputed at re-pin",
+      "priorDigest": {
+        "value": "sha256:8d789eb987428fa2b5e43f832854237604fefd709177ed74d989c9d5a624af14",
+        "recordedAt": "2026-08-28",
+        "status": "procedure unrecorded; not reproducible as of 2026-08-30 (NR-scms-028)"
+      },
+      "digestProcedure": "fpb-aggregate-v1",
+      "digestFileCount": 3,
+      "digestComputedAt": "2026-08-30"
     },
     {
       "id": "eqp",
       "kind": "protocol",
       "required": true,
       "version": "0.1.0",
-      "revisionOrDigest": "sha256:1bafff08a497efeaae0102f752a89e02ffd33fecc9d4e8ab91ef460a67f2ca21",
+      "revisionOrDigest": "sha256:95bd05c2c5dc0d6119848e62b9e734e5b6a2a32332e18ebd742ea32ea38c7992",
       "canonicalSource": "/Users/zachshallbetter/Projects/_Protocols/evidence-qualification-protocol",
       "mountOrAddress": "/Users/zachshallbetter/Projects/_Protocols/evidence-qualification-protocol",
       "authorityRole": "Qualification semantics: evidence results and validity, qualification radius, required-evidence equation, attestations, promotion boundary.",
@@ -78,7 +102,15 @@
         "semantics": "bound-as-declared",
         "authority": "imported, never enlarged"
       },
-      "sourceState": "local directory, not under version control; consumption boundary added 2026-08-28 (package.json with exports for the four normative schemas; additive, no normative change; private/UNLICENSED pending owner license selection, scms UD-12); aggregate content digest recomputed at re-pin"
+      "sourceState": "local directory, not under version control; consumption boundary added 2026-08-28 (package.json with exports for the four normative schemas; additive, no normative change; private/UNLICENSED pending owner license selection, scms UD-12); aggregate content digest recomputed at re-pin",
+      "priorDigest": {
+        "value": "sha256:1bafff08a497efeaae0102f752a89e02ffd33fecc9d4e8ab91ef460a67f2ca21",
+        "recordedAt": "2026-08-28",
+        "status": "procedure unrecorded; not reproducible as of 2026-08-30 (NR-scms-028)"
+      },
+      "digestProcedure": "fpb-aggregate-v1",
+      "digestFileCount": 22,
+      "digestComputedAt": "2026-08-30"
     },
     {
       "id": "iepe",
@@ -104,7 +136,7 @@
       "kind": "research-corpus",
       "required": true,
       "version": "corpus-v2",
-      "revisionOrDigest": "sha256:632f6120810e739f2c39d7443c5f825c398b767c075aab240c71a901abc1c010",
+      "revisionOrDigest": "sha256:3917557801bc751f9c266df61a9d068710bd014ba1231b4593f33123bc96257d",
       "canonicalSource": "/Users/zachshallbetter/Projects/_Protocols/human-computer-mutual-legibility",
       "mountOrAddress": "/Users/zachshallbetter/Projects/_Protocols/human-computer-mutual-legibility",
       "authorityRole": "Consistency states, relationship state, typed uncertainty, delegation risk posture, design principles. Research corpus: informs, does not command; empirical claims remain unvalidated by its own admission.",
@@ -115,7 +147,15 @@
         "semantics": "bound-as-declared",
         "evidence": "hypothesis-stage, imported as such"
       },
-      "sourceState": "local directory, not under version control; consumption boundary added 2026-08-28 (package.json declaring the two corpus dirs; additive, no normative change; private/UNLICENSED pending owner license selection, scms UD-12); aggregate content digest recomputed at re-pin"
+      "sourceState": "local directory, not under version control; consumption boundary added 2026-08-28 (package.json declaring the two corpus dirs; additive, no normative change; private/UNLICENSED pending owner license selection, scms UD-12); aggregate content digest recomputed at re-pin",
+      "priorDigest": {
+        "value": "sha256:632f6120810e739f2c39d7443c5f825c398b767c075aab240c71a901abc1c010",
+        "recordedAt": "2026-08-28",
+        "status": "procedure unrecorded; not reproducible as of 2026-08-30 (NR-scms-028)"
+      },
+      "digestProcedure": "fpb-aggregate-v1",
+      "digestFileCount": 33,
+      "digestComputedAt": "2026-08-30"
     },
     {
       "id": "fundamental",
@@ -162,7 +202,7 @@
       "kind": "policy",
       "required": true,
       "version": "0.5.1",
-      "revisionOrDigest": "sha256:32e8da6625cb9bac436c48de6e88b8d525b24606b32b2d8a48b11f70f8874f48",
+      "revisionOrDigest": "sha256:a2d70d61ec0aa995c71fd72de5b81d7bd172c2b8697fb14c83d6687f9a177cae",
       "canonicalSource": "/Users/zachshallbetter/Projects/_formal-project-bootstrap/formal-project-bootstrap-v0.5.1",
       "mountOrAddress": "/Users/zachshallbetter/Projects/_formal-project-bootstrap/formal-project-bootstrap-v0.5.1",
       "authorityRole": "Operating substrate this project is initialized from: authority model, work graph, evidence method, context compilation, conformance ladder.",
@@ -176,17 +216,25 @@
         "semantics": "bound-as-declared",
         "authority": "governs project operation"
       },
-      "sourceState": "released package v0.5.1 (2026-08-28: adds instrument stratification, upstream-first repair doctrine, named drafting failure classes; doc-level additive); digest is sha256 of PACKAGE_MANIFEST.json, which binds per-file sha256 digests; full gate (check-all.py) passed at re-pin"
+      "sourceState": "released package v0.5.1 (2026-08-28: adds instrument stratification, upstream-first repair doctrine, named drafting failure classes; doc-level additive); digest is sha256 of PACKAGE_MANIFEST.json, which binds per-file sha256 digests; full gate (check-all.py) passed at re-pin",
+      "priorDigest": {
+        "value": "sha256:32e8da6625cb9bac436c48de6e88b8d525b24606b32b2d8a48b11f70f8874f48",
+        "recordedAt": "2026-08-28",
+        "status": "procedure unrecorded; not reproducible as of 2026-08-30 (NR-scms-028)"
+      },
+      "digestProcedure": "fpb-aggregate-v1",
+      "digestFileCount": 84,
+      "digestComputedAt": "2026-08-30"
     },
     {
       "id": "sss",
       "kind": "protocol",
       "required": true,
       "version": "0.1.0",
-      "revisionOrDigest": "sha256:364317ed1f6c6b8b19d94e84c7cf1a6e48b130614fd6bbd7a70b405771d3346c",
+      "revisionOrDigest": "sha256:5ca7ead4ff8aad1344fdbefa81df74fd3c69309e309669f5c7b2fb198fb02441",
       "canonicalSource": "/Users/zachshallbetter/Projects/_Protocols/semantic-surface-model",
       "mountOrAddress": "/Users/zachshallbetter/Projects/_Protocols/semantic-surface-model",
-      "authorityRole": "Surface resolution: purpose-bound semantic participation between Canon and expression \u2014 subject/purpose/context/lens, eligibility outcomes, membership/grouping/priority, operation exposure, resolution trace, surface fingerprints, access-before-resolution. Sixteen invariants; S0-S4 conformance ladder.",
+      "authorityRole": "Surface resolution: purpose-bound semantic participation between Canon and expression — subject/purpose/context/lens, eligibility outcomes, membership/grouping/priority, operation exposure, resolution trace, surface fingerprints, access-before-resolution. Sixteen invariants; S0-S4 conformance ladder.",
       "inventory": [
         "docs/SSS-SPECIFICATION.md",
         "docs/ARCHITECTURE.md",
@@ -198,7 +246,15 @@
         "semantics": "bound-as-declared",
         "authority": "imported, never enlarged"
       },
-      "sourceState": "local directory, not under version control; package boundary present (@semantic-systems/surface, private/UNLICENSED \u2014 UD-12 scope); schemas/ and conformance/ directories exist but are EMPTY (UD-13: normative schemas and golden vectors owed upstream); naming varies across dir (semantic-surface-model), protocol (Semantic Surface System), and package (@semantic-systems/surface) \u2014 flagged UD-13; aggregate content digest computed 2026-08-28"
+      "sourceState": "local directory, not under version control; package boundary present (@semantic-systems/surface, private/UNLICENSED — UD-12 scope); schemas/ and conformance/ directories exist but are EMPTY (UD-13: normative schemas and golden vectors owed upstream); naming varies across dir (semantic-surface-model), protocol (Semantic Surface System), and package (@semantic-systems/surface) — flagged UD-13; aggregate content digest computed 2026-08-28",
+      "priorDigest": {
+        "value": "sha256:364317ed1f6c6b8b19d94e84c7cf1a6e48b130614fd6bbd7a70b405771d3346c",
+        "recordedAt": "2026-08-28",
+        "status": "procedure unrecorded; not reproducible as of 2026-08-30 (NR-scms-028)"
+      },
+      "digestProcedure": "fpb-aggregate-v1",
+      "digestFileCount": 11,
+      "digestComputedAt": "2026-08-30"
     }
   ],
   "integrityPolicy": {
@@ -207,7 +263,7 @@
     "rejectRemoteLatestForRequiredResources": true,
     "rejectGeneratedContextAsAuthority": true,
     "consumptionModel": "dependencies-only: pinned versions/revisions consumed via package/crate dependency, schema-pack import, or mechanical sync from the pin; a synced copy is a cache of the pin, not a fork; local modification of consumed code or specs is prohibited",
-    "repairDoctrine": "upstream-first: a needed, broken, or missing capability is repaired in the owning project under that project's authority, then re-pinned here; a re-pin is a compatibility event and may trigger re-qualification (owner directive, 2026-08-28; DESIGN.md \u00a712.1)",
+    "repairDoctrine": "upstream-first: a needed, broken, or missing capability is repaired in the owning project under that project's authority, then re-pinned here; a re-pin is a compatibility event and may trigger re-qualification (owner directive, 2026-08-28; DESIGN.md §12.1)",
     "divergenceRequiresDeviation": true
   }
 }

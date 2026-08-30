@@ -1,6 +1,6 @@
 # PROJECT COMPILED CONTEXT
 Generator: 0.5.0
-Source digest: a9318b0f6bafb946a0d334b3d1e9a5ed229de541525f7adab98e20cc274169f0
+Source digest: d9187c112ac48e9fcbc5a48a7bced2298bd0205ee50c8ceaa07138f9199c6f24
 
 > Generated projection. Canonical sources remain authoritative.
 
@@ -1105,7 +1105,7 @@ FILE: FORMAL_RESOURCE_MANIFEST.json
       "kind": "protocol",
       "required": true,
       "version": "1.0.0",
-      "revisionOrDigest": "sha256:97e0ef3b16528588ed7ab644f691b112b682d6c467d829620e29921b541462ee",
+      "revisionOrDigest": "sha256:e00eac0f2577454b223f0049f22cf0c561f856d2ca184dc16ae7a8354579c5d8",
       "canonicalSource": "/Users/zachshallbetter/Projects/_Protocols/semantic-expression-system",
       "mountOrAddress": "/Users/zachshallbetter/Projects/_Protocols/semantic-expression-system",
       "authorityRole": "Semantic model (Element/Slot/Block/Socket/Composition/Variant/State/Operation), expression cascade, Projection Contracts, typed invariance, conformance vocabulary.",
@@ -1118,14 +1118,22 @@ FILE: FORMAL_RESOURCE_MANIFEST.json
         "semantics": "bound-as-declared",
         "authority": "imported, never enlarged"
       },
-      "sourceState": "git repository, clean at 40e543653112 (SES-041: adds package.json for downstream pinning; no normative change); digest is aggregate sha256 of file sha256s over the mount (.git/node_modules excluded), computed 2026-08-28"
+      "sourceState": "git repository, clean at 40e543653112 (SES-041: adds package.json for downstream pinning; no normative change); digest is aggregate sha256 of file sha256s over the mount (.git/node_modules excluded), computed 2026-08-28",
+      "priorDigest": {
+        "value": "sha256:97e0ef3b16528588ed7ab644f691b112b682d6c467d829620e29921b541462ee",
+        "recordedAt": "2026-08-28",
+        "status": "procedure unrecorded; not reproducible as of 2026-08-30 (NR-scms-028)"
+      },
+      "digestProcedure": "fpb-aggregate-v1",
+      "digestFileCount": 240,
+      "digestComputedAt": "2026-08-30"
     },
     {
       "id": "sps",
       "kind": "protocol",
       "required": true,
       "version": "0.1.0",
-      "revisionOrDigest": "sha256:05d3403e356ce741040ec8a0c9cc589837b866cff8152efb89d7151e54136dbd",
+      "revisionOrDigest": "sha256:f8f5cf71cf3d55c313c5b849059e5aebcbd038faadc53b41ec48b3cd1bb7e708",
       "canonicalSource": "/Users/zachshallbetter/Projects/_Protocols/semantic-publication-substrate",
       "mountOrAddress": "/Users/zachshallbetter/Projects/_Protocols/semantic-publication-substrate",
       "authorityRole": "Publication layering (six-layer stack, source-of-truth ownership), evidence-resolved morphology, protected-resource discovery boundary.",
@@ -1138,14 +1146,22 @@ FILE: FORMAL_RESOURCE_MANIFEST.json
         "semantics": "bound-as-declared",
         "authority": "imported, never enlarged"
       },
-      "sourceState": "local directory, not under version control; consumption boundary added 2026-08-28 (package.json + work/SPS-002 + evidence, house style; additive, no normative change; private/UNLICENSED pending owner license selection, scms UD-12); aggregate content digest recomputed at re-pin"
+      "sourceState": "local directory, not under version control; consumption boundary added 2026-08-28 (package.json + work/SPS-002 + evidence, house style; additive, no normative change; private/UNLICENSED pending owner license selection, scms UD-12); aggregate content digest recomputed at re-pin",
+      "priorDigest": {
+        "value": "sha256:05d3403e356ce741040ec8a0c9cc589837b866cff8152efb89d7151e54136dbd",
+        "recordedAt": "2026-08-28",
+        "status": "procedure unrecorded; not reproducible as of 2026-08-30 (NR-scms-028)"
+      },
+      "digestProcedure": "fpb-aggregate-v1",
+      "digestFileCount": 34,
+      "digestComputedAt": "2026-08-30"
     },
     {
       "id": "icp",
       "kind": "protocol",
       "required": true,
       "version": "0.1.0",
-      "revisionOrDigest": "sha256:8d789eb987428fa2b5e43f832854237604fefd709177ed74d989c9d5a624af14",
+      "revisionOrDigest": "sha256:c7b4b97e1f07270f75525ced8d35bfeada0113f515c405f1cb90aa8902a56656",
       "canonicalSource": "/Users/zachshallbetter/Projects/_Protocols/interaction-contract-protocol",
       "mountOrAddress": "/Users/zachshallbetter/Projects/_Protocols/interaction-contract-protocol",
       "authorityRole": "Governed consequential interaction: contract tuple, canonical instance states, outcome classes, change receipts, executable recovery, verification levels.",
@@ -1156,14 +1172,22 @@ FILE: FORMAL_RESOURCE_MANIFEST.json
         "semantics": "bound-as-declared",
         "authority": "imported, never enlarged"
       },
-      "sourceState": "local directory, not under version control; consumption boundary added 2026-08-28 (package.json + protocol-manifest.json per its own identity grammar; additive, no normative change; private/UNLICENSED pending owner license selection, scms UD-12); aggregate content digest recomputed at re-pin"
+      "sourceState": "local directory, not under version control; consumption boundary added 2026-08-28 (package.json + protocol-manifest.json per its own identity grammar; additive, no normative change; private/UNLICENSED pending owner license selection, scms UD-12); aggregate content digest recomputed at re-pin",
+      "priorDigest": {
+        "value": "sha256:8d789eb987428fa2b5e43f832854237604fefd709177ed74d989c9d5a624af14",
+        "recordedAt": "2026-08-28",
+        "status": "procedure unrecorded; not reproducible as of 2026-08-30 (NR-scms-028)"
+      },
+      "digestProcedure": "fpb-aggregate-v1",
+      "digestFileCount": 3,
+      "digestComputedAt": "2026-08-30"
     },
     {
       "id": "eqp",
       "kind": "protocol",
       "required": true,
       "version": "0.1.0",
-      "revisionOrDigest": "sha256:1bafff08a497efeaae0102f752a89e02ffd33fecc9d4e8ab91ef460a67f2ca21",
+      "revisionOrDigest": "sha256:95bd05c2c5dc0d6119848e62b9e734e5b6a2a32332e18ebd742ea32ea38c7992",
       "canonicalSource": "/Users/zachshallbetter/Projects/_Protocols/evidence-qualification-protocol",
       "mountOrAddress": "/Users/zachshallbetter/Projects/_Protocols/evidence-qualification-protocol",
       "authorityRole": "Qualification semantics: evidence results and validity, qualification radius, required-evidence equation, attestations, promotion boundary.",
@@ -1176,7 +1200,15 @@ FILE: FORMAL_RESOURCE_MANIFEST.json
         "semantics": "bound-as-declared",
         "authority": "imported, never enlarged"
       },
-      "sourceState": "local directory, not under version control; consumption boundary added 2026-08-28 (package.json with exports for the four normative schemas; additive, no normative change; private/UNLICENSED pending owner license selection, scms UD-12); aggregate content digest recomputed at re-pin"
+      "sourceState": "local directory, not under version control; consumption boundary added 2026-08-28 (package.json with exports for the four normative schemas; additive, no normative change; private/UNLICENSED pending owner license selection, scms UD-12); aggregate content digest recomputed at re-pin",
+      "priorDigest": {
+        "value": "sha256:1bafff08a497efeaae0102f752a89e02ffd33fecc9d4e8ab91ef460a67f2ca21",
+        "recordedAt": "2026-08-28",
+        "status": "procedure unrecorded; not reproducible as of 2026-08-30 (NR-scms-028)"
+      },
+      "digestProcedure": "fpb-aggregate-v1",
+      "digestFileCount": 22,
+      "digestComputedAt": "2026-08-30"
     },
     {
       "id": "iepe",
@@ -1202,7 +1234,7 @@ FILE: FORMAL_RESOURCE_MANIFEST.json
       "kind": "research-corpus",
       "required": true,
       "version": "corpus-v2",
-      "revisionOrDigest": "sha256:632f6120810e739f2c39d7443c5f825c398b767c075aab240c71a901abc1c010",
+      "revisionOrDigest": "sha256:3917557801bc751f9c266df61a9d068710bd014ba1231b4593f33123bc96257d",
       "canonicalSource": "/Users/zachshallbetter/Projects/_Protocols/human-computer-mutual-legibility",
       "mountOrAddress": "/Users/zachshallbetter/Projects/_Protocols/human-computer-mutual-legibility",
       "authorityRole": "Consistency states, relationship state, typed uncertainty, delegation risk posture, design principles. Research corpus: informs, does not command; empirical claims remain unvalidated by its own admission.",
@@ -1213,7 +1245,15 @@ FILE: FORMAL_RESOURCE_MANIFEST.json
         "semantics": "bound-as-declared",
         "evidence": "hypothesis-stage, imported as such"
       },
-      "sourceState": "local directory, not under version control; consumption boundary added 2026-08-28 (package.json declaring the two corpus dirs; additive, no normative change; private/UNLICENSED pending owner license selection, scms UD-12); aggregate content digest recomputed at re-pin"
+      "sourceState": "local directory, not under version control; consumption boundary added 2026-08-28 (package.json declaring the two corpus dirs; additive, no normative change; private/UNLICENSED pending owner license selection, scms UD-12); aggregate content digest recomputed at re-pin",
+      "priorDigest": {
+        "value": "sha256:632f6120810e739f2c39d7443c5f825c398b767c075aab240c71a901abc1c010",
+        "recordedAt": "2026-08-28",
+        "status": "procedure unrecorded; not reproducible as of 2026-08-30 (NR-scms-028)"
+      },
+      "digestProcedure": "fpb-aggregate-v1",
+      "digestFileCount": 33,
+      "digestComputedAt": "2026-08-30"
     },
     {
       "id": "fundamental",
@@ -1260,7 +1300,7 @@ FILE: FORMAL_RESOURCE_MANIFEST.json
       "kind": "policy",
       "required": true,
       "version": "0.5.1",
-      "revisionOrDigest": "sha256:32e8da6625cb9bac436c48de6e88b8d525b24606b32b2d8a48b11f70f8874f48",
+      "revisionOrDigest": "sha256:a2d70d61ec0aa995c71fd72de5b81d7bd172c2b8697fb14c83d6687f9a177cae",
       "canonicalSource": "/Users/zachshallbetter/Projects/_formal-project-bootstrap/formal-project-bootstrap-v0.5.1",
       "mountOrAddress": "/Users/zachshallbetter/Projects/_formal-project-bootstrap/formal-project-bootstrap-v0.5.1",
       "authorityRole": "Operating substrate this project is initialized from: authority model, work graph, evidence method, context compilation, conformance ladder.",
@@ -1274,17 +1314,25 @@ FILE: FORMAL_RESOURCE_MANIFEST.json
         "semantics": "bound-as-declared",
         "authority": "governs project operation"
       },
-      "sourceState": "released package v0.5.1 (2026-08-28: adds instrument stratification, upstream-first repair doctrine, named drafting failure classes; doc-level additive); digest is sha256 of PACKAGE_MANIFEST.json, which binds per-file sha256 digests; full gate (check-all.py) passed at re-pin"
+      "sourceState": "released package v0.5.1 (2026-08-28: adds instrument stratification, upstream-first repair doctrine, named drafting failure classes; doc-level additive); digest is sha256 of PACKAGE_MANIFEST.json, which binds per-file sha256 digests; full gate (check-all.py) passed at re-pin",
+      "priorDigest": {
+        "value": "sha256:32e8da6625cb9bac436c48de6e88b8d525b24606b32b2d8a48b11f70f8874f48",
+        "recordedAt": "2026-08-28",
+        "status": "procedure unrecorded; not reproducible as of 2026-08-30 (NR-scms-028)"
+      },
+      "digestProcedure": "fpb-aggregate-v1",
+      "digestFileCount": 84,
+      "digestComputedAt": "2026-08-30"
     },
     {
       "id": "sss",
       "kind": "protocol",
       "required": true,
       "version": "0.1.0",
-      "revisionOrDigest": "sha256:364317ed1f6c6b8b19d94e84c7cf1a6e48b130614fd6bbd7a70b405771d3346c",
+      "revisionOrDigest": "sha256:5ca7ead4ff8aad1344fdbefa81df74fd3c69309e309669f5c7b2fb198fb02441",
       "canonicalSource": "/Users/zachshallbetter/Projects/_Protocols/semantic-surface-model",
       "mountOrAddress": "/Users/zachshallbetter/Projects/_Protocols/semantic-surface-model",
-      "authorityRole": "Surface resolution: purpose-bound semantic participation between Canon and expression \u2014 subject/purpose/context/lens, eligibility outcomes, membership/grouping/priority, operation exposure, resolution trace, surface fingerprints, access-before-resolution. Sixteen invariants; S0-S4 conformance ladder.",
+      "authorityRole": "Surface resolution: purpose-bound semantic participation between Canon and expression — subject/purpose/context/lens, eligibility outcomes, membership/grouping/priority, operation exposure, resolution trace, surface fingerprints, access-before-resolution. Sixteen invariants; S0-S4 conformance ladder.",
       "inventory": [
         "docs/SSS-SPECIFICATION.md",
         "docs/ARCHITECTURE.md",
@@ -1296,7 +1344,15 @@ FILE: FORMAL_RESOURCE_MANIFEST.json
         "semantics": "bound-as-declared",
         "authority": "imported, never enlarged"
       },
-      "sourceState": "local directory, not under version control; package boundary present (@semantic-systems/surface, private/UNLICENSED \u2014 UD-12 scope); schemas/ and conformance/ directories exist but are EMPTY (UD-13: normative schemas and golden vectors owed upstream); naming varies across dir (semantic-surface-model), protocol (Semantic Surface System), and package (@semantic-systems/surface) \u2014 flagged UD-13; aggregate content digest computed 2026-08-28"
+      "sourceState": "local directory, not under version control; package boundary present (@semantic-systems/surface, private/UNLICENSED — UD-12 scope); schemas/ and conformance/ directories exist but are EMPTY (UD-13: normative schemas and golden vectors owed upstream); naming varies across dir (semantic-surface-model), protocol (Semantic Surface System), and package (@semantic-systems/surface) — flagged UD-13; aggregate content digest computed 2026-08-28",
+      "priorDigest": {
+        "value": "sha256:364317ed1f6c6b8b19d94e84c7cf1a6e48b130614fd6bbd7a70b405771d3346c",
+        "recordedAt": "2026-08-28",
+        "status": "procedure unrecorded; not reproducible as of 2026-08-30 (NR-scms-028)"
+      },
+      "digestProcedure": "fpb-aggregate-v1",
+      "digestFileCount": 11,
+      "digestComputedAt": "2026-08-30"
     }
   ],
   "integrityPolicy": {
@@ -1305,7 +1361,7 @@ FILE: FORMAL_RESOURCE_MANIFEST.json
     "rejectRemoteLatestForRequiredResources": true,
     "rejectGeneratedContextAsAuthority": true,
     "consumptionModel": "dependencies-only: pinned versions/revisions consumed via package/crate dependency, schema-pack import, or mechanical sync from the pin; a synced copy is a cache of the pin, not a fork; local modification of consumed code or specs is prohibited",
-    "repairDoctrine": "upstream-first: a needed, broken, or missing capability is repaired in the owning project under that project's authority, then re-pinned here; a re-pin is a compatibility event and may trigger re-qualification (owner directive, 2026-08-28; DESIGN.md \u00a712.1)",
+    "repairDoctrine": "upstream-first: a needed, broken, or missing capability is repaired in the owning project under that project's authority, then re-pinned here; a re-pin is a compatibility event and may trigger re-qualification (owner directive, 2026-08-28; DESIGN.md §12.1)",
     "divergenceRequiresDeviation": true
   }
 }
@@ -1578,6 +1634,7 @@ decision record) — never by deletion.
 | ~~SH-20~~ | **RESOLVED as a declared non-property** | Intra-group order is unprotected | *Closed by SCMS-053:* S3 does not promise intra-group order, and now says so. `checkEquivalence` reports `intraGroupOrderMatched` without enforcing it — priority is semantic and its realization is free, so an adapter may legitimately order a group by reading time, alphabet, or nothing at all. What was wrong is that the absence was true by omission: an unwritten missing guarantee is indistinguishable from one people assume they have. A caller who needs the property can now check for it. | — |
 | SH-21 | **GAP — migration** | The corpus is unpublished | `content.create@1` refuses to create already-published content (correctly — a caller must not supply the value deciding the gate), so all 215 migrated records arrive `unpublished`, including the 61 that were published in the source. Since SCMS-050 made the read path consult publication, the site correctly renders empty. | Promote those records through the real gate, which requires attestations and therefore intersects SH-13. Part of SCMS-029's reconciliation; not something the importer may do on its own. |
 | SH-22 | **THIN — narrowed by SCMS-055** | External link verification blocks articles | Both checkers now exist. `ob/media-alt-text` is fully decidable. `ob/links-resolve` resolves internal references against Canon and reports external URLs as `INCONCLUSIVE`, since they cannot be verified without network access — a coverage gap, so an article containing any external link is still `BLOCKED`. Most of the owner's corpus is Medium imports, so most articles carry external links. | Three options, all the owner's: give the system network access for a link-liveness check; declare that `ob/links-resolve` means internal references only; or remove the obligation from the article profile. Narrowing it unilaterally would be redefining what publication guarantees in order to pass the gate. |
+| SH-24 | **DRIFT — bootstrap version** | Formal resources | `PROJECT_PROFILE.json` declares `profileVersion 0.5.0` and `validate-bootstrap.py` checks the project against 0.5.0, while `FORMAL_RESOURCE_MANIFEST.json` pins **fpb 0.5.1** as a required resource. Nothing revalidated the project against the version it pins. The pin's own `sourceState` calls 0.5.1 doc-level additive (instrument stratification, upstream-first repair doctrine, named drafting failure classes), so this is probably benign — but 'probably benign' is a guess, and the gap between the version checked and the version pinned is exactly where a doc-level addition becomes an unmet obligation. Separately, the same profile still says `"version control recommended but not yet initialized"`, which stopped being true 99 commits ago. | Revalidate against 0.5.1 and either raise `profileVersion` or record why the project stays on 0.5.0 while pinning 0.5.1; correct the stale executionProvider sentence either way. Owner call — raising a profile version is a bootstrap-contract act, not a cleanup. |
 | ~~SH-23~~ | **RESOLVED** | The journal updates rows it may not update | *Closed by SCMS-056:* supersession is read off the successor's `supersedes` pointer and revocation off the receipt chain, so no row is ever rewritten. `deriveIndexes()` recomputes both from append-only data, and a vector asserts the maintained indexes agree with it — an index cannot silently become the source of truth. | — |
 | ~~SH-12~~ | **RESOLVED** | Wire protocol concretes | *Closed by SCMS-024:* `schemas/scms/envelope.schema.json` (closed, hash-pattern-typed, freshness rule encoded conditionally) and `schemas/scms/golden/canonicalization.json` (4 positive vectors + 1 negative proving the check can fail). Residual limitation, recorded not hidden: no JSON-Schema library is available under the zero-dependency policy, so the schema document is not meta-validated and schema/runtime agreement is asserted case-wise. |
 
@@ -3007,8 +3064,19 @@ validation or a vector is the only protection.
   dependencies; all 20 packages hand-transcribe instead, honestly labelled *"transcribed from the
   pin"*. `records/deviations.jsonl` is **empty**, so the doctrine's own mechanism for this was never
   used. This is the most structurally significant open item.
-- **7 of 10 formal pins are unverifiable** — six are digests over unversioned directories, one source
-  is missing. `sss` is among them, and the code cites it as structural authority throughout.
+  *Two findings from 2026-08-30:* the four schemas shared with the FPB pin are **byte-identical** to
+  it, so "transcribed" is at least sometimes an exact copy; and the empty `deviations.jsonl` had a
+  cause — nothing could **detect** a divergence, so there was never anything to escape from. It is
+  still empty on purpose: `AUTHORITY_MODEL.md` makes a deviation a *human* act, and an agent writing
+  one manufactures the approval the model exists to require. The FPB gap is **UD-14** instead.
+- **~~7 of 10 formal pins are unverifiable~~ — settled 2026-08-30 (SCMS-079), and it was worse than
+  written.** The digests were not merely unchecked, they were *unreproducible*: 48 candidate
+  procedures failed to reproduce the `fpb` digest, whose source is an immutable released package, so
+  drift could not explain it. Nothing anywhere read `revisionOrDigest`. `scripts/verify-pins.py` now
+  fixes one procedure and checks all ten: **OK=9, REMOTE=1**. Two caveats that do not go away —
+  it **cannot** run in CI (every `canonicalSource` is a local absolute path, NR-scms-029), and the
+  seven restamped digests attest to the mounts as they are *now*; what was pinned on 2026-08-28 is
+  unrecoverable, preserved only as `priorDigest`.
 
 **Sequencing that matters:**
 - **SCMS-045 must land before SCMS-077.** Today every landed autosave is a revision, so P7's
@@ -3067,6 +3135,21 @@ stage everything → regenerate the lock → stage the lock → run the steps.**
 `git status --porcelain` and says outright that a green summary over a dirty tree is not a claim
 about CI. Five occurrences of one class in two sessions, two of them inside the tooling built to
 prevent it — treat "I know this trap" as worth nothing here, and check the mechanism instead.
+
+**The owner named the real cause in one word: guessing (NR-scms-030).** The two records above blame
+filter-shaped blind spots. That framing is flattering and wrong. Every failure was an assertion about
+structure I had not read, when reading cost seconds: I globbed `scripts/check-*.py` instead of
+opening `gates.yml`, which states 39 steps; I assumed how `gen-context.py` picks sources when line
+105 says `git ls-files`; I tried three guessed key names for the context lock's digest field, so my
+"mutation test" mutated nothing and reported a pass; I assumed a mutant copy resolved `ROOT` to the
+repo when it resolved to the scratchpad, so two crashes read as two successes. **Two of five
+"verifications" in that sequence were invalid tests reported as passes** — the most dangerous shape
+available here, because it looks exactly like evidence.
+
+So the rule is **read the file before claiming what it does**, not "beware of filters". And note the
+asymmetry: auditing the *previous* agent's work I read `self_test()` line by line and caught a false
+claim; auditing my own tooling I trusted my model of it. Scale verification to what a wrong claim
+would cost, not to who made it.
 
 
 ========================================================================
@@ -27366,6 +27449,470 @@ Synthesized from four bounded exploration passes executed 2026-08-28 against the
 
 
 ========================================================================
+FILE: research/upstream/fpb-pin-digest-procedure/PROPOSAL.md
+========================================================================
+
+# Proposal — define the content-digest procedure, and ship a checker
+
+**Change class:** repository capability (adds tooling and two optional schema
+fields; no change to authority, work authorization, evidence semantics, autonomy
+boundaries, or context rules).
+
+**Status:** prepared by an agent under owner direction, for maintainer review.
+Per `GOVERNANCE.md`, automation may prepare, verify and recommend; it does not
+manufacture approval. Nothing here has been applied to a release.
+
+**Prepared against:** formal-project-bootstrap v0.5.1, unmodified.
+
+---
+
+## Problem
+
+`docs/FORMAL_RESOURCES.md` says, under **Pinning**:
+
+> Prefer immutable revisions or content digests. `latest` is not a pin.
+
+and the manifest schema carries `revisionOrDigest`. Neither says how a content
+digest is computed. "Aggregate sha256 of the file sha256s over the mount" — the
+phrasing consuming projects have adopted — does not determine an answer. It
+leaves open which files are walked, which are excluded, what order they are
+combined in, and what separator joins them.
+
+A digest whose procedure is unrecorded cannot be reproduced, so it cannot be
+refuted. It reads as an integrity control and functions as a decoration. This is
+the failure mode `GOVERNANCE.md` guards against from the other direction: a
+canonical concept with no mechanism behind it.
+
+## Evidence
+
+From the semantic-cms adoption (`operatingMode: existing`, FPB v0.5.0 profile,
+pinning v0.5.1), 2026-08-30:
+
+- Ten resources pinned. `revisionOrDigest` appeared in exactly four places across
+  both trees: the manifest, the manifest schema, a generated `llms-full.txt`, and
+  one work file. **No script in either project computed or checked a digest.**
+- Reproduction was attempted against the `fpb` pin specifically, because its
+  source is an immutable released package and drift therefore cannot explain a
+  mismatch. **48 candidate procedures** — four exclusion sets, dotfile and
+  `.DS_Store` variants, three aggregation forms including the exact form FPB's
+  own `gen-context.py` uses — reproduced none of the recorded digest.
+- Seven of the ten pins were digests in this state. Two were git revisions and
+  verified on first attempt. One is a remote URL with no local mount.
+
+The two that verified are the two whose pin form already had a defined
+procedure. That is the whole argument in one line.
+
+## Proposed change
+
+1. **Define one procedure**, `fpb-aggregate-v1`, in `docs/FORMAL_RESOURCES.md`
+   under **Pinning** (text in `docs/FORMAL_RESOURCES.pinning.md`). Step 4 is
+   deliberately identical to the aggregate in `scripts/gen-context.py`, so the
+   repository has one digest idea rather than two.
+2. **Add two optional schema fields** to each resource:
+   `digestProcedure` (string) and `digestFileCount` (integer). A digest pin
+   without `digestProcedure` is reported UNREPRODUCIBLE rather than recomputed
+   into agreement — silently restamping an unreproducible pin would erase the
+   evidence that it never held.
+3. **Ship `scripts/verify-pins.py`**, which verifies git-revision pins by commit
+   existence, digest pins by recomputation, and declared inventories by presence.
+
+## Exclusions
+
+- No change to what may be pinned, to authority, or to the repair doctrine.
+- No change to existing digest *values*. Restamping is a consuming project's act,
+  under its own record, and this proposal deliberately does not automate it as
+  part of `make check`.
+- Remote pins are reported, not resolved. Fetching a remote source to verify it
+  is a separate capability with its own trust questions.
+
+## Limitations — read before adopting
+
+- **This cannot run in CI for path-mounted pins.** Every `canonicalSource` in the
+  observed adoption is an absolute path on the owner's machine. A hosted runner
+  has none of them, so those pins are verifiable only where the mounts exist.
+  The procedure does not fix that; it makes it visible and countable. A project
+  that needs CI-verifiable pins must pin by git revision or published package.
+- **A restamped digest attests to the source as it is today**, not as it was when
+  first pinned. Where the recorded value was unreproducible there is no way back
+  to the original state, and the consuming project should keep the prior value
+  rather than discard it.
+- Six of the observed mounts are directories not under version control. A digest
+  over a mutable directory detects drift; it does not prevent it, and it cannot
+  say what the drift was.
+
+## Compatibility
+
+Syntax: additive (`additionalProperties` is already true on resource records).
+Schema: minor. Behavior: none for existing projects until they restamp.
+Authority: unchanged. Evidence: unchanged.
+
+Per `VERSIONING.md` this is a **minor** release: adds backward-compatible schema
+fields and tooling.
+
+## Checks run
+
+`scripts/verify-pins.py --self-test` passes, covering: digest match, drift on
+content change, drift on file addition, exclusions honoured, unstamped pin
+reported UNREPRODUCIBLE, determinism across repeated runs, missing inventory,
+remote source, and absent source. Failure was demonstrated by mutation rather
+than asserted — zeroing a digest in a real manifest produces DRIFT with a
+non-zero exit; restoring it returns to clean.
+
+`make check` in the v0.5.1 tree was **not** run against a modified tree, because
+this proposal deliberately does not modify that tree.
+
+
+========================================================================
+FILE: research/upstream/fpb-pin-digest-procedure/README.md
+========================================================================
+
+# Archived copy — UD-14 upstream submission
+
+This is a copy, kept here because the delivered original lives at
+
+    /Users/zachshallbetter/Projects/_formal-project-bootstrap/proposals/pin-digest-procedure
+
+which is not under version control and would disappear without trace.
+
+**The copy is not the submission.** It is the record of what was submitted, on
+2026-08-30, for maintainer review. FPB v0.5.1 was deliberately left unmodified:
+it is the tree the `fpb` pin covers, so editing it would mutate the pinned
+source, and `GOVERNANCE.md` reserves release authority to maintainers.
+
+`scripts/verify-pins.py` here is the **generalised** version proposed upstream —
+it takes a manifest path and carries no project-specific detail. This project's
+own copy at `scripts/verify-pins.py` is a separate local tool with the same
+procedure and semantic-cms-specific commentary. They are deliberately not
+synced: a local verification script is this project's tooling, not a consumed
+formal resource. If FPB releases the capability, this project should drop its
+copy and consume the pin — and that re-pin is a compatibility event.
+
+
+========================================================================
+FILE: research/upstream/fpb-pin-digest-procedure/docs/FORMAL_RESOURCES.pinning.md
+========================================================================
+
+<!-- Proposed replacement for the "Pinning" section of docs/FORMAL_RESOURCES.md -->
+
+## Pinning
+
+Prefer immutable revisions or content digests. `latest` is not a pin.
+
+If an immutable revision cannot be established, record the limitation instead of
+fabricating one.
+
+A content digest is a claim about a source, and a claim that cannot be
+reproduced cannot be refuted. Record the procedure alongside the digest, in
+`digestProcedure`. A digest pin without one is unverifiable regardless of how it
+was produced.
+
+### Procedure `fpb-aggregate-v1`
+
+1. Walk the mount. Skip any path with a component named `.git` or
+   `node_modules`, and any file named `.DS_Store`. Skip symlinks.
+2. For each remaining file take its mount-relative POSIX path and the sha256 of
+   its bytes.
+3. Sort by that path in byte order, not locale order.
+4. The digest is `sha256` of the entries joined as `path:filehash` by `\n`, with
+   no trailing newline.
+
+Step 4 is the aggregate `scripts/gen-context.py` already computes, so the
+repository keeps one digest idea rather than two. Steps 1 and 3 are what prose
+descriptions leave open, and are why undocumented digests are not reproducible
+in practice.
+
+### What a digest does and does not establish
+
+A digest over a mutable directory **detects** drift; it does not prevent it, and
+it cannot say what changed. It also says nothing about whether the mount still
+contains what the manifest claims to import — check the declared `inventory`
+separately.
+
+A pin whose `canonicalSource` is an absolute local path can only be verified on
+a machine holding that mount, so such pins cannot be gated in hosted CI. Pin by
+git revision or published package where CI verification is required.
+
+
+========================================================================
+FILE: research/upstream/fpb-pin-digest-procedure/schemas/resource-fields.md
+========================================================================
+
+<!-- Proposed additions to schemas/formal-resource-manifest.schema.json -->
+
+Two optional fields on each entry of `resources` (the record already permits
+additional properties, so this is documentation of intent rather than a
+loosening):
+
+```json
+"digestProcedure": {
+  "type": "string",
+  "description": "Identifier of the procedure that produced revisionOrDigest, e.g. fpb-aggregate-v1. A sha256 pin without this is unverifiable: it cannot be reproduced, and so cannot be refuted."
+},
+"digestFileCount": {
+  "type": "integer",
+  "minimum": 0,
+  "description": "Number of files the procedure hashed. Not authoritative — a cross-check that makes a wrong mount or a wrong exclusion set visible without rerunning the walk."
+}
+```
+
+A consuming project that restamps an unreproducible digest should preserve the
+previous value rather than discard it; the old value is the evidence that the
+pin never held.
+
+
+========================================================================
+FILE: research/upstream/fpb-pin-digest-procedure/scripts/verify-pins.py
+========================================================================
+
+#!/usr/bin/env python3
+"""Verify FORMAL_RESOURCE_MANIFEST.json pins against their canonical sources.
+
+`docs/FORMAL_RESOURCES.md` says to prefer immutable revisions or content
+digests, and the manifest schema carries `revisionOrDigest`. Neither says how a
+content digest is computed. "Aggregate sha256 of the file sha256s over the
+mount" does not determine an answer: it leaves open which files are walked,
+which are excluded, in what order they are combined, and with what separator.
+
+A digest whose procedure is unrecorded cannot be reproduced, so it cannot be
+refuted. It reads as an integrity control and functions as a decoration. In the
+adoption that motivated this script, 48 candidate procedures failed to
+reproduce one recorded digest whose source was an immutable released package --
+so drift could not explain the mismatch.
+
+This file fixes one procedure and fails when a source drifts.
+
+## Procedure `fpb-aggregate-v1`
+
+  1. Walk the mount. Skip any path with a component in EXCLUDED_DIRS, and any
+     file whose name is in EXCLUDED_NAMES.
+  2. Take each file's relative POSIX path and the sha256 of its bytes.
+  3. Sort by that path (byte order, not locale).
+  4. digest = sha256("\n".join(f"{path}:{filehash}")), no trailing newline.
+
+Step 4 is deliberately the aggregate `scripts/gen-context.py` already computes,
+so the repository has one digest idea rather than two. Steps 1 and 3 are what
+the prose left open, and they are the whole reason unstamped digests cannot be
+reproduced. A pin without `digestProcedure` is reported UNREPRODUCIBLE rather
+than quietly recomputed into agreement: restamping it silently would erase the
+evidence that it never held.
+
+## Where this can run
+
+A pin whose `canonicalSource` is an absolute local path is verifiable only on a
+machine that has that mount. A hosted CI runner does not, so such pins cannot be
+gated in CI -- a property of the pinning scheme, not of this script. Projects
+needing CI-verifiable pins should pin by git revision or published package.
+
+    python3 scripts/verify-pins.py [MANIFEST]              # verify; nonzero on drift
+    python3 scripts/verify-pins.py [MANIFEST] --update     # restamp under the procedure
+    python3 scripts/verify-pins.py --self-test
+"""
+import hashlib
+import json
+import pathlib
+import subprocess
+import sys
+import tempfile
+
+ROOT = pathlib.Path(__file__).resolve().parent.parent
+DEFAULT_MANIFEST = "FORMAL_RESOURCE_MANIFEST.json"
+
+
+def manifest_path(argv: list[str]) -> pathlib.Path:
+    """First non-flag argument, else the manifest at the project root."""
+    for arg in argv[1:]:
+        if not arg.startswith("--"):
+            return pathlib.Path(arg)
+    return ROOT / DEFAULT_MANIFEST
+PROCEDURE = "fpb-aggregate-v1"
+EXCLUDED_DIRS = {".git", "node_modules"}
+EXCLUDED_NAMES = {".DS_Store"}
+
+
+def sha(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+def aggregate(mount: pathlib.Path) -> tuple[str, int]:
+    """Procedure fpb-aggregate-v1. Returns (digest, files hashed)."""
+    entries = []
+    for path in mount.rglob("*"):
+        if not path.is_file() or path.is_symlink():
+            continue
+        rel = path.relative_to(mount)
+        if any(part in EXCLUDED_DIRS for part in rel.parts):
+            continue
+        if rel.name in EXCLUDED_NAMES:
+            continue
+        entries.append((rel.as_posix(), sha(path.read_bytes())))
+    entries.sort(key=lambda e: e[0].encode())
+    return sha("\n".join(f"{p}:{h}" for p, h in entries).encode()), len(entries)
+
+
+def is_remote(source: str) -> bool:
+    return "://" in source
+
+
+def check(resource: dict) -> tuple[str, str]:
+    """Returns (status, detail). Status is OK, DRIFT, UNREPRODUCIBLE, REMOTE or ABSENT."""
+    pin = resource.get("revisionOrDigest", "")
+    source = resource.get("canonicalSource", "")
+
+    if is_remote(source):
+        return "REMOTE", f"{source} — no local mount; nothing here can verify it"
+
+    mount = pathlib.Path(source)
+    if not mount.exists():
+        return "ABSENT", f"{source} does not exist"
+
+    # A digest proves the mount did not change; it says nothing about whether the
+    # mount still holds what the manifest claims to import. An observed pin ships
+    # EMPTY schema and conformance directories while being cited as structural
+    # authority, so hollowing is a real failure mode, not a hypothetical one.
+    missing = [i for i in resource.get("inventory", []) if not (mount / i).exists()]
+    if missing:
+        return "DRIFT", f"declared inventory absent from the mount: {', '.join(missing)}"
+
+    if pin.startswith("git:"):
+        rev = pin[4:]
+        if not (mount / ".git").exists():
+            return "DRIFT", f"pinned to revision {rev} but {source} is not a git repository"
+        ok = subprocess.run(["git", "-C", str(mount), "cat-file", "-e", f"{rev}^{{commit}}"],
+                            capture_output=True).returncode == 0
+        if not ok:
+            return "DRIFT", f"revision {rev} is not in {source}"
+        date = subprocess.run(["git", "-C", str(mount), "log", "-1", "--format=%cs", rev],
+                              capture_output=True, text=True).stdout.strip()
+        return "OK", f"revision {rev} present ({date})"
+
+    if not pin.startswith("sha256:"):
+        return "UNREPRODUCIBLE", f"unrecognised pin form {pin!r}"
+
+    if resource.get("digestProcedure") != PROCEDURE:
+        return ("UNREPRODUCIBLE",
+                f"no digestProcedure — the recorded digest cannot be reproduced or refuted; "
+                f"run --update to restamp under {PROCEDURE}")
+
+    got, count = aggregate(mount)
+    want = pin[len("sha256:"):]
+    if got != want:
+        return "DRIFT", f"expected {want[:16]}… got {got[:16]}… over {count} files"
+    return "OK", f"{count} files, digest matches"
+
+
+def update(path: pathlib.Path) -> int:
+    """Restamp digest pins under PROCEDURE, preserving what was there before."""
+    manifest = json.loads(path.read_text(encoding="utf-8"))
+    changed = 0
+    for r in manifest["resources"]:
+        pin, source = r.get("revisionOrDigest", ""), r.get("canonicalSource", "")
+        if not pin.startswith("sha256:") or is_remote(source):
+            continue
+        mount = pathlib.Path(source)
+        if not mount.exists():
+            continue
+        digest, count = aggregate(mount)
+        if r.get("digestProcedure") == PROCEDURE and pin == f"sha256:{digest}":
+            continue
+        # Keep the old value. It is the record of what was pinned on 2026-08-28,
+        # and discarding it would erase the evidence that it was unreproducible.
+        if "priorDigest" not in r:
+            r["priorDigest"] = {
+                "value": pin,
+                "status": "procedure unrecorded; not reproducible when restamped",
+            }
+        r["revisionOrDigest"] = f"sha256:{digest}"
+        r["digestProcedure"] = PROCEDURE
+        r["digestFileCount"] = count
+        changed += 1
+    path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    print(f"restamped {changed} pin(s) under {PROCEDURE}")
+    return 0
+
+
+def self_test() -> int:
+    """The gate must be able to fail, or it certifies nothing."""
+    with tempfile.TemporaryDirectory() as tmp:
+        mount = pathlib.Path(tmp) / "mount"
+        (mount / "docs").mkdir(parents=True)
+        (mount / "docs" / "SPEC.md").write_text("normative text\n")
+        (mount / "VERSION").write_text("0.1.0\n")
+        digest, count = aggregate(mount)
+        assert count == 2, count
+
+        base = {"id": "t", "kind": "protocol", "required": True, "canonicalSource": str(mount),
+                "authorityRole": "test", "digestProcedure": PROCEDURE}
+
+        ok = check({**base, "revisionOrDigest": f"sha256:{digest}"})
+        assert ok[0] == "OK", ok
+
+        # Drift: content changes, digest does not.
+        (mount / "VERSION").write_text("0.2.0\n")
+        drift = check({**base, "revisionOrDigest": f"sha256:{digest}"})
+        assert drift[0] == "DRIFT", drift
+        (mount / "VERSION").write_text("0.1.0\n")
+
+        # A new file must move the digest — a procedure blind to additions would
+        # have let the NaN file (NR-scms-024) through at the protocol layer too.
+        (mount / "docs" / "EXTRA.md").write_text("added\n")
+        assert check({**base, "revisionOrDigest": f"sha256:{digest}"})[0] == "DRIFT", "addition not caught"
+        (mount / "docs" / "EXTRA.md").unlink()
+
+        # Excluded paths must NOT move it, or every checkout would read as drift.
+        (mount / ".git").mkdir()
+        (mount / ".git" / "HEAD").write_text("ref: refs/heads/main\n")
+        (mount / ".DS_Store").write_bytes(b"\x00junk")
+        assert check({**base, "revisionOrDigest": f"sha256:{digest}"})[0] == "OK", "exclusions not honoured"
+
+        # An unstamped digest is unreproducible, never silently OK.
+        unstamped = {k: v for k, v in base.items() if k != "digestProcedure"}
+        assert check({**unstamped, "revisionOrDigest": f"sha256:{digest}"})[0] == "UNREPRODUCIBLE"
+
+        # Sort order must be path-stable, not filesystem order.
+        again, _ = aggregate(mount)
+        assert again == aggregate(mount)[0] == digest, "procedure is not deterministic"
+
+        # Inventory: a declared path that is not in the mount is drift, even when
+        # the digest itself agrees.
+        inv_ok = check({**base, "revisionOrDigest": f"sha256:{digest}", "inventory": ["docs/SPEC.md"]})
+        assert inv_ok[0] == "OK", inv_ok
+        inv_bad = check({**base, "revisionOrDigest": f"sha256:{digest}", "inventory": ["docs/GONE.md"]})
+        assert inv_bad[0] == "DRIFT" and "GONE.md" in inv_bad[1], inv_bad
+
+        assert check({**base, "revisionOrDigest": "sha256:x", "canonicalSource": "https://example/x"})[0] == "REMOTE"
+        assert check({**base, "revisionOrDigest": "sha256:x", "canonicalSource": "/nope/nowhere"})[0] == "ABSENT"
+
+    print("self-test ok (match, drift, addition, exclusions, unstamped, determinism, "
+          "inventory, remote and absent sources all detected)")
+    return 0
+
+
+def main() -> int:
+    if "--self-test" in sys.argv:
+        return self_test()
+    path = manifest_path(sys.argv)
+    if "--update" in sys.argv:
+        return update(path)
+
+    manifest = json.loads(path.read_text(encoding="utf-8"))
+    tally, bad = {}, 0
+    for r in manifest["resources"]:
+        status, detail = check(r)
+        tally[status] = tally.get(status, 0) + 1
+        if status in ("DRIFT", "UNREPRODUCIBLE", "ABSENT"):
+            bad += 1
+        print(f"{status:<15} {r['id']:<12} {detail}")
+    print("  " + " · ".join(f"{k}={v}" for k, v in sorted(tally.items())))
+    if tally.get("REMOTE"):
+        print("  REMOTE pins are unverifiable from any machine; that is the pin's shape, not a pass.")
+    return 1 if bad else 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+
+
+========================================================================
 FILE: schemas/agent-message.schema.json
 ========================================================================
 
@@ -29550,6 +30097,249 @@ if __name__ == "__main__":
 
 
 ========================================================================
+FILE: scripts/verify-pins.py
+========================================================================
+
+#!/usr/bin/env python3
+"""Verify FORMAL_RESOURCE_MANIFEST.json pins against their canonical sources.
+
+The manifest asserts `preferImmutableRevisionOrDigest` and
+`divergenceRequiresDeviation`, and ten resources carry a `revisionOrDigest`.
+Nothing computed or checked them: `revisionOrDigest` appeared only in the
+manifest, its schema, a generated projection, and one work file. The digests
+were also *unreproducible* -- their prose said "aggregate sha256 of file
+sha256s over the mount", which does not determine an answer. 48 reconstructions
+against `fpb`, whose source is an immutable released package, matched none
+(NR-scms-028).
+
+So this file does two things a prose description cannot: it fixes one procedure,
+and it fails when a source drifts.
+
+## Procedure `fpb-aggregate-v1`
+
+  1. Walk the mount. Skip any path with a component in EXCLUDED_DIRS, and any
+     file whose name is in EXCLUDED_NAMES.
+  2. Take each file's relative POSIX path and the sha256 of its bytes.
+  3. Sort by that path (byte order, not locale).
+  4. digest = sha256("\\n".join(f"{path}:{filehash}")), no trailing newline.
+
+Step 4 matches FPB's own `gen-context.py` aggregate. Steps 1 and 3 are what the
+prose left open, and they are the whole reason the old digests cannot be
+reproduced. A digest is only a claim if the procedure that produced it is
+recorded, so a pin without `digestProcedure` is reported UNREPRODUCIBLE rather
+than quietly recomputed into agreement.
+
+## This is not a CI gate, and cannot be one
+
+Every `canonicalSource` is an absolute path on the owner's machine
+(`/Users/zachshallbetter/Projects/...`). A GitHub runner has none of them, so
+the pins are unverifiable anywhere but here. That is a property of the pinning
+scheme, not of this script (NR-scms-029).
+
+    python3 scripts/verify-pins.py            # verify; nonzero on drift
+    python3 scripts/verify-pins.py --update   # restamp under the procedure
+    python3 scripts/verify-pins.py --self-test
+"""
+import hashlib
+import json
+import pathlib
+import subprocess
+import sys
+import tempfile
+
+ROOT = pathlib.Path(__file__).resolve().parent.parent
+MANIFEST = ROOT / "FORMAL_RESOURCE_MANIFEST.json"
+PROCEDURE = "fpb-aggregate-v1"
+EXCLUDED_DIRS = {".git", "node_modules"}
+EXCLUDED_NAMES = {".DS_Store"}
+
+
+def sha(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+def aggregate(mount: pathlib.Path) -> tuple[str, int]:
+    """Procedure fpb-aggregate-v1. Returns (digest, files hashed)."""
+    entries = []
+    for path in mount.rglob("*"):
+        if not path.is_file() or path.is_symlink():
+            continue
+        rel = path.relative_to(mount)
+        if any(part in EXCLUDED_DIRS for part in rel.parts):
+            continue
+        if rel.name in EXCLUDED_NAMES:
+            continue
+        entries.append((rel.as_posix(), sha(path.read_bytes())))
+    entries.sort(key=lambda e: e[0].encode())
+    return sha("\n".join(f"{p}:{h}" for p, h in entries).encode()), len(entries)
+
+
+def is_remote(source: str) -> bool:
+    return "://" in source
+
+
+def check(resource: dict) -> tuple[str, str]:
+    """Returns (status, detail). Status is OK, DRIFT, UNREPRODUCIBLE, REMOTE or ABSENT."""
+    pin = resource.get("revisionOrDigest", "")
+    source = resource.get("canonicalSource", "")
+
+    if is_remote(source):
+        return "REMOTE", f"{source} — no local mount; nothing here can verify it"
+
+    mount = pathlib.Path(source)
+    if not mount.exists():
+        return "ABSENT", f"{source} does not exist"
+
+    # A digest proves the mount did not change; it says nothing about whether the
+    # mount still holds what the manifest claims to import. `sss` ships EMPTY
+    # schemas/ and conformance/ dirs (UD-13) while the code cites it as
+    # structural authority, so hollowing is a real failure mode here, not a
+    # hypothetical one.
+    missing = [i for i in resource.get("inventory", []) if not (mount / i).exists()]
+    if missing:
+        return "DRIFT", f"declared inventory absent from the mount: {', '.join(missing)}"
+
+    if pin.startswith("git:"):
+        rev = pin[4:]
+        if not (mount / ".git").exists():
+            return "DRIFT", f"pinned to revision {rev} but {source} is not a git repository"
+        ok = subprocess.run(["git", "-C", str(mount), "cat-file", "-e", f"{rev}^{{commit}}"],
+                            capture_output=True).returncode == 0
+        if not ok:
+            return "DRIFT", f"revision {rev} is not in {source}"
+        date = subprocess.run(["git", "-C", str(mount), "log", "-1", "--format=%cs", rev],
+                              capture_output=True, text=True).stdout.strip()
+        return "OK", f"revision {rev} present ({date})"
+
+    if not pin.startswith("sha256:"):
+        return "UNREPRODUCIBLE", f"unrecognised pin form {pin!r}"
+
+    if resource.get("digestProcedure") != PROCEDURE:
+        return ("UNREPRODUCIBLE",
+                f"no digestProcedure — the recorded digest cannot be reproduced or refuted; "
+                f"run --update to restamp under {PROCEDURE}")
+
+    got, count = aggregate(mount)
+    want = pin[len("sha256:"):]
+    if got != want:
+        return "DRIFT", f"expected {want[:16]}… got {got[:16]}… over {count} files"
+    return "OK", f"{count} files, digest matches"
+
+
+def update() -> int:
+    """Restamp digest pins under PROCEDURE, preserving what was there before."""
+    manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
+    changed = 0
+    for r in manifest["resources"]:
+        pin, source = r.get("revisionOrDigest", ""), r.get("canonicalSource", "")
+        if not pin.startswith("sha256:") or is_remote(source):
+            continue
+        mount = pathlib.Path(source)
+        if not mount.exists():
+            continue
+        digest, count = aggregate(mount)
+        if r.get("digestProcedure") == PROCEDURE and pin == f"sha256:{digest}":
+            continue
+        # Keep the old value. It is the record of what was pinned on 2026-08-28,
+        # and discarding it would erase the evidence that it was unreproducible.
+        if "priorDigest" not in r:
+            r["priorDigest"] = {
+                "value": pin,
+                "recordedAt": "2026-08-28",
+                "status": "procedure unrecorded; not reproducible as of 2026-08-30 (NR-scms-028)",
+            }
+        r["revisionOrDigest"] = f"sha256:{digest}"
+        r["digestProcedure"] = PROCEDURE
+        r["digestFileCount"] = count
+        r["digestComputedAt"] = "2026-08-30"
+        changed += 1
+    MANIFEST.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    print(f"restamped {changed} pin(s) under {PROCEDURE}")
+    return 0
+
+
+def self_test() -> int:
+    """The gate must be able to fail, or it certifies nothing."""
+    with tempfile.TemporaryDirectory() as tmp:
+        mount = pathlib.Path(tmp) / "mount"
+        (mount / "docs").mkdir(parents=True)
+        (mount / "docs" / "SPEC.md").write_text("normative text\n")
+        (mount / "VERSION").write_text("0.1.0\n")
+        digest, count = aggregate(mount)
+        assert count == 2, count
+
+        base = {"id": "t", "kind": "protocol", "required": True, "canonicalSource": str(mount),
+                "authorityRole": "test", "digestProcedure": PROCEDURE}
+
+        ok = check({**base, "revisionOrDigest": f"sha256:{digest}"})
+        assert ok[0] == "OK", ok
+
+        # Drift: content changes, digest does not.
+        (mount / "VERSION").write_text("0.2.0\n")
+        drift = check({**base, "revisionOrDigest": f"sha256:{digest}"})
+        assert drift[0] == "DRIFT", drift
+        (mount / "VERSION").write_text("0.1.0\n")
+
+        # A new file must move the digest — a procedure blind to additions would
+        # have let the NaN file (NR-scms-024) through at the protocol layer too.
+        (mount / "docs" / "EXTRA.md").write_text("added\n")
+        assert check({**base, "revisionOrDigest": f"sha256:{digest}"})[0] == "DRIFT", "addition not caught"
+        (mount / "docs" / "EXTRA.md").unlink()
+
+        # Excluded paths must NOT move it, or every checkout would read as drift.
+        (mount / ".git").mkdir()
+        (mount / ".git" / "HEAD").write_text("ref: refs/heads/main\n")
+        (mount / ".DS_Store").write_bytes(b"\x00junk")
+        assert check({**base, "revisionOrDigest": f"sha256:{digest}"})[0] == "OK", "exclusions not honoured"
+
+        # An unstamped digest is unreproducible, never silently OK.
+        unstamped = {k: v for k, v in base.items() if k != "digestProcedure"}
+        assert check({**unstamped, "revisionOrDigest": f"sha256:{digest}"})[0] == "UNREPRODUCIBLE"
+
+        # Sort order must be path-stable, not filesystem order.
+        again, _ = aggregate(mount)
+        assert again == aggregate(mount)[0] == digest, "procedure is not deterministic"
+
+        # Inventory: a declared path that is not in the mount is drift, even when
+        # the digest itself agrees.
+        inv_ok = check({**base, "revisionOrDigest": f"sha256:{digest}", "inventory": ["docs/SPEC.md"]})
+        assert inv_ok[0] == "OK", inv_ok
+        inv_bad = check({**base, "revisionOrDigest": f"sha256:{digest}", "inventory": ["docs/GONE.md"]})
+        assert inv_bad[0] == "DRIFT" and "GONE.md" in inv_bad[1], inv_bad
+
+        assert check({**base, "revisionOrDigest": "sha256:x", "canonicalSource": "https://example/x"})[0] == "REMOTE"
+        assert check({**base, "revisionOrDigest": "sha256:x", "canonicalSource": "/nope/nowhere"})[0] == "ABSENT"
+
+    print("self-test ok (match, drift, addition, exclusions, unstamped, determinism, "
+          "inventory, remote and absent sources all detected)")
+    return 0
+
+
+def main() -> int:
+    if "--self-test" in sys.argv:
+        return self_test()
+    if "--update" in sys.argv:
+        return update()
+
+    manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
+    tally, bad = {}, 0
+    for r in manifest["resources"]:
+        status, detail = check(r)
+        tally[status] = tally.get(status, 0) + 1
+        if status in ("DRIFT", "UNREPRODUCIBLE", "ABSENT"):
+            bad += 1
+        print(f"{status:<15} {r['id']:<12} {detail}")
+    print("  " + " · ".join(f"{k}={v}" for k, v in sorted(tally.items())))
+    if tally.get("REMOTE"):
+        print("  REMOTE pins are unverifiable from any machine; that is the pin's shape, not a pass.")
+    return 1 if bad else 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+
+
+========================================================================
 FILE: work/GRAPH.md
 ========================================================================
 
@@ -29649,6 +30439,7 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-076 | Declared content types for `project` and `role` | E1 | Done — all 215 conform, zero NOT_APPLICABLE; four type decisions collapsed to one registry | records/evidence.jsonl · scms-evidence-076 |
 | SCMS-077 | Run the editing workload and disposition P7 | E1 | **Blocked on SCMS-045** — running it first would count autosave races as concurrent authorship | work/SCMS-077.md |
 | SCMS-078 | Exhaustive audit: every file, reference, record, issue | E0 | Done — NR-scms-021 (forged profile id skipped the verification gate) and NR-scms-020 (editor edits never type-checked) found and fixed; 8 DESIGN.md contradictions; 13 untracked SH entries; PR #28 stale and conflicting · *no predicate: audit requested directly; scope was the owner's sentence* | records/evidence.jsonl · scms-evidence-078 |
+| SCMS-079 | Make the formal-resource pins falsifiable | E0 | Done — one procedure fixed (fpb-aggregate-v1) and checked by `scripts/verify-pins.py`; pins went OK=2/UNREPRODUCIBLE=7/REMOTE=1 to OK=9/REMOTE=1; NR-scms-028 (digests unreproducible, nothing read the field), NR-scms-029 (path-mounted pins can never be CI-verified), NR-scms-030 (the root cause of this session's failures was guessing, not filter blind spots); UD-14 raised and a proposal prepared upstream; SH-24 opened for the 0.5.0-vs-0.5.1 drift · *no predicate: owner-directed in session; scope was "all of the above"* | records/evidence.jsonl · scms-evidence-079 |
 | SCMS-044 | Route the editor through the surface pipeline it currently bypasses | E12 | Done — SH-16 closed; two duplicate access checks removed; awaiting owner verification · *no predicate: discipline lapsed 2026-08-29, see scms-evidence-068* | records/evidence.jsonl · scms-evidence-044 |
 | SCMS-018 | R1 live co-authoring — **free lane only** (convergent merge) | E1 | **Blocked on P7 only** — P22 was accepted 2026-08-28; P7 is deferred with a revisit condition the owner has since named (settle it from the editor workload) | records/blockers · scms-blocker-001 |
 | SCMS-010 | S4 cross-domain portability: a materially unrelated project (outside this repository, per owner doctrine 2026-08-28) consumes @semantic-systems/surface unmodified | external | Backlog — executes outside scms; scms records the conformance result | — |

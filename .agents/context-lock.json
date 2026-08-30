@@ -9,14 +9,14 @@
     "repositories": [
       {
         "path": ".",
-        "commit": "f810434552800b1fabcb499f135b1767a75fc3ad",
+        "commit": "0c1fdea47094f4279c4f6bbcbff4190d11f669eb",
         "branch": "main",
         "dirty": true,
         "remote": "https://github.com/zachshallbetter/semantic-cms.git"
       }
     ]
   },
-  "aggregateSourceDigest": "a9318b0f6bafb946a0d334b3d1e9a5ed229de541525f7adab98e20cc274169f0",
+  "aggregateSourceDigest": "d9187c112ac48e9fcbc5a48a7bced2298bd0205ee50c8ceaa07138f9199c6f24",
   "sources": [
     {
       "path": ".agents/skills/compile-context/SKILL.md",
@@ -80,8 +80,8 @@
     },
     {
       "path": "FORMAL_RESOURCE_MANIFEST.json",
-      "bytes": 12094,
-      "sha256": "fdf6f710c00e1429ff34d4a2ab8ed81fadc48dd812cf040354a327751d2d3fd2"
+      "bytes": 14629,
+      "sha256": "34721692f8b95cf5a6d03c267ea34ab7f2fb3e553951ef7af71f75426adf92ae"
     },
     {
       "path": "NEW_AGENT_PROMPT.md",
@@ -105,8 +105,8 @@
     },
     {
       "path": "SPEC_HEALTH.md",
-      "bytes": 26102,
-      "sha256": "04dcbab4e748def5ebf50dba39330fbcfee2cbb611767f8d03dc52bc917f478b"
+      "bytes": 27176,
+      "sha256": "749b0742bee3b2acc5f9e3693e3582a686f8df2c357c10a7b9ac9916b1769380"
     },
     {
       "path": "VERSION",
@@ -180,8 +180,8 @@
     },
     {
       "path": "docs/HANDOFF-2026-08-30.md",
-      "bytes": 9309,
-      "sha256": "2f7ecac9cf9f2af6618befca40ed24e0416532569067b53d2beea09660972eb2"
+      "bytes": 11533,
+      "sha256": "8a0463c0ae7280272e7b4938a48dbc8831aaefeab9cf695e55765c009cf78692"
     },
     {
       "path": "docs/INITIAL_EPICS_TEMPLATE.md",
@@ -784,6 +784,31 @@
       "sha256": "5d6435f0484e8c017267519bade19495f6c5341a2031bbfc6e1d2e665bd0fb7d"
     },
     {
+      "path": "research/upstream/fpb-pin-digest-procedure/PROPOSAL.md",
+      "bytes": 5363,
+      "sha256": "db4e6c00092fb4dff9cadb49a54552f14ecc1d7e34ccb27fc62f4fb67d043cf8"
+    },
+    {
+      "path": "research/upstream/fpb-pin-digest-procedure/README.md",
+      "bytes": 1125,
+      "sha256": "419259233465408eea10554a4dd8538c80ba0b5cd6d0396a1906d83870dadc7c"
+    },
+    {
+      "path": "research/upstream/fpb-pin-digest-procedure/docs/FORMAL_RESOURCES.pinning.md",
+      "bytes": 1704,
+      "sha256": "be652fbc83cbdb9a353ded05dab54dcf3c9ab7f47e29faf23e5281205ad698c0"
+    },
+    {
+      "path": "research/upstream/fpb-pin-digest-procedure/schemas/resource-fields.md",
+      "bytes": 904,
+      "sha256": "3145f6c957500405128558fa42ca53de3c8c1cd22382a54246e0138d3d269e50"
+    },
+    {
+      "path": "research/upstream/fpb-pin-digest-procedure/scripts/verify-pins.py",
+      "bytes": 10840,
+      "sha256": "86e28f2f9ae323e1feb4221439874efd7b5d27c46967c7a624d0303351e765c9"
+    },
+    {
       "path": "schemas/agent-message.schema.json",
       "bytes": 2269,
       "sha256": "88c346d6ce2cf34d3bba9f35e2ef54e77776707b125b22bbc4ecc910ac33bedc"
@@ -869,9 +894,14 @@
       "sha256": "b3881974ac4d1259a0fa084c1aa80bfcdc1af4b3873f05c9057697e61bb1fb95"
     },
     {
+      "path": "scripts/verify-pins.py",
+      "bytes": 10371,
+      "sha256": "06cf24b02b016a40ee20a0669ae04915cffdf4a366b0bfc0ff4722bc174dbc67"
+    },
+    {
       "path": "work/GRAPH.md",
-      "bytes": 20547,
-      "sha256": "817c6a826c8322d9a31f979be25c1cf3f6af7b2790123b71470ab030743cd728"
+      "bytes": 21183,
+      "sha256": "b18c1ce4d3906bf3a272fda56bc84c301594a0c53ac33016c8091c5560dbb2a8"
     },
     {
       "path": "work/SCMS-001.md",
