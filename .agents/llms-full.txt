@@ -1,6 +1,6 @@
 # PROJECT COMPILED CONTEXT
 Generator: 0.5.0
-Source digest: 190fb3f9fe4299304d81a836d337be6fd627e635fc6e3dc4259a92a74616d024
+Source digest: c55f11529ee4bd8b25b54a15e2d03c5765e885f640cd7fd46872d32a11ca5683
 
 > Generated projection. Canonical sources remain authoritative.
 
@@ -1347,7 +1347,7 @@ This intent was distilled on 2026-08-28 from the accepted design candidate `DESI
 ## Desired state
 
 ```text
-CURRENT CONDITION
+CURRENT CONDITION (as distilled 2026-08-28; see SPEC_HEALTH.md for live status)
   A declared design (DESIGN.md); no implementation; concepts proven
   individually in SES, SPS, ICP, EQP, IEPE, HCML, Fundamental, rr-rsp.
       ↓
@@ -1500,8 +1500,14 @@ provenance-bearing, versioned record with a named authority; every visible surfa
 declared projection; every write crosses a contract; and live state is observation with
 an expiry.
 
-**Status:** design canonized; no implementation yet. `Documented ≠ Implemented ≠ Tested ≠
-Empirically Validated` — this project is at Documented.
+**Status:** implemented and tested along a narrow path, against the owner's real 215-entry
+archive. 20 packages, ~293 vectors, CI-verified. A running editor and a running site both resolve
+from Canon; Canon has a Postgres schema whose append-only property is enforced by grant.
+
+`Documented ≠ Implemented ≠ Tested ≠ Deployed ≠ Empirically Validated` — this project is at
+**Tested**. Nothing is deployed, and no person has yet done a day's work through it, so the claim
+that it is *useful* remains unestablished. `SPEC_HEALTH.md` carries every claim at the rung its
+evidence supports.
 
 ## Canonical order
 
@@ -9710,7 +9716,14 @@ export interface Receipt {
  * content.
  */
 export interface OutboxEvent {
-  /** Monotonic and gapless from 0 — the cursor clients replay from. */
+  /**
+   * Strictly increasing — the cursor clients replay from.
+   *
+   * In memory it happens to be contiguous, and that is an artifact rather than
+   * a requirement: Postgres consumes a sequence value on rollback, so the store
+   * DESIGN.md §13 prescribes emits `1,2,3,5` legitimately (NR-scms-017). Loss is
+   * caught by receipt/event parity, not by contiguity.
+   */
   eventId: number;
   action: ReceiptAction;
   subjectId: string;
@@ -12952,6 +12965,21 @@ export interface EditResult {
 }
 
 export interface EditSessionInput {
+  /**
+   * Declared-type enforcement for the resulting body (NR-scms-020).
+   *
+   * Both editor call sites already passed this — as a sibling of `context`,
+   * where `landEdit` never looked, so it was silently discarded and every edit
+   * made through the editor landed unchecked. An edit deleting a required slot
+   * returned `completed` and left a schema-invalid record.
+   *
+   * Threading it here rather than fixing the call sites is deliberate: a caller
+   * that has to put a value in exactly the right place is a caller that will
+   * eventually put it in the wrong one, and nothing type-checks these objects at
+   * runtime. Now the sink accepts it and forwards it, so both shapes work and
+   * neither is silently dropped.
+   */
+  validateBody?: (body: Record<string, unknown>) => Array<{ code: string; at: string; detail: string }>;
   journal: CanonJournal;
   registry: ContractRegistry;
   subjectId: string;
@@ -12988,7 +13016,13 @@ export function landEdit(input: EditSessionInput): EditResult {
     requestId: `edit-${input.session}`,
     actor: input.actor,
     input: { subjectId: input.subjectId, expectedRevision: input.baselineRevision, changes: input.changes },
-  } as never, { ...input.context, instanceId: `edit-${input.session}` });
+  } as never, {
+    ...input.context,
+    instanceId: `edit-${input.session}`,
+    // An explicit validator on the input wins; one already inside the context
+    // still works, so neither placement is dropped.
+    ...(input.validateBody ? { validateBody: input.validateBody } : {}),
+  } as never);
 
   const landedRevision = result.outcome === "completed"
     ? input.journal.current().find((e) => e.envelope.subjectId === input.subjectId)?.envelope.revision
@@ -13971,6 +14005,85 @@ test("the panel's tone names no container form", () => {
   for (const f of ["hero", "rail", "grid", "matrix", "card", "large", "small", "column"]) {
     assert.ok(!text.includes(f), `tone leaked morphology ('${f}') into the panel`);
   }
+});
+
+// ── NR-scms-020: landEdit must not silently drop type enforcement ──────────
+
+test("an edit that would produce schema-invalid content is refused", async () => {
+  // Both editor call sites passed `validateBody` as a SIBLING of `context`,
+  // where landEdit never looked — so every edit made through the editor landed
+  // unchecked. An edit deleting a required slot returned `completed` and left a
+  // schema-invalid record.
+  const { landEdit } = await import("../src/session.ts");
+  const { typeFor, checkContent } = await import("../../schema/src/schema.ts");
+  const { ContractRegistry, CONTENT_CREATE, createHandler, CONTENT_REVISE, reviseHandler } =
+    await import("../../contracts/src/runtime.ts");
+  const { CanonJournal } = await import("../../canon/src/journal.ts");
+
+  const j = new CanonJournal();
+  const reg = new ContractRegistry();
+  reg.register(CONTENT_CREATE, createHandler);
+  reg.register(CONTENT_REVISE, reviseHandler);
+  const actor = { id: "o", role: "owner" };
+  const context = { occurredAt: "2026-08-30T00:00:00Z", authority: "owner" as const };
+  const validateBody = (body: Record<string, unknown>) => {
+    const t = typeFor(String((body as { contentKind?: string }).contentKind));
+    return t ? checkContent(body as never, t) : [];
+  };
+
+  reg.execute(j, {
+    contract: "icp:interaction/content.create@1.0.0", requestId: "c", actor,
+    input: { subjectId: "vb-1", contentKind: "note", minimumAccess: "public", source: "t",
+      body: { kind: "Content", contentKind: "note",
+        slots: { title: [{ kind: "text", value: "T" }], body: [{ kind: "prose", value: "b" }] },
+        attrs: { listed: true } } },
+  } as never, { ...context, instanceId: "i", validateBody } as never);
+  const rev = j.current()[0].envelope.revision!;
+
+  const res = landEdit({
+    journal: j, registry: reg, subjectId: "vb-1", session: "s",
+    baselineRevision: rev, changes: { slots: { title: null } },
+    context, validateBody, actor,
+  } as never);
+
+  assert.equal(res.outcome, "invalid_input", "an edit deleting a required slot must be refused");
+  const after = j.current().find((e) => e.envelope.subjectId === "vb-1")!;
+  assert.deepEqual(checkContent(after.envelope.body as never, typeFor("note")!), [],
+    "and Canon must still hold a conformant record");
+});
+
+test("a valid edit still lands — the check is not simply refusing everything", async () => {
+  const { landEdit } = await import("../src/session.ts");
+  const { typeFor, checkContent } = await import("../../schema/src/schema.ts");
+  const { ContractRegistry, CONTENT_CREATE, createHandler, CONTENT_REVISE, reviseHandler } =
+    await import("../../contracts/src/runtime.ts");
+  const { CanonJournal } = await import("../../canon/src/journal.ts");
+
+  const j = new CanonJournal();
+  const reg = new ContractRegistry();
+  reg.register(CONTENT_CREATE, createHandler);
+  reg.register(CONTENT_REVISE, reviseHandler);
+  const actor = { id: "o", role: "owner" };
+  const context = { occurredAt: "2026-08-30T00:00:00Z", authority: "owner" as const };
+  const validateBody = (body: Record<string, unknown>) => {
+    const t = typeFor(String((body as { contentKind?: string }).contentKind));
+    return t ? checkContent(body as never, t) : [];
+  };
+  reg.execute(j, {
+    contract: "icp:interaction/content.create@1.0.0", requestId: "c", actor,
+    input: { subjectId: "vb-2", contentKind: "note", minimumAccess: "public", source: "t",
+      body: { kind: "Content", contentKind: "note",
+        slots: { title: [{ kind: "text", value: "T" }], body: [{ kind: "prose", value: "b" }] },
+        attrs: { listed: true } } },
+  } as never, { ...context, instanceId: "i", validateBody } as never);
+
+  const res = landEdit({
+    journal: j, registry: reg, subjectId: "vb-2", session: "s",
+    baselineRevision: j.current()[0].envelope.revision!,
+    changes: { slots: { title: [{ kind: "text", value: "Retitled" }] } },
+    context, validateBody, actor,
+  } as never);
+  assert.equal(res.outcome, "completed");
 });
 
 
@@ -29174,6 +29287,7 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-075 | Link liveness as a Field signal, not a qualification gate | E5 | Ready — depends on SH-22's disposition; blocks 78% of articles today while checking 5 references | work/SCMS-075.md |
 | SCMS-076 | Declared content types for `project` and `role` | E1 | Done — all 215 conform, zero NOT_APPLICABLE; four type decisions collapsed to one registry | records/evidence.jsonl · scms-evidence-076 |
 | SCMS-077 | Run the editing workload and disposition P7 | E1 | **Blocked on SCMS-045** — running it first would count autosave races as concurrent authorship | work/SCMS-077.md |
+| SCMS-078 | Exhaustive audit: every file, reference, record, issue | E0 | Done — NR-scms-020 (editor edits never type-checked) found and fixed; 8 DESIGN.md contradictions; 13 untracked SH entries; PR #28 stale and conflicting · *no predicate: audit requested directly; scope was the owner's sentence* | records/evidence.jsonl · scms-evidence-078 |
 | SCMS-044 | Route the editor through the surface pipeline it currently bypasses | E12 | Done — SH-16 closed; two duplicate access checks removed; awaiting owner verification · *no predicate: discipline lapsed 2026-08-29, see scms-evidence-068* | records/evidence.jsonl · scms-evidence-044 |
 | SCMS-018 | R1 live co-authoring — **free lane only** (convergent merge) | E1 | **Blocked on P7 only** — P22 was accepted 2026-08-28; P7 is deferred with a revisit condition the owner has since named (settle it from the editor workload) | records/blockers · scms-blocker-001 |
 | SCMS-010 | S4 cross-domain portability: a materially unrelated project (outside this repository, per owner doctrine 2026-08-28) consumes @semantic-systems/surface unmodified | external | Backlog — executes outside scms; scms records the conformance result | — |

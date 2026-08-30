@@ -428,3 +428,82 @@ test("the panel's tone names no container form", () => {
     assert.ok(!text.includes(f), `tone leaked morphology ('${f}') into the panel`);
   }
 });
+
+// ── NR-scms-020: landEdit must not silently drop type enforcement ──────────
+
+test("an edit that would produce schema-invalid content is refused", async () => {
+  // Both editor call sites passed `validateBody` as a SIBLING of `context`,
+  // where landEdit never looked — so every edit made through the editor landed
+  // unchecked. An edit deleting a required slot returned `completed` and left a
+  // schema-invalid record.
+  const { landEdit } = await import("../src/session.ts");
+  const { typeFor, checkContent } = await import("../../schema/src/schema.ts");
+  const { ContractRegistry, CONTENT_CREATE, createHandler, CONTENT_REVISE, reviseHandler } =
+    await import("../../contracts/src/runtime.ts");
+  const { CanonJournal } = await import("../../canon/src/journal.ts");
+
+  const j = new CanonJournal();
+  const reg = new ContractRegistry();
+  reg.register(CONTENT_CREATE, createHandler);
+  reg.register(CONTENT_REVISE, reviseHandler);
+  const actor = { id: "o", role: "owner" };
+  const context = { occurredAt: "2026-08-30T00:00:00Z", authority: "owner" as const };
+  const validateBody = (body: Record<string, unknown>) => {
+    const t = typeFor(String((body as { contentKind?: string }).contentKind));
+    return t ? checkContent(body as never, t) : [];
+  };
+
+  reg.execute(j, {
+    contract: "icp:interaction/content.create@1.0.0", requestId: "c", actor,
+    input: { subjectId: "vb-1", contentKind: "note", minimumAccess: "public", source: "t",
+      body: { kind: "Content", contentKind: "note",
+        slots: { title: [{ kind: "text", value: "T" }], body: [{ kind: "prose", value: "b" }] },
+        attrs: { listed: true } } },
+  } as never, { ...context, instanceId: "i", validateBody } as never);
+  const rev = j.current()[0].envelope.revision!;
+
+  const res = landEdit({
+    journal: j, registry: reg, subjectId: "vb-1", session: "s",
+    baselineRevision: rev, changes: { slots: { title: null } },
+    context, validateBody, actor,
+  } as never);
+
+  assert.equal(res.outcome, "invalid_input", "an edit deleting a required slot must be refused");
+  const after = j.current().find((e) => e.envelope.subjectId === "vb-1")!;
+  assert.deepEqual(checkContent(after.envelope.body as never, typeFor("note")!), [],
+    "and Canon must still hold a conformant record");
+});
+
+test("a valid edit still lands — the check is not simply refusing everything", async () => {
+  const { landEdit } = await import("../src/session.ts");
+  const { typeFor, checkContent } = await import("../../schema/src/schema.ts");
+  const { ContractRegistry, CONTENT_CREATE, createHandler, CONTENT_REVISE, reviseHandler } =
+    await import("../../contracts/src/runtime.ts");
+  const { CanonJournal } = await import("../../canon/src/journal.ts");
+
+  const j = new CanonJournal();
+  const reg = new ContractRegistry();
+  reg.register(CONTENT_CREATE, createHandler);
+  reg.register(CONTENT_REVISE, reviseHandler);
+  const actor = { id: "o", role: "owner" };
+  const context = { occurredAt: "2026-08-30T00:00:00Z", authority: "owner" as const };
+  const validateBody = (body: Record<string, unknown>) => {
+    const t = typeFor(String((body as { contentKind?: string }).contentKind));
+    return t ? checkContent(body as never, t) : [];
+  };
+  reg.execute(j, {
+    contract: "icp:interaction/content.create@1.0.0", requestId: "c", actor,
+    input: { subjectId: "vb-2", contentKind: "note", minimumAccess: "public", source: "t",
+      body: { kind: "Content", contentKind: "note",
+        slots: { title: [{ kind: "text", value: "T" }], body: [{ kind: "prose", value: "b" }] },
+        attrs: { listed: true } } },
+  } as never, { ...context, instanceId: "i", validateBody } as never);
+
+  const res = landEdit({
+    journal: j, registry: reg, subjectId: "vb-2", session: "s",
+    baselineRevision: j.current()[0].envelope.revision!,
+    changes: { slots: { title: [{ kind: "text", value: "Retitled" }] } },
+    context, validateBody, actor,
+  } as never);
+  assert.equal(res.outcome, "completed");
+});

@@ -13,7 +13,7 @@ This intent was distilled on 2026-08-28 from the accepted design candidate `DESI
 ## Desired state
 
 ```text
-CURRENT CONDITION
+CURRENT CONDITION (as distilled 2026-08-28; see SPEC_HEALTH.md for live status)
   A declared design (DESIGN.md); no implementation; concepts proven
   individually in SES, SPS, ICP, EQP, IEPE, HCML, Fundamental, rr-rsp.
       ↓

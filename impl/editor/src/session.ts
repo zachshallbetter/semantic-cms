@@ -68,6 +68,21 @@ export interface EditResult {
 }
 
 export interface EditSessionInput {
+  /**
+   * Declared-type enforcement for the resulting body (NR-scms-020).
+   *
+   * Both editor call sites already passed this — as a sibling of `context`,
+   * where `landEdit` never looked, so it was silently discarded and every edit
+   * made through the editor landed unchecked. An edit deleting a required slot
+   * returned `completed` and left a schema-invalid record.
+   *
+   * Threading it here rather than fixing the call sites is deliberate: a caller
+   * that has to put a value in exactly the right place is a caller that will
+   * eventually put it in the wrong one, and nothing type-checks these objects at
+   * runtime. Now the sink accepts it and forwards it, so both shapes work and
+   * neither is silently dropped.
+   */
+  validateBody?: (body: Record<string, unknown>) => Array<{ code: string; at: string; detail: string }>;
   journal: CanonJournal;
   registry: ContractRegistry;
   subjectId: string;
@@ -104,7 +119,13 @@ export function landEdit(input: EditSessionInput): EditResult {
     requestId: `edit-${input.session}`,
     actor: input.actor,
     input: { subjectId: input.subjectId, expectedRevision: input.baselineRevision, changes: input.changes },
-  } as never, { ...input.context, instanceId: `edit-${input.session}` });
+  } as never, {
+    ...input.context,
+    instanceId: `edit-${input.session}`,
+    // An explicit validator on the input wins; one already inside the context
+    // still works, so neither placement is dropped.
+    ...(input.validateBody ? { validateBody: input.validateBody } : {}),
+  } as never);
 
   const landedRevision = result.outcome === "completed"
     ? input.journal.current().find((e) => e.envelope.subjectId === input.subjectId)?.envelope.revision

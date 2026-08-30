@@ -5,8 +5,14 @@ provenance-bearing, versioned record with a named authority; every visible surfa
 declared projection; every write crosses a contract; and live state is observation with
 an expiry.
 
-**Status:** design canonized; no implementation yet. `Documented ≠ Implemented ≠ Tested ≠
-Empirically Validated` — this project is at Documented.
+**Status:** implemented and tested along a narrow path, against the owner's real 215-entry
+archive. 20 packages, ~293 vectors, CI-verified. A running editor and a running site both resolve
+from Canon; Canon has a Postgres schema whose append-only property is enforced by grant.
+
+`Documented ≠ Implemented ≠ Tested ≠ Deployed ≠ Empirically Validated` — this project is at
+**Tested**. Nothing is deployed, and no person has yet done a day's work through it, so the claim
+that it is *useful* remains unestablished. `SPEC_HEALTH.md` carries every claim at the rung its
+evidence supports.
 
 ## Canonical order
 
