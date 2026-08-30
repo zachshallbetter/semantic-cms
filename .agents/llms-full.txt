@@ -1,6 +1,6 @@
 # PROJECT COMPILED CONTEXT
 Generator: 0.5.0
-Source digest: 1e36c7ca582dc29046b7be8e2ba82d9b4622fa3bff0c0c94a0a299e3996c98c1
+Source digest: ffd34eee3895731a085c88221183d410876ce28a3edfca8e908cf6b394ad2b13
 
 > Generated projection. Canonical sources remain authoritative.
 
@@ -27254,6 +27254,16 @@ survived. Three checks:
   3. **Every Done item cites an evidence record that exists.** A Done row whose
      evidence id is absent is a claim with nothing behind it — the exact shape
      of the claim/evidence drift this project keeps recording.
+  4. **Every Done item has a work file or a stated exemption.** The Ready
+     predicate — scope, exclusions, acceptance, stop conditions — held for the
+     first forty items and thinned as the pace rose (SCMS-070).
+
+     The exemption exists so the fix is not worse than the gap. A predicate is
+     valuable *because it was written before the work*, when it could still
+     constrain what got built; composed afterwards from what happened, it
+     produces a document that looks like governance and functions as decoration.
+     So the thirteen items that lack one carry a marker saying so truthfully,
+     rather than a predicate invented in hindsight.
 
     python3 scripts/check-work-graph.py
     python3 scripts/check-work-graph.py --self-test
@@ -27287,6 +27297,11 @@ def check(graph_text: str, evidence_ids: set[str]) -> list[str]:
                 problems.append(f"{item_id}: cites epic {epic}, which no row defines")
 
         if state.strip().lower().startswith("done"):
+            has_file = (ROOT / "work" / f"{item_id}.md").exists()
+            exempt = "no predicate:" in state
+            if not has_file and not exempt:
+                problems.append(
+                    f"{item_id}: Done with no work file and no stated exemption")
             cited = re.findall(r"(scms-evidence-\d+)", evidence_field)
             if not cited:
                 # A Done item may legitimately point at a work file instead.
@@ -27324,7 +27339,19 @@ def self_test() -> int:
                    "| SCMS-003 | A thing | E1 | Done | records/evidence.jsonl · scms-evidence-999 |\n")
     assert any("scms-evidence-999" in p for p in check(dangling_ev, set())), "dangling evidence not caught"
 
-    print("self-test ok (dangling epics, duplicate ids and dangling evidence all detected)")
+    # Rule 4: a Done item with neither a work file nor an exemption. SCMS-999 has
+    # no work/SCMS-999.md, so this exercises the real filesystem check.
+    no_pred = ("| E1 | An epic | ref | state |\n"
+               "| SCMS-999 | A thing | E1 | Done — landed | records/evidence.jsonl · scms-evidence-001 |\n")
+    got = check(no_pred, {"scms-evidence-001"})
+    assert any("no work file and no stated exemption" in p for p in got), got
+
+    exempted = ("| E1 | An epic | ref | state |\n"
+                "| SCMS-999 | A thing | E1 | Done — landed · *no predicate: discipline lapsed* "
+                "| records/evidence.jsonl · scms-evidence-001 |\n")
+    assert check(exempted, {"scms-evidence-001"}) == [], check(exempted, {"scms-evidence-001"})
+
+    print("self-test ok (dangling epics, duplicate ids, dangling evidence and missing predicates all detected)")
     return 0
 
 
@@ -27915,12 +27942,12 @@ epic as the owner assigns the corresponding piece of work.
 | E14 | **Static delivery and live editing** — materialized pages, the live channel, page composition | DESIGN.md §7, §8.3, §8.5 | Ready — the pieces exist separately and nothing joins them |
 | SCMS-032 | The transactional outbox: nothing happens without an emission (R2) | E5 | Done — emission proven; delivery is SCMS-033; awaiting owner verification | records/evidence.jsonl · scms-evidence-032 |
 | SCMS-033 | Subscription lenses and fan-out over the wire (R2) | E5 | Done — lens narrows only; lag is subscriber-relative | records/evidence.jsonl · scms-evidence-033 |
-| SCMS-034 | Replay by last_event_id, no event loss, lagged disclosure (R2) | E5 | Done — landed with SCMS-033 | records/evidence.jsonl · scms-evidence-033 |
-| SCMS-035 | The provenance chip driven by a real transport (R2 meets R3) | E6 | Done — freshness derived, not asserted; NR-scms-009 fixed; SH-17 raised | records/evidence.jsonl · scms-evidence-035 |
+| SCMS-034 | Replay by last_event_id, no event loss, lagged disclosure (R2) | E5 | Done — landed with SCMS-033 · *no predicate: landed inside SCMS-033; not separately scoped* | records/evidence.jsonl · scms-evidence-033 |
+| SCMS-035 | The provenance chip driven by a real transport (R2 meets R3) | E6 | Done — freshness derived, not asserted; NR-scms-009 fixed; SH-17 raised · *no predicate: discipline lapsed 2026-08-29, see scms-evidence-068* | records/evidence.jsonl · scms-evidence-035 |
 | SCMS-036 | Evidence and attestations as Canon records | E3 | Done — forgery closed; SH-13 (self-attestation) remains owner policy | records/evidence.jsonl · scms-evidence-036 |
 | SCMS-037 | The site renders from Canon (consolidation, no deploy) | E8 | Done — third expression adapter, S3-checked; NR-scms-011 fixed; awaiting owner verification | records/evidence.jsonl · scms-evidence-037 |
-| SCMS-038 | Independent adversarial verification of the load-bearing claims | E0 | Done — 3 defects found and fixed (NR-scms-012/013), access claim survived (NR-scms-014); **not Verified** — a subagent is not an independent party | records/evidence.jsonl · scms-evidence-038 |
-| SCMS-039 | Recommended dispositions for the 25 open proposals on PR #28 | E0 | Done — 25 recommendations with reasoning; 6 narrowed or declined; **ratification NOT exercised** | records/evidence.jsonl · scms-evidence-039 |
+| SCMS-038 | Independent adversarial verification of the load-bearing claims | E0 | Done — 3 defects found and fixed (NR-scms-012/013), access claim survived (NR-scms-014); **not Verified** — a subagent is not an independent party · *no predicate: discipline lapsed 2026-08-29, see scms-evidence-068* | records/evidence.jsonl · scms-evidence-038 |
+| SCMS-039 | Recommended dispositions for the 25 open proposals on PR #28 | E0 | Done — 25 recommendations with reasoning; 6 narrowed or declined; **ratification NOT exercised** · *no predicate: discipline lapsed 2026-08-29, see scms-evidence-068* | records/evidence.jsonl · scms-evidence-039 |
 | SCMS-040 | The editor in preview: a usable authoring surface over real content | E12 | Done — SH-8 closed; preview published; awaiting owner verification | records/evidence.jsonl · scms-evidence-040 |
 | SCMS-041 | Migrate the corpus through the governed path (content.create@1) | E8+E12 | Done — creation is governed at last; SH-15 raised; awaiting owner verification | records/evidence.jsonl · scms-evidence-041 |
 | SCMS-042 | The editing session and the P7 instrument | E12 | Done — instrument built, NR-scms-008 fixed; **P7 stays open pending real edits** | records/evidence.jsonl · scms-evidence-042 |
@@ -27929,28 +27956,28 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-046 | Observations are signals, not participants (closes SH-14) | E6 | Done — unblocks SCMS-045's prerequisite; awaiting owner verification | records/evidence.jsonl · scms-evidence-046 |
 | SCMS-047 | The inspector's three tabs (owner design direction) | E12 | Done — SSS/SES panels exposed with member basis; unbuilt mockup parts recorded, not started | records/evidence.jsonl · scms-evidence-047 |
 | SCMS-048 | The converge step (SH-17 mechanism) and the P27 declaration-parity gate | E6+E0 | Done — mechanism landed, policy flip left to owner; parity gate in CI | records/evidence.jsonl · scms-evidence-048 |
-| SCMS-049 | Extend the composed proof to outbox, wire, editor and site | E7 | Done — four new seams; composite invariant asserts the Canon/delivered boundary both ways | records/evidence.jsonl · scms-evidence-049 |
+| SCMS-049 | Extend the composed proof to outbox, wire, editor and site | E7 | Done — four new seams; composite invariant asserts the Canon/delivered boundary both ways · *no predicate: discipline lapsed 2026-08-29, see scms-evidence-068* | records/evidence.jsonl · scms-evidence-049 |
 | SCMS-050 | The read path consults the publication axis (NR-scms-015) | E8 | Done — promotion now decides what readers see; site renders empty and says why | records/evidence.jsonl · scms-evidence-050 |
 | SCMS-051 | Qualify, promote, and a reader who sees it | E8 | Done — arc closes end to end; verified by interaction; nothing deployed | records/evidence.jsonl · scms-evidence-051 |
-| SCMS-052 | Vector the replay path (raise SCMS-051's rung) | E8 | Done — 7 vectors incl. the gates-not-state control | records/evidence.jsonl · scms-evidence-052 |
-| SCMS-053 | Intra-group order as a declared non-property (closes SH-20) | E1 | Done — reported, not enforced; no conformance outcome changed | records/evidence.jsonl · scms-evidence-053 |
+| SCMS-052 | Vector the replay path (raise SCMS-051's rung) | E8 | Done — 7 vectors incl. the gates-not-state control · *no predicate: discipline lapsed 2026-08-29, see scms-evidence-068* | records/evidence.jsonl · scms-evidence-052 |
+| SCMS-053 | Intra-group order as a declared non-property (closes SH-20) | E1 | Done — reported, not enforced; no conformance outcome changed · *no predicate: discipline lapsed 2026-08-29, see scms-evidence-068* | records/evidence.jsonl · scms-evidence-053 |
 | SCMS-054 | Evidence from evaluators that actually ran (NR-scms-016) | E3 | Done — fabricated PASSes replaced by real checks and blocking NOT_RUNs; articles now correctly unpublishable | records/evidence.jsonl · scms-evidence-054 |
-| SCMS-055 | Link and media evaluators (narrows SH-22) | E3 | Done — internal refs resolved, external URLs honestly INCONCLUSIVE; owner decision named | records/evidence.jsonl · scms-evidence-055 |
+| SCMS-055 | Link and media evaluators (narrows SH-22) | E3 | Done — internal refs resolved, external URLs honestly INCONCLUSIVE; owner decision named · *no predicate: discipline lapsed 2026-08-29, see scms-evidence-068* | records/evidence.jsonl · scms-evidence-055 |
 | SCMS-056 | Derive supersession and revocation instead of storing them (closes SH-23) | E1 | Done — no row is rewritten; recomputation-equals-index vector | records/evidence.jsonl · scms-evidence-056 |
 | SCMS-057 | Canon in Postgres: schema, grants, and append-only by refusal | E13 | Done — 15 refusal checks against real PG; NR-scms-017 found; adapter is next | records/evidence.jsonl · scms-evidence-057 |
-| SCMS-058 | The outbox as a transactional trigger, not an in-process push | E13 | Done — delivered inside SCMS-057; the `canon_emit` trigger is SECURITY DEFINER and the runtime has no INSERT on the outbox | records/evidence.jsonl · scms-evidence-057 |
+| SCMS-058 | The outbox as a transactional trigger, not an in-process push | E13 | Done — delivered inside SCMS-057; the `canon_emit` trigger is SECURITY DEFINER and the runtime has no INSERT on the outbox · *no predicate: delivered inside SCMS-057; not separately scoped* | records/evidence.jsonl · scms-evidence-057 |
 | SCMS-059 | Authentication (closes SH-2) | E13 | Ready — the largest gap; semantic-cms currently has none | — |
-| SCMS-060 | Content-addressed blobs for prose and media (closes SH-4) | E13 | Done — digest is the key, immutable by grant; 6 more refusal checks | records/evidence.jsonl · scms-evidence-060 |
+| SCMS-060 | Content-addressed blobs for prose and media (closes SH-4) | E13 | Done — digest is the key, immutable by grant; 6 more refusal checks · *no predicate: discipline lapsed 2026-08-29, see scms-evidence-068* | records/evidence.jsonl · scms-evidence-060 |
 | SCMS-061 | Cut over: deploy and decommission zach-core | E13 | **Blocked — protected action.** Owner authorization required at the time | — |
-| SCMS-062 | Materialize expressions to the CAS under their fingerprint | E14 | Done — pure; digest names content, fingerprint invalidates, access is in the key | records/evidence.jsonl · scms-evidence-062 |
+| SCMS-062 | Materialize expressions to the CAS under their fingerprint | E14 | Done — pure; digest names content, fingerprint invalidates, access is in the key · *no predicate: discipline lapsed 2026-08-29, see scms-evidence-068* | records/evidence.jsonl · scms-evidence-062 |
 | SCMS-063 | The live channel to a browser (invalidation keys over SSE) | E14 | Done — full loop verified; NR-scms-018 (a third path that leaked) found and fixed | work/SCMS-063.md |
 | SCMS-064 | The page builder: composition editing through the bounded lane | E14 | Ready — page structure is already Canon (SCMS-016) and socket population is already the bounded lane (SCMS-021); the UI is what is missing | — |
 | SCMS-065 | The Postgres store adapter (and this project's first runtime dependency) | E13 | **Ready — owner input invited on the driver.** The schema is proven; nothing in `impl/` reads or writes it. Needs `pg` or `postgres.js`, a lockfile, and `npm ci` in CI | — |
 | SCMS-066 | A migration runner | E13 | Ready — zach-core re-runs a declarative schema file and has none either, so this is a gap inherited rather than solved | — |
 | SCMS-067 | Work-graph integrity gate; reconcile SPEC_HEALTH against the graph | E0 | Partly done — the integrity gate is in CI and caught a dangling evidence reference; the SPEC_HEALTH reconciliation is still open | records/evidence.jsonl · scms-evidence-067 |
-| SCMS-068 | Document review and audit (2026-08-29) | E0 | Done — 8 findings; 4 register corrections applied; DESIGN.md needed none | records/evidence.jsonl · scms-evidence-068 |
+| SCMS-068 | Document review and audit (2026-08-29) | E0 | Done — 8 findings; 4 register corrections applied; DESIGN.md needed none · *no predicate: discipline lapsed 2026-08-29, see scms-evidence-068* | records/evidence.jsonl · scms-evidence-068 |
 | SCMS-069 | A gate between the claim register and the work graph | E0 | Done — 4 rules, incl. proposal-disposition staleness; tested against the historical row | records/evidence.jsonl · scms-evidence-069 |
-| SCMS-070 | Done items carry a work file or a stated exemption | E0 | Ready — audit finding 6; markers for the twelve, never retroactive predicates | work/SCMS-070.md |
+| SCMS-070 | Done items carry a work file or a stated exemption | E0 | Done — rule 4 in the graph gate; 13 truthful markers, no retroactive predicates | records/evidence.jsonl · scms-evidence-070 |
 | SCMS-071 | Evidence addenda need a citation path | E0 | Ready — audit finding 7; three orphans are currently write-only | work/SCMS-071.md |
 | SCMS-072 | Evidence tone (SPS's evidence-density half) | E5 | Ready — owner design direction; the half of `morphologyFor` that went to neither SSS nor the recipe | work/SCMS-072.md |
 | SCMS-073 | Embargoes | E3 | Ready — owner design direction; E3 because publishing early is unrecoverable, and it must not read a wall clock | work/SCMS-073.md |
@@ -27958,7 +27985,7 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-075 | Link liveness as a Field signal, not a qualification gate | E5 | Ready — depends on SH-22's disposition; blocks 78% of articles today while checking 5 references | work/SCMS-075.md |
 | SCMS-076 | Declared content types for `project` and `role` | E1 | Done — all 215 conform, zero NOT_APPLICABLE; four type decisions collapsed to one registry | records/evidence.jsonl · scms-evidence-076 |
 | SCMS-077 | Run the editing workload and disposition P7 | E1 | **Blocked on SCMS-045** — running it first would count autosave races as concurrent authorship | work/SCMS-077.md |
-| SCMS-044 | Route the editor through the surface pipeline it currently bypasses | E12 | Done — SH-16 closed; two duplicate access checks removed; awaiting owner verification | records/evidence.jsonl · scms-evidence-044 |
+| SCMS-044 | Route the editor through the surface pipeline it currently bypasses | E12 | Done — SH-16 closed; two duplicate access checks removed; awaiting owner verification · *no predicate: discipline lapsed 2026-08-29, see scms-evidence-068* | records/evidence.jsonl · scms-evidence-044 |
 | SCMS-018 | R1 live co-authoring — **free lane only** (convergent merge) | E1 | **Blocked on P7 only** — P22 was accepted 2026-08-28; P7 is deferred with a revisit condition the owner has since named (settle it from the editor workload) | records/blockers · scms-blocker-001 |
 | SCMS-010 | S4 cross-domain portability: a materially unrelated project (outside this repository, per owner doctrine 2026-08-28) consumes @semantic-systems/surface unmodified | external | Backlog — executes outside scms; scms records the conformance result | — |
 
