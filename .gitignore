@@ -23,3 +23,7 @@ impl/editor/web/data.json
 # invisible from the working copy because the working copy has it.
 !.claude/
 !.claude/launch.json
+
+# This project's first runtime dependency arrived with SCMS-065. The lockfile is
+# committed (CI runs `npm ci`); the tree is not.
+node_modules/

@@ -1,6 +1,6 @@
 # PROJECT COMPILED CONTEXT
 Generator: 0.5.0
-Source digest: 4af2658f54973200ee607587bde4a916ca2834e506d37d363c02d6a8dd34b980
+Source digest: c55702570ea4894f09d02e444edba8d99ed6f5842cb8d38cd3e582071ac85194
 
 > Generated projection. Canonical sources remain authoritative.
 
@@ -293,8 +293,11 @@ jobs:
         run: node --test test/*.test.ts
         working-directory: impl/site
 
-      - name: Canon store conformance (SCMS-057 · the grants must refuse)
-        run: ./test/run.sh
+      - name: Install pinned dependencies
+        run: npm ci
+
+      - name: Canon store conformance and adapter (SCMS-057/060/065)
+        run: ./test/run.sh && node --test test/adapter.test.ts
         working-directory: impl/store
         env:
           PGHOST: localhost
@@ -1599,7 +1602,7 @@ above its rung.
 | A person can actually edit through the system | **Implemented + verified by interaction** | SCMS-043: the editor runs, imports through `content.create@1`, saves through `content.revise@1`, and records a P7 observation per edit. Verified by making an edit in a browser, not by vectors — a lower rung than the rest of this register | Vectors over the server; the owner's own editing session; and routing it through the surface pipeline it currently bypasses (SH-16) |
 | The site is an expression of Canon, not a client of it | **Implemented + Tested** | SCMS-037: the reader-web renderer is a third expression adapter held to the S3 equivalence contract against the voice expression of the same surface — identical members, order and operation exposure, differing morphology. Real pages, feeds and sitemap over the real corpus, with no private entry reachable | A deploy, caching and invalidation, and a measured render budget |
 | A person can take content from draft to published, and a reader sees it | **Implemented + verified by interaction** | SCMS-051: qualify and promote routes in the editor, and the site replays owner actions through the same contracts. Driven end to end on the real corpus — a promoted public article reaches `/writing` and RSS; a promoted private one reaches neither | Vectors over the HTTP routes (SCMS-052 covered the replay half), shared durable Canon (SH-1), and an independent evaluator (SH-13) |
-| Canon can live somewhere that refuses to be rewritten | **Implemented + Tested against real Postgres** | SCMS-057: append-only is a **grant**, not a convention — fifteen conformance checks attempt the forbidden thing and require failure. The outbox is written only by a `SECURITY DEFINER` trigger, so an event exists iff a receipt does, and `canon_current`/`canon_revoked` are views. SCMS-056 first made supersession and revocation derived, so no row is rewritten | An adapter (SCMS-065) — nothing in `impl/` reads or writes these tables yet; auth (SH-2); a migration runner (SCMS-066) |
+| Canon can live somewhere that refuses to be rewritten | **Implemented + Tested against real Postgres** | SCMS-057: append-only is a **grant**, not a convention — fifteen conformance checks attempt the forbidden thing and require failure. The outbox is written only by a `SECURITY DEFINER` trigger, so an event exists iff a receipt does, and `canon_current`/`canon_revoked` are views. SCMS-056 first made supersession and revocation derived, so no row is rewritten | **Adapter landed (SCMS-065):** a corpus round-trips and resolves to an identical fingerprint. Remaining: switching `impl/` over to it, auth (SH-2), a migration runner (SCMS-066), pooling and concurrent writers |
 | Bytes are named by their content, and cannot change under the name | **Implemented + Tested** | SCMS-060: `canon_blob` keys on the SHA-256 digest, so dedup follows from naming; immutable by grant; a CHECK keeps stored length agreeing with the bytes so the corpus manifest and the store cannot drift | Derivative classes and codec selection, which SH-4 places in delivery projections rather than here |
 | A static page is a materialized expression, safely cacheable | **Implemented + Tested** | SCMS-062: bytes named by their content digest, invalidated by the surface fingerprint — two keys, because surfaces with different dependency sets can render identical bytes. Access is in the artifact key, and a private change cannot invalidate a public artifact, since the fingerprint covers only the accessible dependency set | Storage (SCMS-065) and serving; nothing is served from an artifact yet |
 | Publication can be scheduled without a scheduler | **Implemented + Tested (reading half)** | SCMS-073: an embargoed record is ineligible for a reader until the resolution's declared coordinate reaches its instant, and the resolver reads no clock — so an embargo is replayable and needs no background job. An absent coordinate fails closed, because absent is not now and guessing publishes early | **Closed:** `content.promote@1` accepts an `embargoUntil` instant and refuses a malformed one. Remaining: an editor control for it |
@@ -20538,8 +20541,10 @@ FILE: impl/store/package.json
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Canon in Postgres (SCMS-057): DESIGN.md §13's sketch made real — append-only by grant, emission by trigger, current and revoked derived as views. The conformance suite proves the database refuses, rather than trusting that it would.",
-  "scripts": { "test": "./test/run.sh" }
+  "description": "Canon in Postgres (SCMS-057): DESIGN.md \u00a713's sketch made real \u2014 append-only by grant, emission by trigger, current and revoked derived as views. The conformance suite proves the database refuses, rather than trusting that it would.",
+  "scripts": {
+    "test": "./test/run.sh && node --test test/adapter.test.ts"
+  }
 }
 
 
@@ -20732,6 +20737,343 @@ CREATE OR REPLACE VIEW canon_blob_unreferenced AS
 GRANT SELECT, INSERT ON canon_blob TO scms_runtime;
 GRANT SELECT ON canon_blob_unreferenced TO scms_runtime;
 REVOKE UPDATE, DELETE, TRUNCATE ON canon_blob FROM scms_runtime;
+
+
+========================================================================
+FILE: impl/store/src/adapter.ts
+========================================================================
+
+/**
+ * The Postgres store adapter (SCMS-065).
+ *
+ * SCMS-057 landed a schema in which append-only is enforced by grant, and
+ * nothing read or wrote it. A schema with no reader is a declaration with no
+ * consumer — the failure this project exists to catch — so this closes it.
+ *
+ * **What this deliberately does not do: replace `CanonJournal`.** The in-memory
+ * journal is the semantics, vectored by 20-odd packages. This adapter's job is
+ * to make those semantics *durable*, and the way it earns trust is by being
+ * checked against the journal rather than trusted on its own: `readAll()`
+ * reconstructs entries the resolver can freeze, and a conformance vector
+ * asserts that a corpus written through here and read back is
+ * indistinguishable from the same corpus held in memory.
+ *
+ * This project's first runtime dependency is `pg`, pinned exactly. Zero
+ * dependencies was never doctrine — it appears in no canonical document — and
+ * §12.1 says to consume capabilities as pinned dependencies rather than
+ * reinvent them, which implementing the Postgres wire protocol would be.
+ */
+import type { Envelope } from "../../canon/src/envelope.ts";
+import type { OutboxEvent, Receipt } from "../../canon/src/journal.ts";
+
+/** The narrow slice of `pg` this uses, so a caller may inject a fake. */
+export interface Queryable {
+  query(text: string, values?: unknown[]): Promise<{ rows: Record<string, unknown>[] }>;
+}
+
+export interface StoredEntry {
+  envelope: Envelope;
+  receiptSeq: number;
+  supersededBy: string | null;
+  revoked: boolean;
+}
+
+const REVISION = "sha256:";
+
+/**
+ * Write one landed record and its receipt **in one transaction**, so the outbox
+ * trigger fires inside the same commit (§8.1: "a domain write and its event row
+ * commit in one transaction").
+ *
+ * The caller supplies the receipt because the hash chain is Canon's, not the
+ * store's — computing it here would put the chain in two places, and the
+ * chain's whole value is that there is one.
+ */
+export async function landRecord(
+  db: Queryable, envelope: Envelope, receipt: Receipt,
+): Promise<void> {
+  if (!envelope.revision?.startsWith(REVISION)) {
+    throw new Error("envelope must carry a content-addressed revision before landing");
+  }
+  await db.query("BEGIN");
+  try {
+    await db.query(
+      `INSERT INTO canon_record (
+         revision, subject_id, schema_version, compatibility, provenance,
+         minimum_access, body, semantic_maturity, evidence_state,
+         publication_state, delivery_state, supersedes, actor, landed_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+       ON CONFLICT (revision) DO NOTHING`,
+      [envelope.revision, envelope.subjectId, envelope.schemaVersion,
+       JSON.stringify(envelope.compatibility), JSON.stringify(envelope.provenance),
+       envelope.minimumAccess, JSON.stringify(envelope.body),
+       envelope.state.semanticMaturity, envelope.state.evidenceState,
+       envelope.state.publicationState, envelope.state.deliveryState,
+       envelope.supersedes ?? null, receipt.actor, new Date().toISOString()]);
+
+    // The receipt insert is what fires `canon_emit`, so emission is inside this
+    // transaction by construction rather than by remembering to do it.
+    await db.query(
+      `INSERT INTO canon_receipt (action, subject_id, revision, prior_revision, actor, prev_hash, hash)
+       VALUES ($1,$2,$3,$4,$5,$6,$7)
+       ON CONFLICT (hash) DO NOTHING`,
+      [receipt.action, receipt.subjectId, receipt.revision,
+       receipt.priorRevision, receipt.actor, receipt.prevReceiptHash, receipt.receiptHash]);
+    await db.query("COMMIT");
+  } catch (e) {
+    await db.query("ROLLBACK");
+    throw e;
+  }
+}
+
+/** Append a revoke receipt. No row is rewritten — revocation is derived (SCMS-056). */
+export async function landRevocation(db: Queryable, receipt: Receipt): Promise<void> {
+  await db.query(
+    `INSERT INTO canon_receipt (action, subject_id, revision, prior_revision, actor, prev_hash, hash)
+     VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (hash) DO NOTHING`,
+    [receipt.action, receipt.subjectId, receipt.revision,
+     receipt.priorRevision, receipt.actor, receipt.prevReceiptHash, receipt.receiptHash]);
+}
+
+function toEnvelope(r: Record<string, unknown>): Envelope {
+  const json = (v: unknown) => (typeof v === "string" ? JSON.parse(v) : v);
+  return {
+    schemaVersion: r.schema_version as string,
+    subjectId: r.subject_id as string,
+    revision: r.revision as string,
+    compatibility: json(r.compatibility),
+    provenance: json(r.provenance),
+    minimumAccess: r.minimum_access as Envelope["minimumAccess"],
+    body: json(r.body),
+    state: {
+      semanticMaturity: r.semantic_maturity as string,
+      evidenceState: r.evidence_state as string,
+      publicationState: r.publication_state as string,
+      deliveryState: r.delivery_state as string,
+    },
+    ...(r.supersedes ? { supersedes: r.supersedes as string } : {}),
+  } as Envelope;
+}
+
+/**
+ * Every record, with supersession and revocation **derived by the views** — the
+ * same derivation SCMS-056 made in memory, expressed where the rows live.
+ */
+export async function readAll(db: Queryable): Promise<StoredEntry[]> {
+  const { rows } = await db.query(
+    `SELECT r.*, s.revision AS superseded_by,
+            (v.revision IS NOT NULL) AS revoked,
+            rc.seq AS receipt_seq
+       FROM canon_record r
+       LEFT JOIN canon_record s ON s.supersedes = r.revision
+       LEFT JOIN canon_revoked v ON v.revision = r.revision
+       LEFT JOIN LATERAL (
+         SELECT seq FROM canon_receipt c WHERE c.revision = r.revision ORDER BY seq LIMIT 1
+       ) rc ON true
+      ORDER BY rc.seq`);
+  return rows.map((r) => ({
+    envelope: toEnvelope(r),
+    receiptSeq: Number(r.receipt_seq ?? 0),
+    supersededBy: (r.superseded_by as string | null) ?? null,
+    revoked: r.revoked === true,
+  }));
+}
+
+/** Events after a cursor — the reconnect path, reading the store's own stream. */
+export async function eventsSince(db: Queryable, lastEventId: number | null): Promise<OutboxEvent[]> {
+  const { rows } = await db.query(
+    `SELECT event_id, receipt_seq, action, subject_id, revision, prior_revision, actor, minimum_access
+       FROM canon_outbox WHERE event_id > $1 ORDER BY event_id`,
+    [lastEventId ?? 0]);
+  return rows.map((r) => ({
+    eventId: Number(r.event_id),
+    receiptSeq: Number(r.receipt_seq),
+    action: r.action as OutboxEvent["action"],
+    subjectId: r.subject_id as string,
+    revision: r.revision as string,
+    priorRevision: (r.prior_revision as string | null) ?? null,
+    actor: r.actor as string,
+    minimumAccess: r.minimum_access as OutboxEvent["minimumAccess"],
+  }));
+}
+
+
+========================================================================
+FILE: impl/store/test/adapter.test.ts
+========================================================================
+
+/**
+ * SCMS-065 vectors: the adapter must agree with the journal, not be trusted.
+ *
+ * These run against a real Postgres. The store is the durability layer for
+ * semantics the in-memory journal already defines and 20 packages already
+ * vector, so the question is not "does the adapter work" but "does a corpus put
+ * through it come back the same".
+ */
+import { test, before, after } from "node:test";
+import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
+import pg from "pg";
+import { CanonJournal } from "../../canon/src/journal.ts";
+import type { Envelope } from "../../canon/src/envelope.ts";
+import { freeze } from "../../canon/src/freeze.ts";
+import { resolveSurface } from "../../surface-resolver/src/resolver.ts";
+import type { ResolvedSurface } from "../../surface-resolver/src/types.ts";
+import { landRecord, landRevocation, readAll, eventsSince } from "../src/adapter.ts";
+
+const DB = process.env.SCMS_ADAPTER_DB ?? "scms_adapter_test";
+let client: pg.Client;
+
+const note = (id: string, access: "public" | "owner" = "public", extra = {}): Envelope => ({
+  schemaVersion: "scms-0.1", subjectId: id,
+  compatibility: { protocol: "scms-0.1", subjectSchema: "note@1" },
+  provenance: { kind: "declared", authority: "project.owner", source: "t" },
+  minimumAccess: access,
+  body: { kind: "Content", contentKind: "note",
+          slots: { title: [{ kind: "text", value: `T ${id}` }], body: [{ kind: "prose", value: "b" }] },
+          attrs: { listed: true } },
+  state: { semanticMaturity: "draft", evidenceState: "unqualified",
+           publicationState: "unpublished", deliveryState: "unpropagated" },
+  ...extra,
+} as Envelope);
+
+before(async () => {
+  try { execFileSync("dropdb", ["--if-exists", DB], { stdio: "ignore" }); } catch { /* fresh */ }
+  execFileSync("createdb", [DB]);
+  for (const f of ["001-canon.sql", "002-blobs.sql"]) {
+    execFileSync("psql", ["-q", "-d", DB, "-f", new URL(`../sql/${f}`, import.meta.url).pathname]);
+  }
+  client = new pg.Client({ database: DB });
+  await client.connect();
+});
+
+after(async () => {
+  await client?.end();
+  try { execFileSync("dropdb", ["--if-exists", DB], { stdio: "ignore" }); } catch { /* gone */ }
+});
+
+/** Land the same content in both, so the two can be compared. */
+async function mirror(journal: CanonJournal, envelopes: Envelope[]) {
+  for (const e of envelopes) {
+    const entry = journal.append(e, "tester");
+    const receipt = journal.receipts()[entry.receiptSeq];
+    await landRecord(client, entry.envelope as Envelope, receipt);
+  }
+}
+
+test("a corpus written through the adapter reads back identical to the journal", async () => {
+  const journal = new CanonJournal();
+  await mirror(journal, [note("a"), note("b", "owner"), note("c")]);
+
+  const stored = await readAll(client);
+  const inMemory = journal.all();
+
+  assert.equal(stored.length, inMemory.length);
+  for (let i = 0; i < stored.length; i++) {
+    // The envelope is the thing that must survive the round trip byte for byte:
+    // it is content-addressed, so any drift changes its identity.
+    assert.equal(stored[i].envelope.revision, inMemory[i].envelope.revision,
+      "revision must survive the round trip");
+    assert.deepEqual(stored[i].envelope.body, inMemory[i].envelope.body);
+    assert.deepEqual(stored[i].envelope.state, inMemory[i].envelope.state);
+    assert.equal(stored[i].envelope.minimumAccess, inMemory[i].envelope.minimumAccess);
+  }
+});
+
+test("supersession and revocation come back derived, exactly as in memory", async () => {
+  const journal = new CanonJournal();
+  const first = journal.append(note("d"), "tester");
+  await landRecord(client, first.envelope as Envelope, journal.receipts()[first.receiptSeq]);
+
+  const second = journal.supersede(first.envelope.revision!, note("d", "public", { v: 2 }), "tester");
+  await landRecord(client, second.envelope as Envelope, journal.receipts()[second.receiptSeq]);
+
+  const revoked = journal.append(note("e"), "tester");
+  await landRecord(client, revoked.envelope as Envelope, journal.receipts()[revoked.receiptSeq]);
+  const revReceipt = journal.revoke(revoked.envelope.revision!, "tester");
+  await landRevocation(client, revReceipt);
+
+  const stored = await readAll(client);
+  const byRev = new Map(stored.map((s) => [s.envelope.revision!, s]));
+
+  assert.equal(byRev.get(first.envelope.revision!)!.supersededBy, second.envelope.revision,
+    "the view derives supersession from the successor's pointer");
+  assert.equal(byRev.get(second.envelope.revision!)!.supersededBy, null);
+  assert.equal(byRev.get(revoked.envelope.revision!)!.revoked, true,
+    "and revocation from the receipt chain");
+});
+
+test("the store's own outbox agrees with the journal's, event for event", async () => {
+  const journal = new CanonJournal();
+  await mirror(journal, [note("f"), note("g")]);
+
+  // The database is shared across these tests, as a real store would be, so the
+  // comparison is scoped to the subjects this test created rather than to
+  // global counts.
+  const mine = new Set(["f", "g"]);
+  const stored = (await eventsSince(client, null)).filter((e) => mine.has(e.subjectId));
+  const inMemory = journal.events().filter((e) => mine.has(e.subjectId));
+
+  // Ids differ — Postgres sequences leave gaps and the in-memory index does not
+  // (NR-scms-017) — so what must agree is the SEQUENCE OF CHANGES, not the
+  // numbering. That was the whole point of replacing gaplessness with parity.
+  assert.equal(stored.length, inMemory.length);
+  for (let i = 0; i < stored.length; i++) {
+    assert.equal(stored[i].subjectId, inMemory[i].subjectId);
+    assert.equal(stored[i].revision, inMemory[i].revision);
+    assert.equal(stored[i].action, inMemory[i].action);
+    assert.equal(stored[i].minimumAccess, inMemory[i].minimumAccess,
+      "access travels on the row, so fan-out need not read content back");
+  }
+  const ids = stored.map((e) => e.eventId);
+  for (let i = 1; i < ids.length; i++) assert.ok(ids[i] > ids[i - 1], "monotonic, gaps allowed");
+});
+
+test("a surface resolved from the store is identical to one resolved from memory", async () => {
+  // The end of the chain: if this holds, every resolver, expression and reader
+  // vector already written applies to the durable store too.
+  const journal = new CanonJournal();
+  await mirror(journal, [note("h"), note("i", "owner"), note("j")]);
+
+  const mine = new Set(["h", "i", "j"]);
+  const fromStore = new CanonJournal();
+  for (const s of await readAll(client)) {
+    if (s.revoked || s.supersededBy || !mine.has(s.envelope.subjectId)) continue;
+    fromStore.append({ ...s.envelope, revision: undefined } as Envelope, "rehydrate");
+  }
+
+  const ask = (j: CanonJournal) => resolveSurface(freeze(j, "fixed") as never, {
+    profile: "collection", purpose: "discover", access: "public",
+    lens: { include: { kinds: ["note"] } },
+  }) as ResolvedSurface;
+
+  const onlyMine = new CanonJournal();
+  for (const e of journal.current()) {
+    if (mine.has(e.envelope.subjectId)) {
+      onlyMine.append({ ...e.envelope, revision: undefined } as Envelope, "rehydrate");
+    }
+  }
+  const a = ask(onlyMine);
+  const b = ask(fromStore);
+  assert.deepEqual(
+    b.groups.flatMap((g) => g.members.map((m) => m.subject)).sort(),
+    a.groups.flatMap((g) => g.members.map((m) => m.subject)).sort());
+  assert.equal(b.fingerprint, a.fingerprint,
+    "same content, same snapshot id, same fingerprint — the store changes nothing observable");
+});
+
+test("the adapter cannot rewrite a landed row, because the grants forbid it", async () => {
+  const journal = new CanonJournal();
+  const e = journal.append(note("k"), "tester");
+  await landRecord(client, e.envelope as Envelope, journal.receipts()[e.receiptSeq]);
+
+  await client.query("SET ROLE scms_runtime");
+  await assert.rejects(
+    () => client.query("UPDATE canon_record SET actor = 'tamper'"),
+    /permission denied/i,
+    "append-only is a grant, and the adapter is subject to it like anything else");
+  await client.query("RESET ROLE");
+});
 
 
 ========================================================================
@@ -23030,6 +23372,181 @@ test("a usable position is NOT reported as a reset — the disclosure means some
   assert.equal(second.positionReset, undefined);
   assert.equal(second.phase, "live");
 });
+
+
+========================================================================
+FILE: package-lock.json
+========================================================================
+
+{
+  "name": "semantic-cms",
+  "version": "0.1.0",
+  "lockfileVersion": 3,
+  "requires": true,
+  "packages": {
+    "": {
+      "name": "semantic-cms",
+      "version": "0.1.0",
+      "dependencies": {
+        "pg": "8.13.1"
+      },
+      "engines": {
+        "node": ">=22"
+      }
+    },
+    "node_modules/pg": {
+      "version": "8.13.1",
+      "resolved": "https://registry.npmjs.org/pg/-/pg-8.13.1.tgz",
+      "integrity": "sha512-OUir1A0rPNZlX//c7ksiu7crsGZTKSOXJPgtNiHGIlC9H0lO+NC6ZDYksSgBYY/thSWhnSRBv8w1lieNNGATNQ==",
+      "license": "MIT",
+      "dependencies": {
+        "pg-connection-string": "^2.7.0",
+        "pg-pool": "^3.7.0",
+        "pg-protocol": "^1.7.0",
+        "pg-types": "^2.1.0",
+        "pgpass": "1.x"
+      },
+      "engines": {
+        "node": ">= 8.0.0"
+      },
+      "optionalDependencies": {
+        "pg-cloudflare": "^1.1.1"
+      },
+      "peerDependencies": {
+        "pg-native": ">=3.0.1"
+      },
+      "peerDependenciesMeta": {
+        "pg-native": {
+          "optional": true
+        }
+      }
+    },
+    "node_modules/pg-cloudflare": {
+      "version": "1.4.0",
+      "resolved": "https://registry.npmjs.org/pg-cloudflare/-/pg-cloudflare-1.4.0.tgz",
+      "integrity": "sha512-Vo7z/6rrQYxpNRylp4Tlob2elzbh+N/MOQbxFVWCxS7oEx6jF53GTJFxK2WWpKuBRkmiin4Mt+xofFDjx09R0A==",
+      "license": "MIT",
+      "optional": true
+    },
+    "node_modules/pg-connection-string": {
+      "version": "2.14.0",
+      "resolved": "https://registry.npmjs.org/pg-connection-string/-/pg-connection-string-2.14.0.tgz",
+      "integrity": "sha512-XwWDGcLRGCXAR8F/AM5bG7Q+A3Wm2s6QeEjlOKZLlH3UYcguiqCWKyWXVag5TLTIjR7oOJUY8kcADaZgWPyLeg==",
+      "license": "MIT"
+    },
+    "node_modules/pg-int8": {
+      "version": "1.0.1",
+      "resolved": "https://registry.npmjs.org/pg-int8/-/pg-int8-1.0.1.tgz",
+      "integrity": "sha512-WCtabS6t3c8SkpDBUlb1kjOs7l66xsGdKpIPZsg4wR+B3+u9UAum2odSsF9tnvxg80h4ZxLWMy4pRjOsFIqQpw==",
+      "license": "ISC",
+      "engines": {
+        "node": ">=4.0.0"
+      }
+    },
+    "node_modules/pg-pool": {
+      "version": "3.14.0",
+      "resolved": "https://registry.npmjs.org/pg-pool/-/pg-pool-3.14.0.tgz",
+      "integrity": "sha512-gKtPkFdQPU3DksooVLi9LsjZxrsBUZIpa+7aVx+LV5pNh0KzP4Zleud2po+ConrxbuXGBJ6Hfer6hdgpIBpBaw==",
+      "license": "MIT",
+      "peerDependencies": {
+        "pg": ">=8.0"
+      }
+    },
+    "node_modules/pg-protocol": {
+      "version": "1.16.0",
+      "resolved": "https://registry.npmjs.org/pg-protocol/-/pg-protocol-1.16.0.tgz",
+      "integrity": "sha512-sILXutLVjCLjcDuOmvhX5e2Z4cS5qG/6Bu3VkpFwdf/633ElGLpEh9bgmuI5I4sqKqkifQiGyiCcx1HdtrK7tg==",
+      "license": "MIT"
+    },
+    "node_modules/pg-types": {
+      "version": "2.2.0",
+      "resolved": "https://registry.npmjs.org/pg-types/-/pg-types-2.2.0.tgz",
+      "integrity": "sha512-qTAAlrEsl8s4OiEQY69wDvcMIdQN6wdz5ojQiOy6YRMuynxenON0O5oCpJI6lshc6scgAY8qvJ2On/p+CXY0GA==",
+      "license": "MIT",
+      "dependencies": {
+        "pg-int8": "1.0.1",
+        "postgres-array": "~2.0.0",
+        "postgres-bytea": "~1.0.0",
+        "postgres-date": "~1.0.4",
+        "postgres-interval": "^1.1.0"
+      },
+      "engines": {
+        "node": ">=4"
+      }
+    },
+    "node_modules/pgpass": {
+      "version": "1.0.6",
+      "resolved": "https://registry.npmjs.org/pgpass/-/pgpass-1.0.6.tgz",
+      "integrity": "sha512-lqIfH7bdgsxHAY/ZnUOwm+aCFKrsHBDhSFuk9O0B9uCqJAIkrKTo/+LQqLPLUS4e04+jCmQVikxE3QipH5chPw==",
+      "license": "MIT"
+    },
+    "node_modules/postgres-array": {
+      "version": "2.0.0",
+      "resolved": "https://registry.npmjs.org/postgres-array/-/postgres-array-2.0.0.tgz",
+      "integrity": "sha512-VpZrUqU5A69eQyW2c5CA1jtLecCsN2U/bD6VilrFDWq5+5UIEVO7nazS3TEcHf1zuPYO/sqGvUvW62g86RXZuA==",
+      "license": "MIT",
+      "engines": {
+        "node": ">=4"
+      }
+    },
+    "node_modules/postgres-bytea": {
+      "version": "1.0.1",
+      "resolved": "https://registry.npmjs.org/postgres-bytea/-/postgres-bytea-1.0.1.tgz",
+      "integrity": "sha512-5+5HqXnsZPE65IJZSMkZtURARZelel2oXUEO8rH83VS/hxH5vv1uHquPg5wZs8yMAfdv971IU+kcPUczi7NVBQ==",
+      "license": "MIT",
+      "engines": {
+        "node": ">=0.10.0"
+      }
+    },
+    "node_modules/postgres-date": {
+      "version": "1.0.7",
+      "resolved": "https://registry.npmjs.org/postgres-date/-/postgres-date-1.0.7.tgz",
+      "integrity": "sha512-suDmjLVQg78nMK2UZ454hAG+OAW+HQPZ6n++TNDUX+L0+uUlLywnoxJKDou51Zm+zTCjrCl0Nq6J9C5hP9vK/Q==",
+      "license": "MIT",
+      "engines": {
+        "node": ">=0.10.0"
+      }
+    },
+    "node_modules/postgres-interval": {
+      "version": "1.2.0",
+      "resolved": "https://registry.npmjs.org/postgres-interval/-/postgres-interval-1.2.0.tgz",
+      "integrity": "sha512-9ZhXKM/rw350N1ovuWHbGxnGh/SNJ4cnxHiM0rxE4VN41wsg8P8zWn9hv/buK00RP4WvlOyr/RBDiptyxVbkZQ==",
+      "license": "MIT",
+      "dependencies": {
+        "xtend": "^4.0.0"
+      },
+      "engines": {
+        "node": ">=0.10.0"
+      }
+    },
+    "node_modules/xtend": {
+      "version": "4.0.2",
+      "resolved": "https://registry.npmjs.org/xtend/-/xtend-4.0.2.tgz",
+      "integrity": "sha512-LKYU1iAXJXUgAXn9URjiu+MWhyUXHsvfp7mcuYm9dSUKK0/CjtrUwFAxD82/mCWbtLsGjFIad0wIsod4zrTAEQ==",
+      "license": "MIT",
+      "engines": {
+        "node": ">=0.4"
+      }
+    }
+  }
+}
+
+
+========================================================================
+FILE: package.json
+========================================================================
+
+{
+  "name": "semantic-cms",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Semantic CMS — workspace root. Exists to pin this project's first runtime dependency (SCMS-065).",
+  "engines": { "node": ">=22" },
+  "dependencies": {
+    "pg": "8.13.1"
+  }
+}
 
 
 ========================================================================
@@ -28406,7 +28923,7 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-062 | Materialize expressions to the CAS under their fingerprint | E14 | Done — pure; digest names content, fingerprint invalidates, access is in the key · *no predicate: discipline lapsed 2026-08-29, see scms-evidence-068* | records/evidence.jsonl · scms-evidence-062 |
 | SCMS-063 | The live channel to a browser (invalidation keys over SSE) | E14 | Done — full loop verified; NR-scms-018 (a third path that leaked) found and fixed | records/evidence.jsonl · scms-evidence-063 · work/SCMS-063.md |
 | SCMS-064 | The page builder: composition editing through the bounded lane | E14 | Ready — page structure is already Canon (SCMS-016) and socket population is already the bounded lane (SCMS-021); the UI is what is missing | — |
-| SCMS-065 | The Postgres store adapter (and this project's first runtime dependency) | E13 | **Ready — owner input invited on the driver.** The schema is proven; nothing in `impl/` reads or writes it. Needs `pg` or `postgres.js`, a lockfile, and `npm ci` in CI | — |
+| SCMS-065 | The Postgres store adapter (and this project's first runtime dependency) | E13 | Done — `pg` pinned; round-trip produces an identical surface fingerprint; nothing switched over yet · *no predicate: written straight from the owner's close-everything instruction; acceptance was the round-trip vector, decided during rather than before* | records/evidence.jsonl · scms-evidence-065 |
 | SCMS-066 | A migration runner | E13 | Ready — zach-core re-runs a declarative schema file and has none either, so this is a gap inherited rather than solved | — |
 | SCMS-067 | Work-graph integrity gate; reconcile SPEC_HEALTH against the graph | E0 | Partly done — the integrity gate is in CI and caught a dangling evidence reference; the SPEC_HEALTH reconciliation is still open | records/evidence.jsonl · scms-evidence-067 |
 | SCMS-068 | Document review and audit (2026-08-29) | E0 | Done — 8 findings; 4 register corrections applied; DESIGN.md needed none · *no predicate: discipline lapsed 2026-08-29, see scms-evidence-068* | records/evidence.jsonl · scms-evidence-068 |

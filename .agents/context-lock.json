@@ -9,14 +9,14 @@
     "repositories": [
       {
         "path": ".",
-        "commit": "388d2538716cd035e094138da823479cafc21f29",
+        "commit": "cccffa86047e673793406da9ba84cf9f80bdf0c9",
         "branch": "main",
         "dirty": true,
         "remote": "https://github.com/zachshallbetter/semantic-cms.git"
       }
     ]
   },
-  "aggregateSourceDigest": "4af2658f54973200ee607587bde4a916ca2834e506d37d363c02d6a8dd34b980",
+  "aggregateSourceDigest": "c55702570ea4894f09d02e444edba8d99ed6f5842cb8d38cd3e582071ac85194",
   "sources": [
     {
       "path": ".agents/skills/compile-context/SKILL.md",
@@ -60,8 +60,8 @@
     },
     {
       "path": ".github/workflows/gates.yml",
-      "bytes": 6385,
-      "sha256": "da38cbcbfc4f060630670a08879f273e1654c0bcc14458533151510d0f715a82"
+      "bytes": 6478,
+      "sha256": "9232dc063ff26f399c84a5c498b7815c458fb4d5e465b4f406cd217540c0af7f"
     },
     {
       "path": "AGENTS.md",
@@ -105,8 +105,8 @@
     },
     {
       "path": "SPEC_HEALTH.md",
-      "bytes": 25791,
-      "sha256": "9e3a93ac1fca4409bc05d06b2168179ce208228eebf2d920c8bbe169c400dda8"
+      "bytes": 25879,
+      "sha256": "5d582f3b9568869fd6a94df31d6d36176f2876c74d9e40dfb5b84042eca455d4"
     },
     {
       "path": "VERSION",
@@ -605,8 +605,8 @@
     },
     {
       "path": "impl/store/package.json",
-      "bytes": 387,
-      "sha256": "d8fde08a991ff75f49b53733b70075daf8e2ad686a71d04384f3602c760361b3"
+      "bytes": 436,
+      "sha256": "2f376804f31d7727f72475ba937a4f8d272c2d83f869ad71facdc2fbe834ac9c"
     },
     {
       "path": "impl/store/sql/001-canon.sql",
@@ -617,6 +617,16 @@
       "path": "impl/store/sql/002-blobs.sql",
       "bytes": 2394,
       "sha256": "2ac100375421fdf337d750280f4a5608950a6ef85d039eac2565b067bcc667f0"
+    },
+    {
+      "path": "impl/store/src/adapter.ts",
+      "bytes": 6694,
+      "sha256": "29f063f8b83a83946bd27f78a1e4afbf9104e9112a8b21b222c3304233fbfde3"
+    },
+    {
+      "path": "impl/store/test/adapter.test.ts",
+      "bytes": 8020,
+      "sha256": "eec5bd0fef0df098333171b812232e3ae2216c68d2d95595bd01bc7207184a72"
     },
     {
       "path": "impl/store/test/grants.sql",
@@ -697,6 +707,16 @@
       "path": "impl/transport/test/wire.test.ts",
       "bytes": 9437,
       "sha256": "bd155fabebc45f42f4c6f7efce985d0712d41edf4f020abf1ca8d2451d1851b6"
+    },
+    {
+      "path": "package-lock.json",
+      "bytes": 5289,
+      "sha256": "c34c36efd5515c09c4fc61d4056eb00f33a7b3bf610fb29ce9d96b05538ae91c"
+    },
+    {
+      "path": "package.json",
+      "bytes": 286,
+      "sha256": "6fefe470926f2d5bd5709a8915efb0b021d86f0a518ecf6a830040787ac3b482"
     },
     {
       "path": "projections/design-spec.html",
@@ -835,8 +855,8 @@
     },
     {
       "path": "work/GRAPH.md",
-      "bytes": 20001,
-      "sha256": "e7ebab4ccd3cc76c92ce45743cc8d10ff58d3042afc51c4f3f198527d53a8a96"
+      "bytes": 20128,
+      "sha256": "816734064c7f5a91b5f89a04dbc921aea5ce73f2f5f827eaf3e0fd751248b94c"
     },
     {
       "path": "work/SCMS-001.md",

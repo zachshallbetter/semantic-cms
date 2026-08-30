@@ -118,8 +118,11 @@ jobs:
         run: node --test test/*.test.ts
         working-directory: impl/site
 
-      - name: Canon store conformance (SCMS-057 · the grants must refuse)
-        run: ./test/run.sh
+      - name: Install pinned dependencies
+        run: npm ci
+
+      - name: Canon store conformance and adapter (SCMS-057/060/065)
+        run: ./test/run.sh && node --test test/adapter.test.ts
         working-directory: impl/store
         env:
           PGHOST: localhost
