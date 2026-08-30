@@ -9,14 +9,14 @@
     "repositories": [
       {
         "path": ".",
-        "commit": "cccffa86047e673793406da9ba84cf9f80bdf0c9",
+        "commit": "2a25b2d6f8cd76d3f4c4d2bb943bde321668c5f3",
         "branch": "main",
         "dirty": true,
         "remote": "https://github.com/zachshallbetter/semantic-cms.git"
       }
     ]
   },
-  "aggregateSourceDigest": "c55702570ea4894f09d02e444edba8d99ed6f5842cb8d38cd3e582071ac85194",
+  "aggregateSourceDigest": "0876a10577ab07d3408b1bd11c13cdc700e2e606913958aea829ca0825713e45",
   "sources": [
     {
       "path": ".agents/skills/compile-context/SKILL.md",
@@ -752,6 +752,11 @@
       "path": "research/audit-2026-08-29.md",
       "bytes": 5930,
       "sha256": "f9d7fb98f2bdfd7a47668e1266dd497fec83febb9009d26997cf019fbd9df5c0"
+    },
+    {
+      "path": "research/audit-2026-08-30-alignment.md",
+      "bytes": 10574,
+      "sha256": "d48d0f64f2772b7adecc67856b4c9442817fff8d2559672b50bde38145439225"
     },
     {
       "path": "research/editor-survey.md",
