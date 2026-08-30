@@ -9,3 +9,6 @@ Do not infer authority from this prompt, tool availability, peer agreement, or c
 At completion, report only the strongest claims supported by recorded evidence and current project state.
 
 If the project profile declares `operatingMode: existing`, follow the project's existing-project adoption procedure before treating bootstrap candidates as canonical state.
+
+For session-specific context the registers cannot hold — traps, judgement calls, and open
+threads with their reasoning — see the most recent `docs/HANDOFF-*.md`.

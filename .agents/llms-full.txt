@@ -1,6 +1,6 @@
 # PROJECT COMPILED CONTEXT
 Generator: 0.5.0
-Source digest: 200f116ed69b16eac536f52db85d86ac13ccaa87e79a99e522fbd14c185260d7
+Source digest: 830a893d8ef2df7dcc2ea4568aac983b22f385da31eef0834e75d356d379451e
 
 > Generated projection. Canonical sources remain authoritative.
 
@@ -1326,6 +1326,9 @@ Do not infer authority from this prompt, tool availability, peer agreement, or c
 At completion, report only the strongest claims supported by recorded evidence and current project state.
 
 If the project profile declares `operatingMode: existing`, follow the project's existing-project adoption procedure before treating bootstrap candidates as canonical state.
+
+For session-specific context the registers cannot hold — traps, judgement calls, and open
+threads with their reasoning — see the most recent `docs/HANDOFF-*.md`.
 
 
 ========================================================================
@@ -2909,6 +2912,128 @@ Registered debts age: a standing warning that escalates, so neither the deviatio
 Do not invent missing schemas, conformance fixtures, companion protocols, or research conclusions to make a resource look complete.
 
 Missing remains explicit until supplied by the resource owner or project authority.
+
+
+========================================================================
+FILE: docs/HANDOFF-2026-08-30.md
+========================================================================
+
+# Session handoff — 2026-08-30
+
+**State lives in the registers, not here.** `work/GRAPH.md` for work, `SPEC_HEALTH.md` for open
+questions and the claim ladder, `records/*.jsonl` for evidence, negative results, blockers, debts
+and owner directives. Those are authoritative and current; read them first.
+
+This document records only what those registers *cannot* hold: judgement calls, traps that are not
+obvious from the code, and open threads with the reasoning behind them.
+
+---
+
+## Where things stand
+
+78 work items (66 Done, 4 Ready, 4 Blocked, 4 partial) · 20 packages · **308 vectors** · 70 evidence
+records · **23 negative results** · CI green.
+
+The owner's real 215-entry archive runs end to end: it lives in Canon, the site renders it as an
+expression, the editor saves through contracts, and an edit reaches an open reader's page over SSE.
+Canon also has a Postgres schema whose append-only property is enforced by grant, with an adapter
+that round-trips to an identical surface fingerprint.
+
+**Nothing is deployed, and no person has done a day's work through it.** The claim register says so.
+
+---
+
+## Traps — read these before writing code
+
+**1. Verify against what is *staged*, not the working tree.** Twice, gates passed locally and failed
+in CI because a required file was excluded by the user's global gitignore and never committed
+(NR-scms-002, NR-scms-019). `scripts/check-tracked.py` now catches it. The working copy is not what
+CI sees.
+
+**2. "Gates pass" means a `gh run list` conclusion was read.** Never a local exit code. This project
+made that claim falsely once (NR-scms-002) and it invalidated a day of assertions.
+
+**3. Fix the class, not the instance.** Four defects this week recurred because a correction was
+applied to the one site in front of me:
+- substring matching on identities, fixed in one file and not the shared instrument (NR-scms-011)
+- a third notification path that did not inherit a property the other two had (NR-scms-018)
+- a validator hook fixed at one call site and left dangling at two others (NR-scms-020)
+- **a prototype-chain lookup fixed in one table and reintroduced in another _in the same commit_**
+  (NR-scms-021 — a live authorization bypass)
+
+When a negative result names a class, sweep for every instance before closing it.
+
+**4. Prefer unrepresentable over guarded.** NR-scms-021's fix is the model: canonical lookup tables
+now have null prototypes, so an inherited key is simply absent. A guard is a rule every future caller
+must remember, and this project has twice failed to remember one inside a single commit.
+
+**5. A gate that cannot fail certifies nothing** — and one that cries wolf gets ignored. Every
+`scripts/check-*.py` ships `--self-test` proving its detections fire. Two gates had to be *narrowed*
+after reporting false positives on honest rows. Both matter.
+
+**6. Assert the reason, not just the outcome.** A vector that checks "this was refused" without
+checking *why* can pass while proving nothing — that is how the authority gate shipped broken
+(NR-scms-005). Pair every refusal vector with a control that would fail if the system refused
+everything.
+
+**7. Node strips types; it does not check them.** A misplaced property is not a compile error. Runtime
+validation or a vector is the only protection.
+
+---
+
+## Judgement calls a fresh agent should not silently reverse
+
+- **Retroactive Ready predicates were refused.** 13 Done items carry a truthful *"no predicate"*
+  marker instead. A predicate written after the work looks like governance and functions as
+  decoration. Do not backfill them.
+- **Attrs are open, slots are closed** (SCMS-076). The corpus carries genuine one-off attributes;
+  closing the set would make types reject real content.
+- **Required means definitional, not merely always-present.** `featured` appears on every project and
+  is not required, because requiring it would encode the Medium import's shape as law.
+- **Embargoes read no clock.** Visibility follows the *declared temporal coordinate*, which is what
+  makes them replayable and scheduler-free. An absent coordinate fails closed.
+- **The live channel decides nothing itself** — `deliver()` does. Do not compute a wave locally.
+
+---
+
+## Open threads, with reasoning
+
+**Owner decisions (do not settle these yourself):**
+- **SH-22** — the link obligation blocks 78% of articles while checking five internal references.
+- **SH-13** — attestations are self-signed; the owner can qualify their own work.
+- **SH-15** — an in-progress edit to a promoted subject reaches readers immediately. SCMS-045 defines
+  the fix (a working copy as an *observation*) and is deliberately unscheduled.
+- **§12.1 vs the codebase** — the doctrine mandates consuming formal resources as pinned
+  dependencies; all 20 packages hand-transcribe instead, honestly labelled *"transcribed from the
+  pin"*. `records/deviations.jsonl` is **empty**, so the doctrine's own mechanism for this was never
+  used. This is the most structurally significant open item.
+- **7 of 10 formal pins are unverifiable** — six are digests over unversioned directories, one source
+  is missing. `sss` is among them, and the code cites it as structural authority throughout.
+
+**Sequencing that matters:**
+- **SCMS-045 must land before SCMS-077.** Today every landed autosave is a revision, so P7's
+  free-lane overlap statistic would count autosave races as concurrent authorship. Running the
+  workload first produces a number that looks like evidence and is not.
+
+**Ready without the owner:** SCMS-059 (auth — the largest gap), SCMS-064 (page builder), SCMS-066
+(migration runner).
+
+---
+
+## What the audit found and did not fix
+
+`research/audit-2026-08-30-alignment.md` is the full report. Two live defects were found and fixed
+(NR-scms-020, NR-scms-021). Everything else was left for the owner to direct:
+
+- 14 work-item acceptance criteria with no corresponding evidence; **SCMS-028 was marked Done on a
+  claim untrue of what shipped**
+- 8 DESIGN.md statements the code contradicts rather than merely falls short of
+- 13 of 14 open SH entries have no GitHub issue, though the graph names GitHub the board of record
+- PR #28 is CONFLICTING and partly stale — 3 of its 28 proposals were dispositioned on main
+- 4 epics report "in progress" with every item Done; E1 holds 30 of 78 items by default rather than fit
+
+**The pattern worth carrying forward:** the gates were all green while both live defects existed.
+Register checks confirm the books; only adversarial sweeps found the holes. Run both.
 
 
 ========================================================================
