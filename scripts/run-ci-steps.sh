@@ -34,6 +34,19 @@ PY
 
 (( ${#STEPS[@]} )) || { echo "no steps parsed — the workflow shape changed; fix this script"; exit 2; }
 
+# NR-scms-027, and trap 1 in the handoff. CI checks out committed state, and
+# gen-context.py digests `git ls-files` — so a new file that is not yet staged
+# is invisible here and present there. This runner reads the working tree; say
+# so out loud rather than letting a green line imply more than it checked.
+dirty="$(git status --porcelain)"
+if [ -n "$dirty" ]; then
+  echo "WARNING: working tree differs from the index/HEAD. CI sees committed state only,"
+  echo "         and gen-context.py digests \`git ls-files\` — an unstaged new file will pass"
+  echo "         here and fail there. Stage, then re-run, before believing this result:"
+  echo "$dirty" | sed 's/^/           /'
+  echo
+fi
+
 fail=0 skipped=0
 for step in "${STEPS[@]}"; do
   wd="${step%%$'\t'*}"; cmd="${step#*$'\t'}"

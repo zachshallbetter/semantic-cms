@@ -9,14 +9,14 @@
     "repositories": [
       {
         "path": ".",
-        "commit": "77889f3a981494d7654608ac6d740ea8727b7fc0",
+        "commit": "f810434552800b1fabcb499f135b1767a75fc3ad",
         "branch": "main",
         "dirty": true,
         "remote": "https://github.com/zachshallbetter/semantic-cms.git"
       }
     ]
   },
-  "aggregateSourceDigest": "6d2215077d3a85f2c475c81d8f93e15f828f16091a8659048e530c8f03e1f4dc",
+  "aggregateSourceDigest": "a9318b0f6bafb946a0d334b3d1e9a5ed229de541525f7adab98e20cc274169f0",
   "sources": [
     {
       "path": ".agents/skills/compile-context/SKILL.md",
@@ -180,8 +180,8 @@
     },
     {
       "path": "docs/HANDOFF-2026-08-30.md",
-      "bytes": 8615,
-      "sha256": "17c462d59e0a9e7fc6ce7bf3a2ae0bcb9e53d086e06d4c0d05a22d6cf92ace42"
+      "bytes": 9309,
+      "sha256": "2f7ecac9cf9f2af6618befca40ed24e0416532569067b53d2beea09660972eb2"
     },
     {
       "path": "docs/INITIAL_EPICS_TEMPLATE.md",
@@ -857,6 +857,11 @@
       "path": "scripts/next-id.py",
       "bytes": 5685,
       "sha256": "ab97cb462db8ae3850b778efe400df47c751180742723deeafd67d84073dcadf"
+    },
+    {
+      "path": "scripts/run-ci-steps.sh",
+      "bytes": 3107,
+      "sha256": "8037ce51e5cd66dcf943456a7f0ca58f5c3efb64a5b2098f7bfcd4b7f4cc8b03"
     },
     {
       "path": "scripts/validate-bootstrap.py",
