@@ -36,6 +36,11 @@ survived. Three checks:
      So the thirteen items that lack one carry a marker saying so truthfully,
      rather than a predicate invented in hindsight.
 
+  6. **No tracked file is a shell accident.** A zero-byte `NaN` at the root
+     survived a sweep that iterated by suffix (NR-scms-024). This check keys on
+     the name and on emptiness instead, and the self-test exercises it — an
+     unexercised detection is what let the first blind spot through.
+
     python3 scripts/check-work-graph.py
     python3 scripts/check-work-graph.py --self-test
 """
@@ -62,6 +67,27 @@ def unreachable_evidence(graph_text: str, evidence_ids: set[str]) -> list[str]:
 JUNK = {"NaN", "undefined", "null", "true", "false", ".DS_Store", "Thumbs.db"}
 
 
+def classify_stray(rel: str, size: int | None) -> str | None:
+    """Decide whether one tracked path is a shell accident. Pure, so it is testable.
+
+    The detection lived inline in the git loop, which meant the self-test could
+    not reach it without staging a real file — so it shipped untested, and
+    NR-scms-024 recorded a coverage claim the self-test did not support. That is
+    the recorded blind spot arriving one level up: a check keyed on the shape it
+    expects, then a *test* keyed on the checks it expects. Splitting the decision
+    out of the traversal is what lets the gate prove it can fail.
+
+    `size` is None when the path is not a regular file on disk.
+    """
+    if pathlib.Path(rel).name in JUNK:
+        return f"{rel}: tracked junk file — almost certainly a shell redirect accident"
+    # An empty tracked file with no extension is the same accident wearing a
+    # different name. Empty files WITH an extension can be legitimate.
+    if not pathlib.Path(rel).suffix and size == 0:
+        return f"{rel}: tracked, zero bytes, no extension — likely a stray redirect"
+    return None
+
+
 def stray_tracked_files() -> list[str]:
     """Tracked files that are almost certainly shell accidents.
 
@@ -77,15 +103,11 @@ def stray_tracked_files() -> list[str]:
         rel = rel.strip()
         if not rel:
             continue
-        name = pathlib.Path(rel).name
-        if name in JUNK:
-            problems.append(f"{rel}: tracked junk file — almost certainly a shell redirect accident")
-            continue
         path = ROOT / rel
-        # An empty tracked file with no extension is the same accident wearing
-        # a different name. Empty files WITH an extension can be legitimate.
-        if not pathlib.Path(rel).suffix and path.is_file() and path.stat().st_size == 0:
-            problems.append(f"{rel}: tracked, zero bytes, no extension — likely a stray redirect")
+        size = path.stat().st_size if path.is_file() else None
+        problem = classify_stray(rel, size)
+        if problem:
+            problems.append(problem)
     return problems
 
 
@@ -201,8 +223,19 @@ def self_test() -> int:
     got = check(orphan, {"scms-evidence-001", "scms-evidence-001a"})
     assert any("scms-evidence-001a" in p and "no graph row cites it" in p for p in got), got
 
+    # Rule 6. The junk set must not be silently emptied, and each arm of the
+    # detection must fire — this is the coverage NR-scms-024 claimed before it
+    # existed, so the assertions come first and the record follows them.
+    assert JUNK, "junk-name set is empty — the name arm of the detection is dead"
+    assert classify_stray("NaN", 0), "junk name at the root not caught"
+    assert classify_stray("scripts/.DS_Store", 12), "junk name in a subdirectory not caught"
+    assert classify_stray("sweep", 0), "zero-byte extensionless file not caught"
+    assert classify_stray("work/GRAPH.md", 0) is None, "empty file WITH an extension is legitimate"
+    assert classify_stray("scripts/check-work-graph.py", 4096) is None, "honest file flagged"
+
     print("self-test ok (dangling epics, duplicate ids, dangling evidence, "
-          "missing predicates and unreachable records all detected)")
+          "missing predicates, unreachable records and stray tracked files "
+          "all detected)")
     return 0
 
 
