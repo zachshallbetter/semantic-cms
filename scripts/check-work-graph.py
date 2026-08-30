@@ -42,6 +42,7 @@ survived. Three checks:
 import json
 import pathlib
 import re
+import subprocess
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -56,6 +57,36 @@ def unreachable_evidence(graph_text: str, evidence_ids: set[str]) -> list[str]:
     """Evidence records the graph never cites."""
     cited = set(re.findall(r"(scms-evidence-[0-9a-z]+)", graph_text))
     return sorted(evidence_ids - cited)
+
+
+JUNK = {"NaN", "undefined", "null", "true", "false", ".DS_Store", "Thumbs.db"}
+
+
+def stray_tracked_files() -> list[str]:
+    """Tracked files that are almost certainly shell accidents.
+
+    A zero-byte file named `NaN` was committed and survived an audit that
+    called itself exhaustive, because that sweep iterated by file *suffix* and
+    an extensionless name matched none of its patterns. A check keyed on the
+    shape of the thing it expects cannot see a thing of an unexpected shape —
+    so this one keys on the name, and on emptiness, instead.
+    """
+    problems = []
+    for rel in subprocess.run(["git", "ls-files"], capture_output=True, text=True,
+                              cwd=ROOT).stdout.split("\n"):
+        rel = rel.strip()
+        if not rel:
+            continue
+        name = pathlib.Path(rel).name
+        if name in JUNK:
+            problems.append(f"{rel}: tracked junk file — almost certainly a shell redirect accident")
+            continue
+        path = ROOT / rel
+        # An empty tracked file with no extension is the same accident wearing
+        # a different name. Empty files WITH an extension can be legitimate.
+        if not pathlib.Path(rel).suffix and path.is_file() and path.stat().st_size == 0:
+            problems.append(f"{rel}: tracked, zero bytes, no extension — likely a stray redirect")
+    return problems
 
 
 def unreachable_records() -> list[str]:
@@ -178,7 +209,8 @@ def self_test() -> int:
 def main() -> int:
     if "--self-test" in sys.argv:
         return self_test()
-    problems = check(GRAPH.read_text(encoding="utf-8"), evidence_ids()) + unreachable_records()
+    problems = (check(GRAPH.read_text(encoding="utf-8"), evidence_ids())
+                + unreachable_records() + stray_tracked_files())
     if problems:
         for p in problems:
             print(f"WORK GRAPH: {p}")
