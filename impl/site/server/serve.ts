@@ -26,8 +26,8 @@ import { CONTENT_PROMOTE, promoteHandler } from "../../qualification/src/promote
 import { CONTENT_UNPUBLISH, unpublishHandler } from "../../qualification/src/unpublish.ts";
 import { RECORD_EVIDENCE, recordEvidenceHandler, ATTEST, attestHandler } from "../../qualification/src/canon-evidence.ts";
 import { governedImport } from "../../migrate/src/governed.ts";
-import { ARTICLE_TYPE, checkArticle } from "../../schema/src/schema.ts";
-import type { ArticleInstance } from "../../schema/src/schema.ts";
+import { checkContent, typeFor } from "../../schema/src/schema.ts";
+import type { ContentInstance } from "../../schema/src/schema.ts";
 import { replayActions } from "./replay.ts";
 import { openLiveChannel } from "./live.ts";
 import { migrateAll } from "../../migrate/src/zach-core.ts";
@@ -103,10 +103,11 @@ const imported = governedImport({
   envelopes: [...migrated.content, ...migrated.relations],
   context: { occurredAt: new Date().toISOString(), authority: "owner" },
   validateBody: (body) => {
-    const kind = (body as { contentKind?: string }).contentKind;
-    return kind === "article" || kind === "note"
-      ? checkArticle(body as unknown as ArticleInstance, ARTICLE_TYPE)
-      : [];
+    // One registry decides which type applies (SCMS-076). Returning [] for an
+    // unknown kind stays correct: a type that does not exist is not pretended
+    // to exist, and the evaluator reports NOT_APPLICABLE rather than PASS.
+    const type = typeFor(String((body as { contentKind?: string }).contentKind));
+    return type ? checkContent(body as unknown as ContentInstance, type) : [];
   },
   actor: { id: "project.owner", role: "owner" },
 });

@@ -1,6 +1,6 @@
 # PROJECT COMPILED CONTEXT
 Generator: 0.5.0
-Source digest: e37d864af3343e4084c115a978ccd266842a9b54ca2fd41c08b05dfcbcac6dcb
+Source digest: e4a9ff947b2ce0d0a2efdeb94090101ce9f03c8b9a6042542f6ee26ce3ef71a5
 
 > Generated projection. Canonical sources remain authoritative.
 
@@ -1567,7 +1567,7 @@ above its rung.
 | One surface can be expressed **three** materially different ways | **S3 conformance (narrow path)** | SCMS-009 established two adapters and six preserved properties; SCMS-037 added a third (`reader-web`) and held it to the same contract rather than trusting it. The checker itself was corrected twice — NR-scms-011 (substring false positives) and NR-scms-013 (silent false negatives on encoded identities) — so the instrument is younger than the claim | S4, which must run **outside** this repository (SCMS-010); and SH-19, since the leak scan guards against accident rather than deliberate encoding |
 | Publishing is qualification **plus** promotion, never a boolean | **Implemented + Tested — with one claim corrected and one gap open** | SCMS-013/020: promotion refuses non-qualified, under-verified, and mismatched candidates; compensation exists and round-trips. **This row previously also claimed 'unauthorised'. That was false** — NR-scms-005 showed no handler authorized anything, and an anonymous caller could promote an owner-private draft. Authorization now exists (SCMS-031) and is tested by reason, not just by outcome | Attestations a caller cannot write for themselves (scms-blocker-003 / SH-13). **SCMS-050 corrected a larger gap: until then the read path never consulted publication at all, so this entire gate had no effect on what a reader saw** |
 | No persistent mutation outside a registered contract | **Implemented + Tested (source-level), and authorized as of SCMS-031** | SCMS-012 write path; SCMS-023 boundary gate with a self-test proving it can fail; SCMS-031 adds the authority gate the write path had been missing entirely (NR-scms-005), and NR-scms-006 corrects that gate after an adversarial pass found it failing OPEN on prototype-chain keys | Runtime capability enforcement, not just source-level |
-| Declared content types are enforced | **Implemented + Tested — and this row was overstated until 2026-08-29** | SCMS-022 made the governed write consult the declared type *when a validator is supplied*. **NR-scms-016 found that `governedImport` supplied none**, so all 215 records were created without their type ever being consulted, and `ARTICLE_TYPE` did not declare the `summary` slot the corpus actually carries. Both fixed in SCMS-054 | A declared type for every content kind in use — `project` and `role` still have none |
+| Declared content types are enforced | **Implemented + Tested — and this row was overstated until 2026-08-29** | SCMS-022 made the governed write consult the declared type *when a validator is supplied*. **NR-scms-016 found that `governedImport` supplied none**, so all 215 records were created without their type ever being consulted, and `ARTICLE_TYPE` did not declare the `summary` slot the corpus actually carries. Both fixed in SCMS-054 | **Closed by SCMS-076:** every kind in the corpus has a declared type and all 215 records conform. Attr *values* are checked for shape but not for meaning — a `period` of `"banana"` passes |
 | R1 live co-authoring | **Partially established** | `required` lane proven (SCMS-012), `bounded` lane proven (SCMS-021); **free lane NOT built** — blocked on **P7 only** (P22 was accepted 2026-08-28; this row said P7/P22 until the 2026-08-29 audit) | P7's disposition, which the owner has said should be settled from the editor workload rather than from a fixture |
 | R2 live propagation | **Partially established — emission and wire, no real connection** | SCMS-032 outbox; SCMS-033/034 wire, replay and lag; SCMS-035 derived freshness. **SCMS-038 found and fixed two defects here**: the cursor leaked exact global write volume, and a malformed cursor caused silent total event loss | A real connection under latency; durability (SH-1); and a measured propagation budget (SH-6) |
 | R3 live honesty | **Implemented + Tested (semantic core), and now derived rather than asserted** | SCMS-017: six states, the drafting/consequential asymmetry, presence expiring by construction. SCMS-035: the chip's freshness is derived from actual transport deliveries — a client with no delivery cannot render `live`. **NR-scms-010 corrected the editor, which had been claiming `live · checked 0s ago` while holding no subscription at all** | Freshness under real latency on a real connection; and SH-17, since a lagged client can still publish |
@@ -11489,6 +11489,7 @@ function envelope(id: string, access: Envelope["minimumAccess"], body: Record<st
 
 const conformingArticle: ArticleInstance = {
   contentKind: "article",
+  attrs: { listed: true },
   slots: { title: [{ kind: "text", value: "Ship it" }], body: [{ kind: "prose", value: "Prose." }] },
 };
 
@@ -11496,7 +11497,7 @@ const conformingArticle: ArticleInstance = {
 function runSpine() {
   // 1 — SCHEMA CONFORMANCE before anything reaches Canon.
   assert.deepEqual(checkArticle(conformingArticle, ARTICLE_TYPE), [], "conforming article passes");
-  const bad: ArticleInstance = { contentKind: "article", slots: { title: conformingArticle.slots.title } };
+  const bad: ArticleInstance = { contentKind: "article", attrs: { listed: true }, slots: { title: conformingArticle.slots.title } };
   assert.equal(checkArticle(bad, ARTICLE_TYPE)[0].code, "required-slot-missing");
 
   // 2 — CANON: land the article plus the world it lives in.
@@ -11522,7 +11523,7 @@ function runSpine() {
   // write consults it, so a violation cannot land in the composed path either.
   const articleValidator = (body: Record<string, unknown>) =>
     checkArticle(
-      { contentKind: "article", slots: (body.slots as ArticleInstance["slots"]) ?? {} },
+      { contentKind: "article", attrs: { listed: true }, slots: (body.slots as ArticleInstance["slots"]) ?? {} },
       ARTICLE_TYPE,
     ).map((f) => ({ code: f.code, at: f.at, detail: f.detail }));
 
@@ -11548,7 +11549,7 @@ test("seam 1-3b: the declared type is enforced by the composed write path", () =
   const current = journal.current().find((e) => e.envelope.subjectId === "art-1")!;
   const validator = (body: Record<string, unknown>) =>
     checkArticle(
-      { contentKind: "article", slots: (body.slots as ArticleInstance["slots"]) ?? {} },
+      { contentKind: "article", attrs: { listed: true }, slots: (body.slots as ArticleInstance["slots"]) ?? {} },
       ARTICLE_TYPE,
     ).map((f) => ({ code: f.code, at: f.at, detail: f.detail }));
 
@@ -12514,8 +12515,8 @@ import { evaluateProfile, unevaluatedObligations } from "../../qualification/src
 import { migrateAll } from "../../migrate/src/zach-core.ts";
 import type { SourceEntry } from "../../migrate/src/zach-core.ts";
 import { governedImport } from "../../migrate/src/governed.ts";
-import { ARTICLE_TYPE, checkArticle } from "../../schema/src/schema.ts";
-import type { ArticleInstance } from "../../schema/src/schema.ts";
+import { checkContent, typeFor } from "../../schema/src/schema.ts";
+import type { ContentInstance } from "../../schema/src/schema.ts";
 import { editorView, editorIndex } from "../src/viewmodel.ts";
 import { landEdit, summarizeP7 } from "../src/session.ts";
 import type { P7Observation } from "../src/session.ts";
@@ -12596,10 +12597,11 @@ const imported = governedImport({
   journal, registry, envelopes: migrated.content,
   context: { occurredAt: now(), authority },
   validateBody: (body) => {
-    const kind = (body as { contentKind?: string }).contentKind;
-    return kind === "article" || kind === "note"
-      ? checkArticle(body as unknown as ArticleInstance, ARTICLE_TYPE)
-      : [];
+    // One registry decides which type applies (SCMS-076). Returning [] for an
+    // unknown kind stays correct: a type that does not exist is not pretended
+    // to exist, and the evaluator reports NOT_APPLICABLE rather than PASS.
+    const type = typeFor(String((body as { contentKind?: string }).contentKind));
+    return type ? checkContent(body as unknown as ContentInstance, type) : [];
   }, actor: OWNER,
 });
 
@@ -12615,10 +12617,11 @@ if (existsSync(EDITS_LOG)) {
       baselineRevision: current.envelope.revision!, changes: e.changes,
       context: { occurredAt: now(), authority },
   validateBody: (body) => {
-    const kind = (body as { contentKind?: string }).contentKind;
-    return kind === "article" || kind === "note"
-      ? checkArticle(body as unknown as ArticleInstance, ARTICLE_TYPE)
-      : [];
+    // One registry decides which type applies (SCMS-076). Returning [] for an
+    // unknown kind stays correct: a type that does not exist is not pretended
+    // to exist, and the evaluator reports NOT_APPLICABLE rather than PASS.
+    const type = typeFor(String((body as { contentKind?: string }).contentKind));
+    return type ? checkContent(body as unknown as ContentInstance, type) : [];
   }, actor: OWNER,
     });
     if (r.outcome === "completed") replayed++;
@@ -12709,10 +12712,11 @@ const server = createServer((req, res) => {
         baselineRevision: current.envelope.revision!, changes,
         context: { occurredAt: now(), authority },
   validateBody: (body) => {
-    const kind = (body as { contentKind?: string }).contentKind;
-    return kind === "article" || kind === "note"
-      ? checkArticle(body as unknown as ArticleInstance, ARTICLE_TYPE)
-      : [];
+    // One registry decides which type applies (SCMS-076). Returning [] for an
+    // unknown kind stays correct: a type that does not exist is not pretended
+    // to exist, and the evaluator reports NOT_APPLICABLE rather than PASS.
+    const type = typeFor(String((body as { contentKind?: string }).contentKind));
+    return type ? checkContent(body as unknown as ContentInstance, type) : [];
   }, actor: OWNER,
       });
 
@@ -16616,8 +16620,8 @@ FILE: impl/qualification/src/evaluators.ts
  */
 import type { EvidenceRecord, EvidenceResult, ConsequenceProfile } from "./eqp.ts";
 import type { Envelope } from "../../canon/src/envelope.ts";
-import { ARTICLE_TYPE, checkArticle } from "../../schema/src/schema.ts";
-import type { ArticleInstance } from "../../schema/src/schema.ts";
+import { checkContent, typeFor } from "../../schema/src/schema.ts";
+import type { ContentInstance } from "../../schema/src/schema.ts";
 
 export interface EvaluationInput {
   envelope: Envelope;
@@ -16636,11 +16640,14 @@ type Evaluator = (input: EvaluationInput) => { result: EvidenceResult; detail?: 
  */
 const schemaValid: Evaluator = ({ envelope }) => {
   const body = envelope.body as unknown as { contentKind?: string; slots?: unknown };
-  if (body.contentKind !== "article" && body.contentKind !== "note") {
+  // One registry decides which type applies (SCMS-076). This used to name two
+  // kinds inline, in four separate files.
+  const type = typeFor(String(body.contentKind));
+  if (!type) {
     // No declared type for this kind. Not applicable is distinct from passing.
     return { result: "NOT_APPLICABLE", detail: `no declared type for kind '${body.contentKind}'` };
   }
-  const findings = checkArticle(body as unknown as ArticleInstance, ARTICLE_TYPE);
+  const findings = checkContent(body as unknown as ContentInstance, type);
   return findings.length === 0
     ? { result: "PASS" }
     : { result: "FAIL", detail: findings.map((f) => `${f.code} at ${f.at}`).join("; ") };
@@ -17710,7 +17717,7 @@ test("an obligation with no evaluator records NOT_RUN, never PASS", async () => 
     compatibility: { protocol: "scms-0.1", subjectSchema: "article@1" },
     provenance: { kind: "declared", authority: "project.owner", source: "t" },
     minimumAccess: "public",
-    body: { kind: "Content", contentKind: "article",
+    body: { kind: "Content", contentKind: "article", attrs: { listed: true },
             slots: { title: [{ kind: "text", value: "T" }], body: [{ kind: "prose", value: "B" }] } },
     state: { semanticMaturity: "draft", evidenceState: "unqualified",
              publicationState: "unpublished", deliveryState: "unpropagated" },
@@ -17745,7 +17752,7 @@ test("a coverage gap BLOCKS qualification — an unrun check is not a passed one
     compatibility: { protocol: "scms-0.1", subjectSchema: "article@1" },
     provenance: { kind: "declared", authority: "project.owner", source: "t" },
     minimumAccess: "public",
-    body: { kind: "Content", contentKind: "article",
+    body: { kind: "Content", contentKind: "article", attrs: { listed: true },
             slots: { title: [{ kind: "text", value: "T" }], body: [{ kind: "prose", value: "B" }] } },
     state: { semanticMaturity: "draft", evidenceState: "unqualified",
              publicationState: "unpublished", deliveryState: "unpropagated" },
@@ -17776,7 +17783,7 @@ test("a real schema failure is FAIL, distinct from a missing evaluator", async (
     compatibility: { protocol: "scms-0.1", subjectSchema: "article@1" },
     provenance: { kind: "declared", authority: "project.owner", source: "t" },
     minimumAccess: "public",
-    body: { kind: "Content", contentKind: "article", slots: { title: [{ kind: "text", value: "T" }] } },
+    body: { kind: "Content", contentKind: "article", attrs: { listed: true }, slots: { title: [{ kind: "text", value: "T" }] } },
     state: { semanticMaturity: "draft", evidenceState: "unqualified",
              publicationState: "unpublished", deliveryState: "unpropagated" },
   };
@@ -17796,7 +17803,7 @@ test("an unverifiable external link is INCONCLUSIVE, not PARTIAL and not PASS (S
     compatibility: { protocol: "scms-0.1", subjectSchema: "article@1" },
     provenance: { kind: "declared", authority: "project.owner", source: "t" },
     minimumAccess: "public",
-    body: { kind: "Content", contentKind: "article",
+    body: { kind: "Content", contentKind: "article", attrs: { listed: true },
             slots: { title: [{ kind: "text", value: "T" }], body: [{ kind: "prose", value: prose }] } },
     state: { semanticMaturity: "draft", evidenceState: "unqualified",
              publicationState: "unpublished", deliveryState: "unpropagated" },
@@ -17831,7 +17838,7 @@ test("media alt text is checked on the media that exists (SCMS-055)", async () =
     compatibility: { protocol: "scms-0.1", subjectSchema: "article@1" },
     provenance: { kind: "declared", authority: "project.owner", source: "t" },
     minimumAccess: "public",
-    body: { kind: "Content", contentKind: "article",
+    body: { kind: "Content", contentKind: "article", attrs: { listed: true },
             slots: { title: [{ kind: "text", value: "T" }],
                      body: [{ kind: "prose", value: "b" }], media } },
     state: { semanticMaturity: "draft", evidenceState: "unqualified",
@@ -18372,11 +18379,33 @@ export interface SocketDeclaration {
   importance: "required" | "primary" | "supporting" | "peripheral";
 }
 
+/**
+ * A declared attribute (SCMS-076).
+ *
+ * Attrs are **open** where slots are closed, and the asymmetry is deliberate.
+ * Slots are the authored structure the type owns, so an undeclared slot is a
+ * finding. Attrs are metadata carried from wherever the content came from, and
+ * the owner's corpus demonstrably carries one-off attrs on single entries — one
+ * note has `awards`, another has `stats`. Closing the set would make the type
+ * reject real content rather than describe it, which is NR-scms-016's lesson
+ * pointed the other way.
+ *
+ * So a type may require an attr, and may say what it admits, and may not forbid
+ * the ones it did not think of.
+ */
+export interface AttrDeclaration {
+  name: string;
+  required: boolean;
+  /** Admitted JSON shapes. `null` is listed explicitly where the corpus uses it. */
+  admits: Array<"string" | "number" | "boolean" | "list" | "object" | "null">;
+}
+
 export interface ContentTypeSchema {
   /** Discriminator INSIDE the Schema body — distinct from the envelope body kind. */
   schemaKind: "content-type";
   id: string;
   slots: SlotDeclaration[];
+  attrs?: AttrDeclaration[];
 }
 
 export interface CompositionSchema {
@@ -18409,6 +18438,15 @@ function schemaEnvelope(subjectId: string, body: ContentTypeSchema | Composition
 }
 
 /** §14 step 1: the one content type — Article, with its four slots. */
+/**
+ * `listed` is required on every kind because it is load-bearing: the reader's
+ * discovery lens includes on `listed === true`, so an absent value must fail
+ * rather than default (NR-scms-004). Declared once and shared, so a new type
+ * cannot quietly omit it — which is what happened to ARTICLE_TYPE until a
+ * vector asked every type the same question.
+ */
+const LISTED: AttrDeclaration = { name: "listed", required: true, admits: ["boolean"] };
+
 export const ARTICLE_TYPE: ContentTypeSchema = {
   schemaKind: "content-type",
   id: "article",
@@ -18423,9 +18461,76 @@ export const ARTICLE_TYPE: ContentTypeSchema = {
     { name: "body", required: true, admits: ["prose"] },
     { name: "meta", required: false, admits: ["text"], many: true },
   ],
+  attrs: [
+    LISTED,
+    { name: "occurredAt", required: false, admits: ["string", "null"] },
+    { name: "pinned", required: false, admits: ["boolean"] },
+    { name: "featured", required: false, admits: ["boolean"] },
+    { name: "readTime", required: false, admits: ["number"] },
+    { name: "source", required: false, admits: ["string"] },
+  ],
 };
 
 /** §14 step 1: the one composition — Home, with its two sockets. */
+export const NOTE_TYPE: ContentTypeSchema = {
+  schemaKind: "content-type",
+  id: "note",
+  slots: ARTICLE_TYPE.slots,
+  attrs: [LISTED],
+};
+
+/**
+ * Required attrs are the ones that are **definitional for the kind**, not merely
+ * the ones the import happens to always carry. `featured` and `force` are
+ * present on all nine projects and are presentational, so requiring them would
+ * encode the Medium import's shape as the type's law and make a
+ * hand-created project invalid.
+ */
+export const PROJECT_TYPE: ContentTypeSchema = {
+  schemaKind: "content-type",
+  id: "project",
+  slots: ARTICLE_TYPE.slots,
+  attrs: [
+    LISTED,
+    { name: "category", required: true, admits: ["string"] },
+    { name: "featured", required: false, admits: ["boolean"] },
+    { name: "force", required: false, admits: ["string"] },
+    { name: "occurredAt", required: false, admits: ["string", "null"] },
+    { name: "chips", required: false, admits: ["list"] },
+    { name: "links", required: false, admits: ["object", "null"] },
+  ],
+};
+
+export const ROLE_TYPE: ContentTypeSchema = {
+  schemaKind: "content-type",
+  id: "role",
+  slots: ARTICLE_TYPE.slots,
+  attrs: [
+    LISTED,
+    // A role without an employer, a period, or skills is not an
+    // under-described role; it is a different thing.
+    { name: "company", required: true, admits: ["string"] },
+    { name: "period", required: true, admits: ["string"] },
+    { name: "skills", required: true, admits: ["list"] },
+  ],
+};
+
+/**
+ * One place that decides which type applies. Four call sites used to each carry
+ * `contentKind === "article" || contentKind === "note" ? check : NOT_APPLICABLE`,
+ * which is four chances to disagree — the shape behind NR-scms-004, -006 and
+ * -018.
+ */
+export const CONTENT_TYPES: Record<string, ContentTypeSchema> = {
+  article: ARTICLE_TYPE, note: NOTE_TYPE, project: PROJECT_TYPE, role: ROLE_TYPE,
+};
+
+export function typeFor(contentKind: string): ContentTypeSchema | undefined {
+  return Object.prototype.hasOwnProperty.call(CONTENT_TYPES, contentKind)
+    ? CONTENT_TYPES[contentKind]
+    : undefined;
+}
+
 export const HOME_COMPOSITION: CompositionSchema = {
   schemaKind: "composition",
   id: "home",
@@ -18450,12 +18555,23 @@ export interface ConformanceFinding {
   detail: string;
 }
 
-export interface ArticleInstance {
-  contentKind: "article";
+export interface ContentInstance {
+  contentKind: string;
   slots: Record<string, Array<{ kind: string; value: unknown }>>;
+  attrs?: Record<string, unknown>;
 }
 
-export function checkArticle(instance: ArticleInstance, type: ContentTypeSchema): ConformanceFinding[] {
+/** Retained name for the article-shaped instance; the checker is general. */
+export type ArticleInstance = ContentInstance;
+
+function shapeOf(v: unknown): AttrDeclaration["admits"][number] {
+  if (v === null) return "null";
+  if (Array.isArray(v)) return "list";
+  const t = typeof v;
+  return t === "string" || t === "number" || t === "boolean" ? t : "object";
+}
+
+export function checkContent(instance: ContentInstance, type: ContentTypeSchema): ConformanceFinding[] {
   const findings: ConformanceFinding[] = [];
   const declared = new Map(type.slots.map((s) => [s.name, s]));
 
@@ -18478,14 +18594,41 @@ export function checkArticle(instance: ArticleInstance, type: ContentTypeSchema)
       }
     }
   }
-  // A content type is closed: an undeclared slot is a finding, not extra data.
+  // A content type is closed on SLOTS: an undeclared slot is a finding, not
+  // extra data.
   for (const name of Object.keys(instance.slots)) {
     if (!declared.has(name)) {
       findings.push({ code: "undeclared-slot", at: name, detail: `slot '${name}' is not declared by type '${type.id}'` });
     }
   }
+
+  // ...and OPEN on attrs: a required one must be present and of an admitted
+  // shape, and an undeclared one is simply carried.
+  const attrs = instance.attrs ?? {};
+  for (const decl of type.attrs ?? []) {
+    const present = Object.prototype.hasOwnProperty.call(attrs, decl.name);
+    if (!present) {
+      if (decl.required) {
+        findings.push({
+          code: "required-slot-missing", at: `attrs/${decl.name}`,
+          detail: `attr '${decl.name}' is required by type '${type.id}'`,
+        });
+      }
+      continue;
+    }
+    const shape = shapeOf(attrs[decl.name]);
+    if (!decl.admits.includes(shape)) {
+      findings.push({
+        code: "slot-kind-not-admitted", at: `attrs/${decl.name}`,
+        detail: `attr '${decl.name}' admits ${decl.admits.join("|")}, got '${shape}'`,
+      });
+    }
+  }
   return findings;
 }
+
+/** Back-compatible alias. Prefer `checkContent`. */
+export const checkArticle = checkContent;
 
 export interface CompositionInstance {
   compositionId: string;
@@ -18534,14 +18677,15 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { CanonJournal } from "../../canon/src/journal.ts";
 import { validateEnvelope } from "../../canon/src/envelope.ts";
-import {
-  ARTICLE_TYPE, HOME_COMPOSITION, ARTICLE_SCHEMA_RECORD, HOME_SCHEMA_RECORD,
-  checkArticle, checkComposition,
-} from "../src/schema.ts";
-import type { ArticleInstance, CompositionInstance } from "../src/schema.ts";
+import { ARTICLE_TYPE, HOME_COMPOSITION, ARTICLE_SCHEMA_RECORD, HOME_SCHEMA_RECORD,
+  checkArticle, checkComposition, checkContent, typeFor, CONTENT_TYPES, ROLE_TYPE, PROJECT_TYPE } from "../src/schema.ts";
+import type { ArticleInstance, CompositionInstance, ContentInstance } from "../src/schema.ts";
 
 const goodArticle: ArticleInstance = {
   contentKind: "article",
+  // Every real record carries `listed`; the type requires it because the
+  // reader's discovery lens includes on it (SCMS-076).
+  attrs: { listed: true },
   slots: {
     title: [{ kind: "text", value: "A title" }],
     body: [{ kind: "prose", value: "Some prose." }],
@@ -18568,12 +18712,12 @@ test("both schema records validate as envelopes and land in Canon like any recor
 
 test("a conforming Article passes; optional slots may be absent", () => {
   assert.deepEqual(checkArticle(goodArticle, ARTICLE_TYPE), []);
-  const noMeta: ArticleInstance = { contentKind: "article", slots: { title: goodArticle.slots.title, body: goodArticle.slots.body } };
+  const noMeta: ArticleInstance = { contentKind: "article", attrs: { listed: true }, slots: { title: goodArticle.slots.title, body: goodArticle.slots.body } };
   assert.deepEqual(checkArticle(noMeta, ARTICLE_TYPE), []);
 });
 
 test("a missing required slot is a typed finding naming the slot", () => {
-  const noBody: ArticleInstance = { contentKind: "article", slots: { title: goodArticle.slots.title } };
+  const noBody: ArticleInstance = { contentKind: "article", attrs: { listed: true }, slots: { title: goodArticle.slots.title } };
   const findings = checkArticle(noBody, ARTICLE_TYPE);
   assert.equal(findings.length, 1);
   assert.equal(findings[0].code, "required-slot-missing");
@@ -18581,7 +18725,7 @@ test("a missing required slot is a typed finding naming the slot", () => {
 });
 
 test("a content type is closed: an undeclared slot fails", () => {
-  const extra: ArticleInstance = { contentKind: "article", slots: { ...goodArticle.slots, sidebar: [{ kind: "text", value: "x" }] } };
+  const extra: ArticleInstance = { contentKind: "article", attrs: { listed: true }, slots: { ...goodArticle.slots, sidebar: [{ kind: "text", value: "x" }] } };
   const findings = checkArticle(extra, ARTICLE_TYPE);
   assert.equal(findings.length, 1);
   assert.equal(findings[0].code, "undeclared-slot");
@@ -18646,6 +18790,98 @@ test("no finding references expression: sockets say what may participate, not ho
       `schema module must not reference '${forbidden}'`);
   }
   assert.equal(HOME_COMPOSITION.sockets[0].importance, "required");
+});
+
+// ── SCMS-076: declared types for every kind in the corpus ──────────────────
+
+test("every content kind in the corpus has a declared type", async () => {
+  const { migrateAll } = await import("../../migrate/src/zach-core.ts");
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const manifest = JSON.parse(readFileSync(
+    fileURLToPath(new URL("../../../fixtures/zach-core-manifest.json", import.meta.url)), "utf8"));
+  const migrated = migrateAll(manifest.entries);
+
+  const kinds = new Set(migrated.content.map((e: never) =>
+    (e as { body: { contentKind: string } }).body.contentKind));
+  for (const k of kinds) {
+    assert.ok(typeFor(k), `kind '${k}' has no declared type — 17 records had none before SCMS-076`);
+  }
+
+  // And every record satisfies its own type, or fails for a reason true of the
+  // content. Zero failures over the real corpus.
+  let failures = 0;
+  for (const e of migrated.content) {
+    const body = (e as { body: ContentInstance }).body;
+    const type = typeFor(body.contentKind)!;
+    if (checkContent(body, type).length > 0) failures++;
+  }
+  assert.equal(failures, 0, "all 215 records conform to their declared type");
+});
+
+test("a required attr is enforced — the type is not decoration", () => {
+  const role: ContentInstance = {
+    contentKind: "role",
+    slots: { title: [{ kind: "text", value: "T" }], body: [{ kind: "prose", value: "b" }] },
+    attrs: { listed: true, period: "2020–2024", skills: ["a"] },   // no company
+  };
+  const findings = checkContent(role, ROLE_TYPE);
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].at, "attrs/company");
+  // A role without an employer is not an under-described role; it is a
+  // different thing — which is why this one is required and `featured` is not.
+});
+
+test("an attr of the wrong shape is a finding", () => {
+  const role: ContentInstance = {
+    contentKind: "role",
+    slots: { title: [{ kind: "text", value: "T" }], body: [{ kind: "prose", value: "b" }] },
+    attrs: { listed: true, company: "C", period: "P", skills: "not-a-list" },
+  };
+  const findings = checkContent(role, ROLE_TYPE);
+  assert.ok(findings.some((f) => f.at === "attrs/skills" && f.code === "slot-kind-not-admitted"));
+});
+
+test("slots are closed and attrs are open — the asymmetry is deliberate", () => {
+  const base = {
+    slots: { title: [{ kind: "text", value: "T" }], body: [{ kind: "prose", value: "b" }] },
+    attrs: { listed: true, category: "c" },
+  };
+
+  // An undeclared ATTR is carried. The corpus has one-off attrs on single
+  // entries — a note with `awards`, another with `stats` — and closing the set
+  // would make the type reject real content rather than describe it.
+  assert.deepEqual(
+    checkContent({ ...base, contentKind: "project", attrs: { ...base.attrs, invented: 1 } }, PROJECT_TYPE),
+    []);
+
+  // An undeclared SLOT is still a finding: slots are the authored structure the
+  // type owns.
+  const extraSlot = checkContent(
+    { ...base, contentKind: "project", slots: { ...base.slots, sidebar: [{ kind: "text", value: "x" }] } },
+    PROJECT_TYPE);
+  assert.ok(extraSlot.some((f) => f.code === "undeclared-slot" && f.at === "sidebar"));
+});
+
+test("`listed` is required on every kind, because discovery depends on it", () => {
+  for (const [kind, type] of Object.entries(CONTENT_TYPES)) {
+    const inst: ContentInstance = {
+      contentKind: kind,
+      slots: { title: [{ kind: "text", value: "T" }], body: [{ kind: "prose", value: "b" }] },
+      attrs: { company: "C", period: "P", skills: [], category: "c" },   // everything but `listed`
+    };
+    assert.ok(checkContent(inst, type).some((f) => f.at === "attrs/listed"),
+      `type '${kind}' does not require listed — an absent value would default rather than fail (NR-scms-004)`);
+  }
+});
+
+test("typeFor does not answer for inherited property names", () => {
+  // The NR-scms-006 lesson: a lookup that gates a decision must not walk the
+  // prototype chain. `CONTENT_TYPES["constructor"]` would otherwise be a function.
+  for (const key of ["constructor", "toString", "__proto__", "hasOwnProperty", "valueOf"]) {
+    assert.equal(typeFor(key), undefined, `typeFor('${key}') must not resolve`);
+  }
+  assert.ok(typeFor("article"), "and real kinds still resolve");
 });
 
 
@@ -18959,8 +19195,8 @@ import { CONTENT_PROMOTE, promoteHandler } from "../../qualification/src/promote
 import { CONTENT_UNPUBLISH, unpublishHandler } from "../../qualification/src/unpublish.ts";
 import { RECORD_EVIDENCE, recordEvidenceHandler, ATTEST, attestHandler } from "../../qualification/src/canon-evidence.ts";
 import { governedImport } from "../../migrate/src/governed.ts";
-import { ARTICLE_TYPE, checkArticle } from "../../schema/src/schema.ts";
-import type { ArticleInstance } from "../../schema/src/schema.ts";
+import { checkContent, typeFor } from "../../schema/src/schema.ts";
+import type { ContentInstance } from "../../schema/src/schema.ts";
 import { replayActions } from "./replay.ts";
 import { openLiveChannel } from "./live.ts";
 import { migrateAll } from "../../migrate/src/zach-core.ts";
@@ -19036,10 +19272,11 @@ const imported = governedImport({
   envelopes: [...migrated.content, ...migrated.relations],
   context: { occurredAt: new Date().toISOString(), authority: "owner" },
   validateBody: (body) => {
-    const kind = (body as { contentKind?: string }).contentKind;
-    return kind === "article" || kind === "note"
-      ? checkArticle(body as unknown as ArticleInstance, ARTICLE_TYPE)
-      : [];
+    // One registry decides which type applies (SCMS-076). Returning [] for an
+    // unknown kind stays correct: a type that does not exist is not pretended
+    // to exist, and the evaluator reports NOT_APPLICABLE rather than PASS.
+    const type = typeFor(String((body as { contentKind?: string }).contentKind));
+    return type ? checkContent(body as unknown as ContentInstance, type) : [];
   },
   actor: { id: "project.owner", role: "owner" },
 });
@@ -27520,7 +27757,7 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-073 | Embargoes | E3 | Ready — owner design direction; E3 because publishing early is unrecoverable, and it must not read a wall clock | work/SCMS-073.md |
 | SCMS-074 | Entitlement classes: entitled groups and staged access | E4 | **Registered, not scheduled** — P2 unratified, SH-2 open, and nothing to entitle yet | work/SCMS-074.md |
 | SCMS-075 | Link liveness as a Field signal, not a qualification gate | E5 | Ready — depends on SH-22's disposition; blocks 78% of articles today while checking 5 references | work/SCMS-075.md |
-| SCMS-076 | Declared content types for `project` and `role` | E1 | Ready — 17 records currently have no structural conformance at all | work/SCMS-076.md |
+| SCMS-076 | Declared content types for `project` and `role` | E1 | Done — all 215 conform, zero NOT_APPLICABLE; four type decisions collapsed to one registry | records/evidence.jsonl · scms-evidence-076 |
 | SCMS-077 | Run the editing workload and disposition P7 | E1 | **Blocked on SCMS-045** — running it first would count autosave races as concurrent authorship | work/SCMS-077.md |
 | SCMS-044 | Route the editor through the surface pipeline it currently bypasses | E12 | Done — SH-16 closed; two duplicate access checks removed; awaiting owner verification | records/evidence.jsonl · scms-evidence-044 |
 | SCMS-018 | R1 live co-authoring — **free lane only** (convergent merge) | E1 | **Blocked on P7 only** — P22 was accepted 2026-08-28; P7 is deferred with a revisit condition the owner has since named (settle it from the editor workload) | records/blockers · scms-blocker-001 |

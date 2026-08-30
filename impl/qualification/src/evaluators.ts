@@ -22,8 +22,8 @@
  */
 import type { EvidenceRecord, EvidenceResult, ConsequenceProfile } from "./eqp.ts";
 import type { Envelope } from "../../canon/src/envelope.ts";
-import { ARTICLE_TYPE, checkArticle } from "../../schema/src/schema.ts";
-import type { ArticleInstance } from "../../schema/src/schema.ts";
+import { checkContent, typeFor } from "../../schema/src/schema.ts";
+import type { ContentInstance } from "../../schema/src/schema.ts";
 
 export interface EvaluationInput {
   envelope: Envelope;
@@ -42,11 +42,14 @@ type Evaluator = (input: EvaluationInput) => { result: EvidenceResult; detail?: 
  */
 const schemaValid: Evaluator = ({ envelope }) => {
   const body = envelope.body as unknown as { contentKind?: string; slots?: unknown };
-  if (body.contentKind !== "article" && body.contentKind !== "note") {
+  // One registry decides which type applies (SCMS-076). This used to name two
+  // kinds inline, in four separate files.
+  const type = typeFor(String(body.contentKind));
+  if (!type) {
     // No declared type for this kind. Not applicable is distinct from passing.
     return { result: "NOT_APPLICABLE", detail: `no declared type for kind '${body.contentKind}'` };
   }
-  const findings = checkArticle(body as unknown as ArticleInstance, ARTICLE_TYPE);
+  const findings = checkContent(body as unknown as ContentInstance, type);
   return findings.length === 0
     ? { result: "PASS" }
     : { result: "FAIL", detail: findings.map((f) => `${f.code} at ${f.at}`).join("; ") };

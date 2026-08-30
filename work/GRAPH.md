@@ -91,7 +91,7 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-073 | Embargoes | E3 | Ready — owner design direction; E3 because publishing early is unrecoverable, and it must not read a wall clock | work/SCMS-073.md |
 | SCMS-074 | Entitlement classes: entitled groups and staged access | E4 | **Registered, not scheduled** — P2 unratified, SH-2 open, and nothing to entitle yet | work/SCMS-074.md |
 | SCMS-075 | Link liveness as a Field signal, not a qualification gate | E5 | Ready — depends on SH-22's disposition; blocks 78% of articles today while checking 5 references | work/SCMS-075.md |
-| SCMS-076 | Declared content types for `project` and `role` | E1 | Ready — 17 records currently have no structural conformance at all | work/SCMS-076.md |
+| SCMS-076 | Declared content types for `project` and `role` | E1 | Done — all 215 conform, zero NOT_APPLICABLE; four type decisions collapsed to one registry | records/evidence.jsonl · scms-evidence-076 |
 | SCMS-077 | Run the editing workload and disposition P7 | E1 | **Blocked on SCMS-045** — running it first would count autosave races as concurrent authorship | work/SCMS-077.md |
 | SCMS-044 | Route the editor through the surface pipeline it currently bypasses | E12 | Done — SH-16 closed; two duplicate access checks removed; awaiting owner verification | records/evidence.jsonl · scms-evidence-044 |
 | SCMS-018 | R1 live co-authoring — **free lane only** (convergent merge) | E1 | **Blocked on P7 only** — P22 was accepted 2026-08-28; P7 is deferred with a revisit condition the owner has since named (settle it from the editor workload) | records/blockers · scms-blocker-001 |

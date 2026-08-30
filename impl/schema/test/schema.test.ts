@@ -6,14 +6,15 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { CanonJournal } from "../../canon/src/journal.ts";
 import { validateEnvelope } from "../../canon/src/envelope.ts";
-import {
-  ARTICLE_TYPE, HOME_COMPOSITION, ARTICLE_SCHEMA_RECORD, HOME_SCHEMA_RECORD,
-  checkArticle, checkComposition,
-} from "../src/schema.ts";
-import type { ArticleInstance, CompositionInstance } from "../src/schema.ts";
+import { ARTICLE_TYPE, HOME_COMPOSITION, ARTICLE_SCHEMA_RECORD, HOME_SCHEMA_RECORD,
+  checkArticle, checkComposition, checkContent, typeFor, CONTENT_TYPES, ROLE_TYPE, PROJECT_TYPE } from "../src/schema.ts";
+import type { ArticleInstance, CompositionInstance, ContentInstance } from "../src/schema.ts";
 
 const goodArticle: ArticleInstance = {
   contentKind: "article",
+  // Every real record carries `listed`; the type requires it because the
+  // reader's discovery lens includes on it (SCMS-076).
+  attrs: { listed: true },
   slots: {
     title: [{ kind: "text", value: "A title" }],
     body: [{ kind: "prose", value: "Some prose." }],
@@ -40,12 +41,12 @@ test("both schema records validate as envelopes and land in Canon like any recor
 
 test("a conforming Article passes; optional slots may be absent", () => {
   assert.deepEqual(checkArticle(goodArticle, ARTICLE_TYPE), []);
-  const noMeta: ArticleInstance = { contentKind: "article", slots: { title: goodArticle.slots.title, body: goodArticle.slots.body } };
+  const noMeta: ArticleInstance = { contentKind: "article", attrs: { listed: true }, slots: { title: goodArticle.slots.title, body: goodArticle.slots.body } };
   assert.deepEqual(checkArticle(noMeta, ARTICLE_TYPE), []);
 });
 
 test("a missing required slot is a typed finding naming the slot", () => {
-  const noBody: ArticleInstance = { contentKind: "article", slots: { title: goodArticle.slots.title } };
+  const noBody: ArticleInstance = { contentKind: "article", attrs: { listed: true }, slots: { title: goodArticle.slots.title } };
   const findings = checkArticle(noBody, ARTICLE_TYPE);
   assert.equal(findings.length, 1);
   assert.equal(findings[0].code, "required-slot-missing");
@@ -53,7 +54,7 @@ test("a missing required slot is a typed finding naming the slot", () => {
 });
 
 test("a content type is closed: an undeclared slot fails", () => {
-  const extra: ArticleInstance = { contentKind: "article", slots: { ...goodArticle.slots, sidebar: [{ kind: "text", value: "x" }] } };
+  const extra: ArticleInstance = { contentKind: "article", attrs: { listed: true }, slots: { ...goodArticle.slots, sidebar: [{ kind: "text", value: "x" }] } };
   const findings = checkArticle(extra, ARTICLE_TYPE);
   assert.equal(findings.length, 1);
   assert.equal(findings[0].code, "undeclared-slot");
@@ -118,4 +119,96 @@ test("no finding references expression: sockets say what may participate, not ho
       `schema module must not reference '${forbidden}'`);
   }
   assert.equal(HOME_COMPOSITION.sockets[0].importance, "required");
+});
+
+// ── SCMS-076: declared types for every kind in the corpus ──────────────────
+
+test("every content kind in the corpus has a declared type", async () => {
+  const { migrateAll } = await import("../../migrate/src/zach-core.ts");
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const manifest = JSON.parse(readFileSync(
+    fileURLToPath(new URL("../../../fixtures/zach-core-manifest.json", import.meta.url)), "utf8"));
+  const migrated = migrateAll(manifest.entries);
+
+  const kinds = new Set(migrated.content.map((e: never) =>
+    (e as { body: { contentKind: string } }).body.contentKind));
+  for (const k of kinds) {
+    assert.ok(typeFor(k), `kind '${k}' has no declared type — 17 records had none before SCMS-076`);
+  }
+
+  // And every record satisfies its own type, or fails for a reason true of the
+  // content. Zero failures over the real corpus.
+  let failures = 0;
+  for (const e of migrated.content) {
+    const body = (e as { body: ContentInstance }).body;
+    const type = typeFor(body.contentKind)!;
+    if (checkContent(body, type).length > 0) failures++;
+  }
+  assert.equal(failures, 0, "all 215 records conform to their declared type");
+});
+
+test("a required attr is enforced — the type is not decoration", () => {
+  const role: ContentInstance = {
+    contentKind: "role",
+    slots: { title: [{ kind: "text", value: "T" }], body: [{ kind: "prose", value: "b" }] },
+    attrs: { listed: true, period: "2020–2024", skills: ["a"] },   // no company
+  };
+  const findings = checkContent(role, ROLE_TYPE);
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].at, "attrs/company");
+  // A role without an employer is not an under-described role; it is a
+  // different thing — which is why this one is required and `featured` is not.
+});
+
+test("an attr of the wrong shape is a finding", () => {
+  const role: ContentInstance = {
+    contentKind: "role",
+    slots: { title: [{ kind: "text", value: "T" }], body: [{ kind: "prose", value: "b" }] },
+    attrs: { listed: true, company: "C", period: "P", skills: "not-a-list" },
+  };
+  const findings = checkContent(role, ROLE_TYPE);
+  assert.ok(findings.some((f) => f.at === "attrs/skills" && f.code === "slot-kind-not-admitted"));
+});
+
+test("slots are closed and attrs are open — the asymmetry is deliberate", () => {
+  const base = {
+    slots: { title: [{ kind: "text", value: "T" }], body: [{ kind: "prose", value: "b" }] },
+    attrs: { listed: true, category: "c" },
+  };
+
+  // An undeclared ATTR is carried. The corpus has one-off attrs on single
+  // entries — a note with `awards`, another with `stats` — and closing the set
+  // would make the type reject real content rather than describe it.
+  assert.deepEqual(
+    checkContent({ ...base, contentKind: "project", attrs: { ...base.attrs, invented: 1 } }, PROJECT_TYPE),
+    []);
+
+  // An undeclared SLOT is still a finding: slots are the authored structure the
+  // type owns.
+  const extraSlot = checkContent(
+    { ...base, contentKind: "project", slots: { ...base.slots, sidebar: [{ kind: "text", value: "x" }] } },
+    PROJECT_TYPE);
+  assert.ok(extraSlot.some((f) => f.code === "undeclared-slot" && f.at === "sidebar"));
+});
+
+test("`listed` is required on every kind, because discovery depends on it", () => {
+  for (const [kind, type] of Object.entries(CONTENT_TYPES)) {
+    const inst: ContentInstance = {
+      contentKind: kind,
+      slots: { title: [{ kind: "text", value: "T" }], body: [{ kind: "prose", value: "b" }] },
+      attrs: { company: "C", period: "P", skills: [], category: "c" },   // everything but `listed`
+    };
+    assert.ok(checkContent(inst, type).some((f) => f.at === "attrs/listed"),
+      `type '${kind}' does not require listed — an absent value would default rather than fail (NR-scms-004)`);
+  }
+});
+
+test("typeFor does not answer for inherited property names", () => {
+  // The NR-scms-006 lesson: a lookup that gates a decision must not walk the
+  // prototype chain. `CONTENT_TYPES["constructor"]` would otherwise be a function.
+  for (const key of ["constructor", "toString", "__proto__", "hasOwnProperty", "valueOf"]) {
+    assert.equal(typeFor(key), undefined, `typeFor('${key}') must not resolve`);
+  }
+  assert.ok(typeFor("article"), "and real kinds still resolve");
 });

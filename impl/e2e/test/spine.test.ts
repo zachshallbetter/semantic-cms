@@ -77,6 +77,7 @@ function envelope(id: string, access: Envelope["minimumAccess"], body: Record<st
 
 const conformingArticle: ArticleInstance = {
   contentKind: "article",
+  attrs: { listed: true },
   slots: { title: [{ kind: "text", value: "Ship it" }], body: [{ kind: "prose", value: "Prose." }] },
 };
 
@@ -84,7 +85,7 @@ const conformingArticle: ArticleInstance = {
 function runSpine() {
   // 1 — SCHEMA CONFORMANCE before anything reaches Canon.
   assert.deepEqual(checkArticle(conformingArticle, ARTICLE_TYPE), [], "conforming article passes");
-  const bad: ArticleInstance = { contentKind: "article", slots: { title: conformingArticle.slots.title } };
+  const bad: ArticleInstance = { contentKind: "article", attrs: { listed: true }, slots: { title: conformingArticle.slots.title } };
   assert.equal(checkArticle(bad, ARTICLE_TYPE)[0].code, "required-slot-missing");
 
   // 2 — CANON: land the article plus the world it lives in.
@@ -110,7 +111,7 @@ function runSpine() {
   // write consults it, so a violation cannot land in the composed path either.
   const articleValidator = (body: Record<string, unknown>) =>
     checkArticle(
-      { contentKind: "article", slots: (body.slots as ArticleInstance["slots"]) ?? {} },
+      { contentKind: "article", attrs: { listed: true }, slots: (body.slots as ArticleInstance["slots"]) ?? {} },
       ARTICLE_TYPE,
     ).map((f) => ({ code: f.code, at: f.at, detail: f.detail }));
 
@@ -136,7 +137,7 @@ test("seam 1-3b: the declared type is enforced by the composed write path", () =
   const current = journal.current().find((e) => e.envelope.subjectId === "art-1")!;
   const validator = (body: Record<string, unknown>) =>
     checkArticle(
-      { contentKind: "article", slots: (body.slots as ArticleInstance["slots"]) ?? {} },
+      { contentKind: "article", attrs: { listed: true }, slots: (body.slots as ArticleInstance["slots"]) ?? {} },
       ARTICLE_TYPE,
     ).map((f) => ({ code: f.code, at: f.at, detail: f.detail }));
 

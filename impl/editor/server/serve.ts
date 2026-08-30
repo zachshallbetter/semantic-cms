@@ -36,8 +36,8 @@ import { evaluateProfile, unevaluatedObligations } from "../../qualification/src
 import { migrateAll } from "../../migrate/src/zach-core.ts";
 import type { SourceEntry } from "../../migrate/src/zach-core.ts";
 import { governedImport } from "../../migrate/src/governed.ts";
-import { ARTICLE_TYPE, checkArticle } from "../../schema/src/schema.ts";
-import type { ArticleInstance } from "../../schema/src/schema.ts";
+import { checkContent, typeFor } from "../../schema/src/schema.ts";
+import type { ContentInstance } from "../../schema/src/schema.ts";
 import { editorView, editorIndex } from "../src/viewmodel.ts";
 import { landEdit, summarizeP7 } from "../src/session.ts";
 import type { P7Observation } from "../src/session.ts";
@@ -118,10 +118,11 @@ const imported = governedImport({
   journal, registry, envelopes: migrated.content,
   context: { occurredAt: now(), authority },
   validateBody: (body) => {
-    const kind = (body as { contentKind?: string }).contentKind;
-    return kind === "article" || kind === "note"
-      ? checkArticle(body as unknown as ArticleInstance, ARTICLE_TYPE)
-      : [];
+    // One registry decides which type applies (SCMS-076). Returning [] for an
+    // unknown kind stays correct: a type that does not exist is not pretended
+    // to exist, and the evaluator reports NOT_APPLICABLE rather than PASS.
+    const type = typeFor(String((body as { contentKind?: string }).contentKind));
+    return type ? checkContent(body as unknown as ContentInstance, type) : [];
   }, actor: OWNER,
 });
 
@@ -137,10 +138,11 @@ if (existsSync(EDITS_LOG)) {
       baselineRevision: current.envelope.revision!, changes: e.changes,
       context: { occurredAt: now(), authority },
   validateBody: (body) => {
-    const kind = (body as { contentKind?: string }).contentKind;
-    return kind === "article" || kind === "note"
-      ? checkArticle(body as unknown as ArticleInstance, ARTICLE_TYPE)
-      : [];
+    // One registry decides which type applies (SCMS-076). Returning [] for an
+    // unknown kind stays correct: a type that does not exist is not pretended
+    // to exist, and the evaluator reports NOT_APPLICABLE rather than PASS.
+    const type = typeFor(String((body as { contentKind?: string }).contentKind));
+    return type ? checkContent(body as unknown as ContentInstance, type) : [];
   }, actor: OWNER,
     });
     if (r.outcome === "completed") replayed++;
@@ -231,10 +233,11 @@ const server = createServer((req, res) => {
         baselineRevision: current.envelope.revision!, changes,
         context: { occurredAt: now(), authority },
   validateBody: (body) => {
-    const kind = (body as { contentKind?: string }).contentKind;
-    return kind === "article" || kind === "note"
-      ? checkArticle(body as unknown as ArticleInstance, ARTICLE_TYPE)
-      : [];
+    // One registry decides which type applies (SCMS-076). Returning [] for an
+    // unknown kind stays correct: a type that does not exist is not pretended
+    // to exist, and the evaluator reports NOT_APPLICABLE rather than PASS.
+    const type = typeFor(String((body as { contentKind?: string }).contentKind));
+    return type ? checkContent(body as unknown as ContentInstance, type) : [];
   }, actor: OWNER,
       });
 
