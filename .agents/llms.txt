@@ -1,6 +1,6 @@
 # Project Context Index
 > Generator: 0.5.0
-> Source digest: `e4a9ff947b2ce0d0a2efdeb94090101ce9f03c8b9a6042542f6ee26ce3ef71a5`
+> Source digest: `1e36c7ca582dc29046b7be8e2ba82d9b4622fa3bff0c0c94a0a299e3996c98c1`
 
 > Generated projection. Canonical sources remain authoritative.
 
@@ -12,7 +12,7 @@
 - `.claude/launch.json` | 374 bytes | `0cdc9f914c5b663b01ecc7867b4f82ea38d2b0394d9034d0b6b2701033d8c544`
 - `.formal-bootstrap.json` | 280 bytes | `7fa912028d7ee4ad128c719342834ec735a28354ad614a13cd9a91599d0e7c0d`
 - `.github/pull_request_template.md` | 1320 bytes | `008c2ede60632b5bbf6ffaa97a95b9972b3ca10804eb712afbf3c436f5651963`
-- `.github/workflows/gates.yml` | 6150 bytes | `b19038d8cf8f4091a283da2f25bffdc9eb03226ad1564825c9d6169b173def5d`
+- `.github/workflows/gates.yml` | 6385 bytes | `da38cbcbfc4f060630670a08879f273e1654c0bcc14458533151510d0f715a82`
 - `AGENTS.md` | 6896 bytes | `cd8cbb05cc70b8d03f69bf45026ff70fdee09a264bb29d0ac4bcb4b753685caf`
 - `CONTEXT_SOURCES.json` | 914 bytes | `1a0e0db180b061204f20b4a550f8b634fb2a220569592bd63fed13eb875dda0e`
 - `DESIGN.md` | 35290 bytes | `62603e98c3ac16360001e13396a40e54b671ce4545a5a9cd654f5257a56760c5`
@@ -157,6 +157,7 @@
 - `schemas/scms/golden/canonicalization.json` | 4487 bytes | `92a7f51bdac1aaeb503cd9fd1c65af38c43531bdd6d38bac9e140eb71d7bf8fa`
 - `schemas/work-disposition.schema.json` | 2062 bytes | `a0426bb2095e37891627c5b3de78266863522bf36e5305dc0ba525e9617d2987`
 - `scripts/check-canon-write-boundary.py` | 3233 bytes | `b9873a1a0d1e923db2801fed29d2e5c8fc8bfebb47202f618dca0351e663f66c`
+- `scripts/check-claim-register.py` | 8775 bytes | `fdc0ce23b837728667aff394904cf0d855ce76174f90c9eec8fce0395ce550af`
 - `scripts/check-declaration-parity.py` | 5253 bytes | `f65a6df45fb5a7d0a46d38e149dd7855ebd0a83c2a875d25e3678e29a7f0b01c`
 - `scripts/check-projection-sync.py` | 3585 bytes | `cceb026b05da54d231f6bbb2da42ff1cc9cb4fb785c3218631653105e61b1c06`
 - `scripts/check-records-append-only.py` | 2614 bytes | `05a1addaf9d271ca01475afef92f8b9fa9b466407bc10b2781b602674b1e541b`
@@ -165,7 +166,7 @@
 - `scripts/gen-context.py` | 8036 bytes | `819eb2f67a5ec3943bae509d78eebfd690febff6b157a75fafa05f1b047848fa`
 - `scripts/next-id.py` | 5685 bytes | `ab97cb462db8ae3850b778efe400df47c751180742723deeafd67d84073dcadf`
 - `scripts/validate-bootstrap.py` | 4120 bytes | `b3881974ac4d1259a0fa084c1aa80bfcdc1af4b3873f05c9057697e61bb1fb95`
-- `work/GRAPH.md` | 18852 bytes | `65983184a9c536a3ef799cd5285243fcc6fd42d47d69c423030d60cbbd755d0e`
+- `work/GRAPH.md` | 18890 bytes | `bcab3e9516fc630fb5f588d4c12754e191f61eee26f40ba68f70f80a5b4627a8`
 - `work/SCMS-001.md` | 2155 bytes | `99c5bc6ed57cfd3b84eb813d1aadee333af8e706120003d34285cc6e20beffd9`
 - `work/SCMS-002.md` | 2769 bytes | `0fdb32c56443212ade358f5e06c6b45cb9be3b6b8a8bdaa1a7eec61264406a33`
 - `work/SCMS-003.md` | 1448 bytes | `b93754ca3c9f8e039abc83cfdb59c49f86f9dadf4f64da55fc76caf82fec6943`

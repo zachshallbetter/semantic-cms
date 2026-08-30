@@ -84,7 +84,7 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-066 | A migration runner | E13 | Ready — zach-core re-runs a declarative schema file and has none either, so this is a gap inherited rather than solved | — |
 | SCMS-067 | Work-graph integrity gate; reconcile SPEC_HEALTH against the graph | E0 | Partly done — the integrity gate is in CI and caught a dangling evidence reference; the SPEC_HEALTH reconciliation is still open | records/evidence.jsonl · scms-evidence-067 |
 | SCMS-068 | Document review and audit (2026-08-29) | E0 | Done — 8 findings; 4 register corrections applied; DESIGN.md needed none | records/evidence.jsonl · scms-evidence-068 |
-| SCMS-069 | A gate between the claim register and the work graph | E0 | Ready — audit finding 8; the structural cause of two of its four corrections | work/SCMS-069.md |
+| SCMS-069 | A gate between the claim register and the work graph | E0 | Done — 4 rules, incl. proposal-disposition staleness; tested against the historical row | records/evidence.jsonl · scms-evidence-069 |
 | SCMS-070 | Done items carry a work file or a stated exemption | E0 | Ready — audit finding 6; markers for the twelve, never retroactive predicates | work/SCMS-070.md |
 | SCMS-071 | Evidence addenda need a citation path | E0 | Ready — audit finding 7; three orphans are currently write-only | work/SCMS-071.md |
 | SCMS-072 | Evidence tone (SPS's evidence-density half) | E5 | Ready — owner design direction; the half of `morphologyFor` that went to neither SSS nor the recipe | work/SCMS-072.md |

@@ -9,14 +9,14 @@
     "repositories": [
       {
         "path": ".",
-        "commit": "9632cf9675fc1c3b3d1ea7bdb0d5e4f637a2d415",
+        "commit": "fc8d47b3c56f5d938b13901fa9f68f8947ac8066",
         "branch": "main",
         "dirty": true,
         "remote": "https://github.com/zachshallbetter/semantic-cms.git"
       }
     ]
   },
-  "aggregateSourceDigest": "e4a9ff947b2ce0d0a2efdeb94090101ce9f03c8b9a6042542f6ee26ce3ef71a5",
+  "aggregateSourceDigest": "1e36c7ca582dc29046b7be8e2ba82d9b4622fa3bff0c0c94a0a299e3996c98c1",
   "sources": [
     {
       "path": ".agents/skills/compile-context/SKILL.md",
@@ -60,8 +60,8 @@
     },
     {
       "path": ".github/workflows/gates.yml",
-      "bytes": 6150,
-      "sha256": "b19038d8cf8f4091a283da2f25bffdc9eb03226ad1564825c9d6169b173def5d"
+      "bytes": 6385,
+      "sha256": "da38cbcbfc4f060630670a08879f273e1654c0bcc14458533151510d0f715a82"
     },
     {
       "path": "AGENTS.md",
@@ -784,6 +784,11 @@
       "sha256": "b9873a1a0d1e923db2801fed29d2e5c8fc8bfebb47202f618dca0351e663f66c"
     },
     {
+      "path": "scripts/check-claim-register.py",
+      "bytes": 8775,
+      "sha256": "fdc0ce23b837728667aff394904cf0d855ce76174f90c9eec8fce0395ce550af"
+    },
+    {
       "path": "scripts/check-declaration-parity.py",
       "bytes": 5253,
       "sha256": "f65a6df45fb5a7d0a46d38e149dd7855ebd0a83c2a875d25e3678e29a7f0b01c"
@@ -825,8 +830,8 @@
     },
     {
       "path": "work/GRAPH.md",
-      "bytes": 18852,
-      "sha256": "65983184a9c536a3ef799cd5285243fcc6fd42d47d69c423030d60cbbd755d0e"
+      "bytes": 18890,
+      "sha256": "bcab3e9516fc630fb5f588d4c12754e191f61eee26f40ba68f70f80a5b4627a8"
     },
     {
       "path": "work/SCMS-001.md",

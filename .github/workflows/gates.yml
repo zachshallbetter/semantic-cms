@@ -141,6 +141,12 @@ jobs:
       - name: Every CI-referenced path is tracked
         run: python3 scripts/check-tracked.py
 
+      - name: Claim register — self-test (gate can fail)
+        run: python3 scripts/check-claim-register.py --self-test
+
+      - name: Claim register agrees with the work graph
+        run: python3 scripts/check-claim-register.py
+
       - name: Work graph — self-test (gate can fail)
         run: python3 scripts/check-work-graph.py --self-test
 
