@@ -69,7 +69,15 @@ if [ -z "${ACP_GATEWAY_URL:-}" ]; then
   unset _gp_env
 fi
 
-gp_acp_enabled() { [ -n "${ACP_GATEWAY_URL:-}" ]; }
+# ACP is on when a gateway is configured -- unless the operator has explicitly
+# asked for the native fallback. Without that second clause the documented
+# escape hatch did nothing: the read paths short-circuited to the gateway on the
+# URL alone, so a board the gateway cannot serve (an installation without
+# owner-level Projects permission, say) was unreachable even with credentials
+# that could read it perfectly well.
+gp_acp_enabled() {
+  [ -n "${ACP_GATEWAY_URL:-}" ] && [ "${ACP_ALLOW_NATIVE_GITHUB:-0}" != 1 ]
+}
 
 gp_uri() { printf '%s' "$1" | jq -sRr @uri; }
 
