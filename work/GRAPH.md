@@ -43,7 +43,7 @@ epic as the owner assigns the corresponding piece of work.
 | SCMS-026 | Subscription fan-out: who is told, and who must not be | E1 | Done — awaiting owner verification | records/evidence.jsonl · scms-evidence-026 |
 | SCMS-027 | Extend the composed proof to the full landed surface | E1 | Done — awaiting owner verification | records/evidence.jsonl · scms-evidence-027 |
 | SCMS-028 | Map the zach-core corpus into Canon (first real workload) | E8 | Done — 215 real entries map, 22 source-collapse findings raised; awaiting owner verification | records/evidence.jsonl · scms-evidence-028 |
-| SCMS-029 | Reconcile the corpus against live Postgres (seed-time vs current) | E8 | **Blocked** — needs owner-authorized credentials (protected action) | — |
+| SCMS-029 | Reconcile the corpus against live Postgres (seed-time vs current) | E8 | In progress — read-only reconciliation and synthetic stable-UUID migration slice complete; production landing and equivalence remain | work/SCMS-029.md · records/SCMS-029-live-reconciliation.json |
 | SCMS-030 | The site as a reader expression of Canon (round-trip out) | E8 | Done — real reader routes resolve; NR-scms-004 recorded; awaiting owner verification | records/evidence.jsonl · scms-evidence-030 |
 | SCMS-031 | The authoring surface, and the authority gate it exposed | E12 | Done — SH-8 first slice; NR-scms-005 fixed; scms-blocker-003 raised; awaiting owner verification | records/evidence.jsonl · scms-evidence-031 |
 | E13 | **Own the store** — Canon in Postgres, blobs, auth, migrations; stop depending on zach-core | DESIGN.md §13 + SH-1, SH-2, SH-4 | In progress — schema, grants and blobs landed (SCMS-057/060); adapter and auth outstanding |

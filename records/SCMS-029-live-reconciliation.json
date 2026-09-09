@@ -1,0 +1,57 @@
+{
+  "id": "scms-evidence-080",
+  "workItemRef": "SCMS-029",
+  "recordedAt": "2026-09-08",
+  "disposition": "observed",
+  "sourceRevision": "2e05cda67ae158371cb426089c2523e206a54990",
+  "payloadDigest": "sha256:54c3f7c7b260c5f8bb4e9f5f434b9f17a56c279612d61c95e8c8da0171c244a7",
+  "targetedTests": {
+    "passed": 13,
+    "failed": 0
+  },
+  "live": {
+    "entries": 241,
+    "activeEntries": 228,
+    "deletedEntries": 13,
+    "revisions": 367,
+    "relations": 12,
+    "media": 1,
+    "collections": 0,
+    "readerRecords": 0,
+    "orphans": 0
+  },
+  "historyPlan": {
+    "sourceEntries": 241,
+    "sourceRevisionRows": 367,
+    "targetRevisionPlanRows": 559,
+    "historicalRows": 341,
+    "currentRows": 218,
+    "planDigest": "sha256:6bf57dc7047c8e7af4ec4ca1bddf8c5ebfc75a0f1dd6f2074fa8c797a2f8899e"
+  },
+  "comparison": {
+    "fixtureEntries": 215,
+    "liveOnly": 14,
+    "fixtureOnly": 1,
+    "fixtureOnlyRecoveredByHistoricalAlias": 1,
+    "fixtureOnlyTrulyUnmatched": 1,
+    "deleted": 13,
+    "sharedCurrentDivergent": 214,
+    "sharedCurrentEquivalent": 0,
+    "currentLocalSeedEligible": 217,
+    "currentLocalAndLiveShared": 214,
+    "liveBodiesMatchingTrimmedCurrentLocal": 47,
+    "liveBodiesMatchingNeitherCurrentLocalForm": 167
+  },
+  "identityHistory": {
+    "renamedEntries": 5,
+    "entriesWithNullSlug": 0,
+    "maximumSlugsPerEntry": 2
+  },
+  "negativeResult": "The seed fixture cannot prove live equivalence, and slug cannot serve as stable Canon identity: five source UUIDs have used two slugs. One of two apparent fixture-only records resolves through historical alias state. Live Postgres UUID remains migration identity; slug becomes a versioned attribute and alias input.",
+  "privacy": "Read-only transaction; report contains counts and domain-separated digests only. No credentials, prose, reader data, or raw private identifiers retained.",
+  "limitations": [
+    "Production Canon revision landing and source/target two-path equivalence remain unproved; the deterministic history plan and synthetic governed landing are now tested.",
+    "The synthetic governed migration vertical slice now proves stable UUID identity through freeze.",
+    "Full repository gates passed locally: 38 passed and one GitHub-expression step skipped."
+  ]
+}

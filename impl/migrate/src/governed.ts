@@ -21,8 +21,10 @@
  * entries is a deliberate act, and the report says how many that is.
  */
 import type { Envelope } from "../../canon/src/envelope.ts";
+import { canonicalJson } from "../../canon/src/envelope.ts";
 import type { CanonJournal } from "../../canon/src/journal.ts";
 import type { ContractRegistry, ExecutionContext } from "../../contracts/src/runtime.ts";
+import type { LiveCanonRevisionPlan } from "./live-reconcile.ts";
 
 export interface ImportOutcome {
   subjectId: string;
@@ -98,4 +100,76 @@ export function governedImport(input: GovernedImportInput): ImportReport {
     landed, refused, publicationNotCarried,
     eventsEmitted: input.journal.events().length - before,
   };
+}
+
+export interface HistoryMigrationReceipt {
+  sourceEntryId: string;
+  sourceRevisionId: string | null;
+  sourceKind: LiveCanonRevisionPlan["sourceKind"];
+  sourceStateHash: string;
+  targetRevision: string;
+  priorTargetRevision: string | null;
+}
+
+export interface GovernedHistoryImportReport {
+  receipts: HistoryMigrationReceipt[];
+  refused: ImportOutcome[];
+  eventsEmitted: number;
+}
+
+/** Execute a planned live history through the governed create/revise path. */
+export function governedHistoryImport(input: {
+  journal: CanonJournal;
+  registry: ContractRegistry;
+  plan: LiveCanonRevisionPlan[];
+  context: Omit<ExecutionContext, "instanceId">;
+  actor: { id: string; role: string };
+}): GovernedHistoryImportReport {
+  const receipts: HistoryMigrationReceipt[] = [];
+  const refused: ImportOutcome[] = [];
+  const before = input.journal.events().length;
+  let activeEntryId: string | null = null;
+  let targetRevision: string | null = null;
+
+  input.plan.forEach((item, index) => {
+    const first = activeEntryId !== item.sourceEntryId;
+    const result = input.registry.execute(input.journal, {
+      contract: first ? "icp:interaction/content.create@1.0.0" : "icp:interaction/content.revise@1.0.0",
+      requestId: `live-history-${index}`,
+      actor: input.actor,
+      input: first ? {
+        subjectId: item.envelope.subjectId,
+        contentKind: (item.envelope.body as { contentKind?: string }).contentKind ?? "unknown",
+        body: item.envelope.body as Record<string, unknown>,
+        minimumAccess: item.envelope.minimumAccess,
+        source: item.envelope.provenance.source,
+      } : {
+        subjectId: item.envelope.subjectId,
+        expectedRevision: targetRevision,
+        changes: item.envelope.body as Record<string, unknown>,
+      },
+    }, { ...input.context, instanceId: `live-history-${index}` });
+    if (result.outcome !== "completed" || !result.receipt) {
+      refused.push({ subjectId: item.envelope.subjectId, outcome: result.outcome, ...(result.detail ? { detail: result.detail } : {}) });
+      return;
+    }
+    const receipt = result.receipt as unknown as { after?: string; afterVersion?: string };
+    const landedRevision = receipt.afterVersion ?? receipt.after;
+    if (!landedRevision) throw new Error(`governed history receipt omitted target revision for ${item.sourceEntryId}`);
+    const landed = input.journal.get(landedRevision);
+    if (!landed || canonicalJson(landed.envelope.body) !== canonicalJson(item.envelope.body)) {
+      throw new Error(`governed history body mismatch for ${item.sourceEntryId} (${item.sourceKind}:${index})`);
+    }
+    receipts.push({
+      sourceEntryId: item.sourceEntryId,
+      sourceRevisionId: item.sourceRevisionId,
+      sourceKind: item.sourceKind,
+      sourceStateHash: item.sourceStateHash,
+      targetRevision: landedRevision,
+      priorTargetRevision: first ? null : targetRevision,
+    });
+    activeEntryId = item.sourceEntryId;
+    targetRevision = landedRevision;
+  });
+  return { receipts, refused, eventsEmitted: input.journal.events().length - before };
 }

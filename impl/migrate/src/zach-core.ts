@@ -56,6 +56,13 @@ export interface MigrationResult {
   findings: MigrationFinding[];
 }
 
+export interface MigrationOptions {
+  /** Stable source identity for live imports; slugs remain mutable attributes. */
+  subjectId?: string;
+  /** Resolve relation slugs into the same stable identity namespace. */
+  resolveSubjectId?: (slug: string) => string;
+}
+
 /** Publication states the source shares with our publication axis. */
 const PUBLICATION_STATES = new Set(["draft", "published", "archived", "inbox"]);
 
@@ -110,11 +117,13 @@ function envelope(
   };
 }
 
-export function migrateEntry(entry: SourceEntry): MigrationResult {
+export function migrateEntry(entry: SourceEntry, options: MigrationOptions = {}): MigrationResult {
   const findings: MigrationFinding[] = [];
   const fm = entry.frontmatter;
   const slug = String(fm.slug ?? "");
   const type = String(fm.type ?? "");
+  const subjectId = options.subjectId ?? slug;
+  const resolveSubjectId = options.resolveSubjectId ?? ((value: string) => value);
   const result: MigrationResult = { content: [], derived: [], relations: [], findings };
 
   if (!slug || !type) {
@@ -134,9 +143,14 @@ export function migrateEntry(entry: SourceEntry): MigrationResult {
 
   // Everything from frontmatter except what became structure, plus the source's
   // own lifecycle label where one was found.
-  const structural = new Set(["slug", "type", "title", "summary", "visibility", "status", "relations", "field", "tags"]);
+  const structural = new Set([
+    "slug", "type", "title", "summary", "visibility", "status", "relations", "field", "tags",
+    "occurredAt", "startedAt", "endedAt",
+  ]);
   const attrs: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(fm)) if (!structural.has(k)) attrs[k] = v;
+  // Slug addresses the source record but is not its stable Canon identity.
+  attrs.slug = slug;
   if (LIFECYCLE_LABELS.has(String(fm.status ?? ""))) attrs.lifecycleLabel = fm.status;
   // Positive form, and present on EVERY record: discovery includes on
   // `listed === true`, so a missing or malformed value excludes rather than
@@ -144,7 +158,7 @@ export function migrateEntry(entry: SourceEntry): MigrationResult {
   // direction where absence leaks.
   attrs.listed = !unlisted;
 
-  result.content.push(envelope(slug, access, {
+  result.content.push(envelope(subjectId, access, {
     kind: "Content", contentKind: type,
     slots: {
       title: [{ kind: "text", value: fm.title }],
@@ -162,16 +176,16 @@ export function migrateEntry(entry: SourceEntry): MigrationResult {
       detail: "data.field is model-generated (source flags it 'model-inferred; unvalidated'); landed as a " +
         "SEPARATE derived-provenance envelope referencing the article, never merged into authored content",
     });
-    result.derived.push(envelope(`${slug}#field`, access, {
+    result.derived.push(envelope(`${subjectId}#field`, access, {
       kind: "Observation", observationKind: "semantic-article-field",
-      about: slug, field: fm.field,
+      about: subjectId, field: fm.field,
     }, { ...state, evidenceState: "unqualified" }, "derived", `zach-core:${entry.file}#field`));
   }
 
   // Relations become their own records; an edge is not an attribute.
   const relations = Array.isArray(fm.relations) ? fm.relations as Array<Record<string, unknown>> : [];
   for (const rel of relations) {
-    const to = String(rel.id ?? "");
+    const to = resolveSubjectId(String(rel.id ?? ""));
     if (!to) {
       findings.push({ code: "relation-target-unresolved", entry: entry.file, detail: "relation without an id" });
       continue;
@@ -194,6 +208,16 @@ export function migrateAll(entries: SourceEntry[]): MigrationResult {
     all.findings.push(...r.findings);
   }
   return all;
+}
+
+/** Map a live row without allowing its mutable slug to become Canon identity. */
+export function migrateLiveEntry(
+  entry: SourceEntry,
+  sourceId: string,
+  resolveSubjectId?: (slug: string) => string,
+): MigrationResult {
+  if (!sourceId) throw new Error("sourceId is required for live migration");
+  return migrateEntry(entry, { subjectId: sourceId, resolveSubjectId });
 }
 
 /** Relations whose target is not among the imported subjects. */
