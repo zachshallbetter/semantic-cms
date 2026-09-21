@@ -13,7 +13,6 @@ __pycache__/
 .agents/.DS_Store
 **/.DS_Store
 !AGENTS.md
-.DS_Store
 
 # Editor working data: the owner's edits and P7 observations live outside the
 # repository. This repo does not vendor the content it manages, and that
@@ -35,3 +34,25 @@ node_modules/
 
 # formal-project-bootstrap 0.5.3: the gateway token stays out; AGENTS.md and .agents/ stay in
 .env.local
+# --- added for Antigravity/indexer parity (auto) ---
+dist/
+build/
+out/
+target/
+.next/
+.turbo/
+.vercel/
+coverage/
+playwright-report/
+test-results/
+graphify-out/
+.reports/
+.venv/
+venv/
+DerivedData/
+.gradle/
+.expo/
+.env
+.env.*
+
+!.env.example
