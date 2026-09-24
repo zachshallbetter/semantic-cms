@@ -1,9 +1,10 @@
 # Project Context Index
 > Generator: 0.5.3
-> Source digest: `e220d6aa53776e2cde8334c8486f45355f00f21224850e71ebbfa98fd3cb0328`
+> Source digest: `6bcad2fe4b0c488578ec96b74262b48b2520c38ca68848e37acae9e4e35c8c01`
 
 > Generated projection. Canonical sources remain authoritative.
 
+- `.agents/skills/authorize-protected-effect/SKILL.md` | 2758 bytes | `480ffefc42bc4d9d744484149f26a86ddb9b19a8d6adb63053720f5fc0c7865f`
 - `.agents/skills/compile-context/SKILL.md` | 561 bytes | `10c8156d05da083eddb606769183d8cabf4f924c241a3e3b462ef76f7aecf28d`
 - `.agents/skills/coordinate-workers/SKILL.md` | 593 bytes | `6be105841accc1f67dc11e12541b3b343fa2029a0ff6e5085c907b36381ba57b`
 - `.agents/skills/github-projects/SKILL.md` | 20314 bytes | `008a6b6384a5aedf42565565d6b23c982c02fe4fba6f5870f59923137a374211`
@@ -58,6 +59,8 @@
 - `VERSION` | 6 bytes | `27ecff1fcdaf65ab46c1bb99c1072d6d134a0e8dd97dd95cfa88696b9ed453b2`
 - `bindings/PROJECT_BINDINGS.yaml` | 14687 bytes | `3e8c35b8b67aa94f7e63f8812412c435425e3717550d75d4b3d6ed8a6b266d3f`
 - `contracts/README.md` | 387 bytes | `574c6218c0c957efb2eb3bfa4bf51fbf3ab0165cc81a033a249d4ba4cc2af78e`
+- `contracts/acp-protected-effects.yaml` | 4146 bytes | `6fd132dc67c4213fecb65461f0ee70987cfe41b765a55ab89c11d3f1a8a1a7dd`
+- `docs/ACP_INTEGRATION.md` | 15964 bytes | `8b5bf32e3040581e842718942f52cfd0f00ce1c37f6cc76498b127e4f5f449d9`
 - `docs/AGENT_CAPABILITIES.md` | 1095 bytes | `9dd7e5efd745a85880c8b428ab41d25c994c033e7f5d1376a6defd343cbfdb68`
 - `docs/ALIGNMENT.md` | 1588 bytes | `9e241f47e102b9feeb3b8e6bff3c95a146d69384f196eefc2327b363a96bf7a0`
 - `docs/AUTHORITY_MODEL.md` | 2912 bytes | `1d371d913fee51b89da6b2b39a587c9e143ff4146a484edd79eb3210bd938e62`
@@ -195,12 +198,15 @@
 - `research/upstream/fpb-pin-digest-procedure/docs/FORMAL_RESOURCES.pinning.md` | 1704 bytes | `be652fbc83cbdb9a353ded05dab54dcf3c9ab7f47e29faf23e5281205ad698c0`
 - `research/upstream/fpb-pin-digest-procedure/schemas/resource-fields.md` | 904 bytes | `3145f6c957500405128558fa42ca53de3c8c1cd22382a54246e0138d3d269e50`
 - `research/upstream/fpb-pin-digest-procedure/scripts/verify-pins.py` | 10840 bytes | `86e28f2f9ae323e1feb4221439874efd7b5d27c46967c7a624d0303351e765c9`
+- `schemas/acp-decision.schema.json` | 5605 bytes | `2a870190e4a3d208b765054b04de35819570770639e93e16ebb52d4365e8c76c`
 - `schemas/agent-message.schema.json` | 2269 bytes | `88c346d6ce2cf34d3bba9f35e2ef54e77776707b125b22bbc4ecc910ac33bedc`
 - `schemas/context-lock.schema.json` | 2526 bytes | `395e44e6dcc74b3169463d96e5db4836befdd1cae8ffc19857645c4e8ea5993b`
 - `schemas/formal-resource-manifest.schema.json` | 1676 bytes | `465c3eae445d530087e1149d7f14e267400b32df00fa5b506e0b3af278a9b928`
 - `schemas/scms/envelope.schema.json` | 3053 bytes | `ee103a203c4b09cb8770ed9ab67930f9c8c5c03504cd9afb59e1e6252806fa77`
 - `schemas/scms/golden/canonicalization.json` | 4487 bytes | `92a7f51bdac1aaeb503cd9fd1c65af38c43531bdd6d38bac9e140eb71d7bf8fa`
 - `schemas/work-disposition.schema.json` | 2062 bytes | `a0426bb2095e37891627c5b3de78266863522bf36e5305dc0ba525e9617d2987`
+- `scripts/acp-check.py` | 11196 bytes | `ef1863692a470634adae144c0b6f3aadfc375543915c7b9c428b6b99f4c9225a`
+- `scripts/acp.py` | 25341 bytes | `296df59154eeb8c0b9fc60dfe61f5b31639f090974d494f7c058dbd93749d321`
 - `scripts/check-canon-write-boundary.py` | 3233 bytes | `b9873a1a0d1e923db2801fed29d2e5c8fc8bfebb47202f618dca0351e663f66c`
 - `scripts/check-claim-register.py` | 8775 bytes | `fdc0ce23b837728667aff394904cf0d855ce76174f90c9eec8fce0395ce550af`
 - `scripts/check-declaration-parity.py` | 5253 bytes | `f65a6df45fb5a7d0a46d38e149dd7855ebd0a83c2a875d25e3678e29a7f0b01c`

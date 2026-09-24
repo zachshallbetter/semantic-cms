@@ -9,15 +9,20 @@
     "repositories": [
       {
         "path": ".",
-        "commit": "5ae333d02c4b221a0bf94b45f2ec56d2e0875efa",
+        "commit": "99ae909ee5028f6df0518509168be5c303b71c13",
         "branch": "fpb/upgrade-0.5.3",
-        "dirty": true,
+        "dirty": false,
         "remote": "https://github.com/zachshallbetter/semantic-cms.git"
       }
     ]
   },
-  "aggregateSourceDigest": "e220d6aa53776e2cde8334c8486f45355f00f21224850e71ebbfa98fd3cb0328",
+  "aggregateSourceDigest": "6bcad2fe4b0c488578ec96b74262b48b2520c38ca68848e37acae9e4e35c8c01",
   "sources": [
+    {
+      "path": ".agents/skills/authorize-protected-effect/SKILL.md",
+      "bytes": 2758,
+      "sha256": "480ffefc42bc4d9d744484149f26a86ddb9b19a8d6adb63053720f5fc0c7865f"
+    },
     {
       "path": ".agents/skills/compile-context/SKILL.md",
       "bytes": 561,
@@ -287,6 +292,16 @@
       "path": "contracts/README.md",
       "bytes": 387,
       "sha256": "574c6218c0c957efb2eb3bfa4bf51fbf3ab0165cc81a033a249d4ba4cc2af78e"
+    },
+    {
+      "path": "contracts/acp-protected-effects.yaml",
+      "bytes": 4146,
+      "sha256": "6fd132dc67c4213fecb65461f0ee70987cfe41b765a55ab89c11d3f1a8a1a7dd"
+    },
+    {
+      "path": "docs/ACP_INTEGRATION.md",
+      "bytes": 15964,
+      "sha256": "8b5bf32e3040581e842718942f52cfd0f00ce1c37f6cc76498b127e4f5f449d9"
     },
     {
       "path": "docs/AGENT_CAPABILITIES.md",
@@ -974,6 +989,11 @@
       "sha256": "86e28f2f9ae323e1feb4221439874efd7b5d27c46967c7a624d0303351e765c9"
     },
     {
+      "path": "schemas/acp-decision.schema.json",
+      "bytes": 5605,
+      "sha256": "2a870190e4a3d208b765054b04de35819570770639e93e16ebb52d4365e8c76c"
+    },
+    {
       "path": "schemas/agent-message.schema.json",
       "bytes": 2269,
       "sha256": "88c346d6ce2cf34d3bba9f35e2ef54e77776707b125b22bbc4ecc910ac33bedc"
@@ -1002,6 +1022,16 @@
       "path": "schemas/work-disposition.schema.json",
       "bytes": 2062,
       "sha256": "a0426bb2095e37891627c5b3de78266863522bf36e5305dc0ba525e9617d2987"
+    },
+    {
+      "path": "scripts/acp-check.py",
+      "bytes": 11196,
+      "sha256": "ef1863692a470634adae144c0b6f3aadfc375543915c7b9c428b6b99f4c9225a"
+    },
+    {
+      "path": "scripts/acp.py",
+      "bytes": 25341,
+      "sha256": "296df59154eeb8c0b9fc60dfe61f5b31639f090974d494f7c058dbd93749d321"
     },
     {
       "path": "scripts/check-canon-write-boundary.py",
