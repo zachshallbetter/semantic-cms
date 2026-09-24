@@ -207,6 +207,21 @@ concept_bindings:
       plane's lossy verdict-only outward boundary (P13) is stricter than SSS requires
       and prevails; SSS attention-outputs (needs-attention etc.) remain surface
       interpretations, never promoted (matches SSS §16 and SSS-INV-006).
+  - local: "protected effect"
+    source: "acp-gateway"
+    imported: "protected action"
+    relation: "constrained"
+    authority: "docs/AUTHORITY_MODEL.md"
+    compatibility_effect: "none"
+    notes: "Projected through contracts/acp-protected-effects.yaml. ACP action names are the wire vocabulary; effect classes remain the project's."
+  - local: "authorization decision"
+    source: "acp-gateway"
+    imported: "decision (A0-A7)"
+    relation: "exact"
+    authority: "schemas/acp-decision.schema.json"
+    compatibility_effect: "authority-change"
+    notes: "ACP is the authorizing instrument for governed effects. Evidence, reports and claims observe; they do not authorize."
+
 
 authority_bindings:
   - effect: "project mutation (E0-E1 within this repository)"
@@ -229,12 +244,37 @@ authority_bindings:
     holder: "project.owner"
     scope: "all deviations from pinned resources or this substrate"
     expires: null
+  - effect: "git.protected_ref.update|production.deploy"
+    holder: "acp-gateway:decision"
+    scope: "this repository, per its ACP policy"
+    expires: null
+  - effect: "git.history.rewrite|git.default_branch.change|repository.transfer"
+    holder: "acp-gateway:recovery-authorization"
+    scope: "one exact ref/SHA transition per grant"
+    expires: "per grant"
+  - effect: "policy.modify|credential.modify"
+    holder: "acp-gateway:administrative-credential"
+    scope: "ACP itself; never held by a worker"
+    expires: null
+
 
 provider_bindings:
   work_graph: "work/ (GRAPH.md + SCMS-NNN.md issue contracts)"
   repository: "git — https://github.com/zachshallbetter/semantic-cms (board of record: issues; disposition: PRs)"
   dispatch: "interactive agent session"
   verification: "scripts/validate-bootstrap.py --check-context"
-  protection: "append-only records convention + protected effects in PROJECT_PROFILE.json"
+  protection: "acp-gateway"
+  authorization: "acp-gateway"
+  telemetry: "acp-gateway"
+  external_enforcement: "append-only records/*.jsonl convention plus declared protected effects; store-level grant enforcement arrives with the Canon plane"
 
 deviations: []
+
+acp:
+  gateway_url_env: "ACP_GATEWAY_URL"
+  gateway_token_env: "ACP_GATEWAY_TOKEN"
+  board_env_file: ".agents/board.env"
+  integration: "docs/ACP_INTEGRATION.md"
+  action_map: "contracts/acp-protected-effects.yaml"
+  client: "scripts/acp.py"
+  fail_closed: true

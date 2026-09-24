@@ -20,6 +20,7 @@ COMMON = [
     "docs/EVIDENCE_METHOD.md",
     "docs/EXECUTION_PIPELINE.md",
     "docs/EXECUTION_PROVIDER_CONTRACT.md",
+    "docs/ACP_INTEGRATION.md",
     "docs/FORMAL_RESOURCES.md",
     "docs/LANDING_AND_PROMOTION.md",
     "docs/MULTI_AGENT_COORDINATION.md",
@@ -28,11 +29,18 @@ COMMON = [
     "docs/SKILLS_INDEX.md",
     "docs/WORK_GRAPH.md",
     "schemas/agent-message.schema.json",
+    "schemas/acp-decision.schema.json",
     "schemas/context-lock.schema.json",
     "schemas/formal-resource-manifest.schema.json",
     "schemas/work-disposition.schema.json",
+    "contracts/acp-protected-effects.yaml",
+    ".agents/skills/authorize-protected-effect/SKILL.md",
     "scripts/gen-context.py",
+    "scripts/acp-check.py",
+    "scripts/acp.py",
 ]
+ACP_DECISIONS = {"ALLOW", "DENY", "AUTH_REQUIRED", "REVERIFY_REQUIRED", "QUARANTINE",
+                 "LOCKED", "RECOVERY_AUTHORIZED", "VERIFY_RECOVERY"}
 REPOSITORY_ONLY = [
     "README.md",
     "AUTHORITY.md",
@@ -61,6 +69,90 @@ PROJECT_ONLY = [
 ]
 
 
+def validate_acp(profile: dict) -> int:
+    acp = profile.get("authorizationProvider")
+    if not isinstance(acp, dict):
+        print("INVALID: profile must declare authorizationProvider (see docs/ACP_INTEGRATION.md)", file=sys.stderr)
+        return 2
+    if acp.get("name") != "acp-gateway":
+        print("INVALID: authorizationProvider.name must be acp-gateway", file=sys.stderr)
+        return 2
+    if acp.get("status") not in ("declared", "bound", "declared|bound"):
+        print("INVALID: authorizationProvider.status must be declared or bound", file=sys.stderr)
+        return 2
+    if acp.get("failClosed") is not True:
+        print("INVALID: authorizationProvider.failClosed must be true", file=sys.stderr)
+        return 2
+    if acp.get("authorizedEffectClassesMinimum") not in ("E0", "E1", "E2", "E3"):
+        print("INVALID: authorizedEffectClassesMinimum must be E0..E3 (E4 is always governed)", file=sys.stderr)
+        return 2
+    for key in ("integrationRef", "decisionSchema", "actionMap", "checkScript"):
+        ref = acp.get(key)
+        if not ref or not (ROOT / ref).exists():
+            print(f"INVALID: authorizationProvider.{key} must reference an existing file ({ref})", file=sys.stderr)
+            return 2
+    # Optional until every adopting project has re-pinned to 0.5.3.
+    client = acp.get("clientScript")
+    if client is not None and not (ROOT / client).exists():
+        print(f"INVALID: authorizationProvider.clientScript must reference an existing file ({client})", file=sys.stderr)
+        return 2
+    schema = json.loads((ROOT / acp["decisionSchema"]).read_text(encoding="utf-8"))
+    decisions = set(schema["properties"]["decision"]["enum"])
+    if decisions != ACP_DECISIONS:
+        print("INVALID: acp-decision schema decision vocabulary drifted from A0-A7", file=sys.stderr)
+        return 2
+    action_map = (ROOT / acp["actionMap"]).read_text(encoding="utf-8")
+    try:
+        import yaml  # optional at runtime; the substring check below still runs without it
+    except ImportError:
+        yaml = None
+    if yaml is not None:
+        try:
+            parsed = yaml.safe_load(action_map)
+        except yaml.YAMLError as exc:
+            print(f"INVALID: {acp['actionMap']} is not valid YAML: {exc}".splitlines()[0], file=sys.stderr)
+            return 2
+        missing = ACP_DECISIONS - set((parsed or {}).get("decisions") or {})
+        if missing:
+            print(f"INVALID: {acp['actionMap']} lacks a disposition for {', '.join(sorted(missing))}", file=sys.stderr)
+            return 2
+    for decision in ACP_DECISIONS:
+        if decision + ":" not in action_map:
+            print(f"INVALID: {acp['actionMap']} lacks a disposition for {decision}", file=sys.stderr)
+            return 2
+    if profile.get("executionProvider", {}).get("protection") != "acp-gateway":
+        print("INVALID: executionProvider.protection must be acp-gateway", file=sys.stderr)
+        return 2
+    if acp.get("status") == "bound":
+        board_env = ROOT / acp.get("boardEnvFile", ".agents/board.env")
+        if not board_env.exists() or "ACP_GATEWAY_URL=" not in board_env.read_text(encoding="utf-8"):
+            print("INVALID: bound authorizationProvider requires ACP_GATEWAY_URL in " + str(board_env.relative_to(ROOT)), file=sys.stderr)
+            return 2
+        if "ACP_GATEWAY_TOKEN=" in board_env.read_text(encoding="utf-8"):
+            print("INVALID: ACP_GATEWAY_TOKEN must never be written to a committed file", file=sys.stderr)
+            return 2
+    return 0
+
+
+def ignored_required(paths: list[str]) -> list[str]:
+    """Required files git would silently leave out of every commit.
+
+    A global core.excludesFile that ignores AGENTS.md or .agents/ is a common
+    scaffolding default; `git add` then reports success while staging nothing,
+    and the project's authority exists on exactly one machine.
+    """
+    try:
+        inside = subprocess.run(["git", "-C", str(ROOT), "rev-parse", "--is-inside-work-tree"],
+                                capture_output=True, text=True).stdout.strip() == "true"
+    except OSError:
+        return []
+    if not inside:
+        return []
+    out = subprocess.run(["git", "-C", str(ROOT), "check-ignore", *paths],
+                         capture_output=True, text=True)
+    return [line for line in out.stdout.splitlines() if line.strip()]
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--check-context", action="store_true")
@@ -73,6 +165,13 @@ def main() -> int:
         print("MISSING:", *missing, sep="\n  ", file=sys.stderr)
         return 2
 
+    ignored = ignored_required(required + ([".agents/board.env"] if (ROOT / ".agents/board.env").exists() else []))
+    if ignored:
+        print("INVALID: git ignores required file(s); they would never be committed:",
+              *ignored, sep="\n  ", file=sys.stderr)
+        print("remedy: add a negation (e.g. '!AGENTS.md') to this repository's .gitignore", file=sys.stderr)
+        return 2
+
     version = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
     if not version or version.startswith("v"):
         print("INVALID: VERSION must contain bare SemVer", file=sys.stderr)
@@ -80,6 +179,7 @@ def main() -> int:
 
     json_paths = [
         "schemas/agent-message.schema.json",
+        "schemas/acp-decision.schema.json",
         "schemas/context-lock.schema.json",
         "schemas/formal-resource-manifest.schema.json",
         "schemas/work-disposition.schema.json",
@@ -113,6 +213,10 @@ def main() -> int:
     if resources.get("projectId") != expected_id:
         print("INVALID: formal resource manifest projectId != profile projectId", file=sys.stderr)
         return 2
+
+    rc = validate_acp(profile)
+    if rc:
+        return rc
 
     if args.check_context:
         rc = subprocess.call([sys.executable, str(ROOT / "scripts/gen-context.py"), "--check"])

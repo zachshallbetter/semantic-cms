@@ -31,3 +31,30 @@ descriptive-to-normative contamination
   canonizing a worked example imports its accidents (sequencing, defaults)
   along with its essence; norms choose these, never inherit them
 ```
+
+## Enforcement
+
+Retention does not prevent rediscovery. A recorded result was re-run in an
+observed adoption, reproduced its documented failure, and was proposed as new
+work by the worker that had recorded it. `scripts/check-negative-results.py`
+refuses a change that reintroduces a gated row.
+
+A row is gated only when it carries `detect` patterns:
+
+```json
+{"id": "NR-007", "detect": ["<pattern>"], "allow": ["path/glob"], "gate": true}
+{"id": "NR-008", "gate": false, "gate_reason": "no signature distinct from the mechanism that legitimately ships"}
+```
+
+Three rules keep it usable:
+
+- **Gate the minority.** A marker must mean a retry and nothing else. A row
+  whose evidence is narrower than its pattern should not be gated at all.
+- **Read the diff, not the tree.** A retry is something a change adds. Scanning
+  a repository finds the intent document, the source comment and the ledger
+  entry that correctly name what is closed.
+- **Keep the override lawful.** A deviation naming the row waives it, so the
+  governing state changes explicitly.
+
+A gate that fires on documentation is switched off within a day, and takes the
+ledger's credibility with it.

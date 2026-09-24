@@ -1,7 +1,7 @@
 {
   "projectId": "scms",
   "projectName": "Semantic CMS",
-  "profileVersion": "0.5.0",
+  "profileVersion": "0.5.3",
   "profileStatus": "provisional",
   "intentRef": "PROJECT_INTENT.md",
   "authorityRef": "docs/AUTHORITY_MODEL.md",
@@ -15,10 +15,29 @@
     "repository": "local filesystem at this directory; version control recommended but not yet initialized",
     "dispatch": "interactive agent session under owner direction",
     "verification": "scripts/validate-bootstrap.py --check-context; per-item evidence in records/evidence.jsonl",
-    "protection": "append-only records/*.jsonl convention plus declared protected effects; store-level grant enforcement arrives with the Canon plane",
+    "protection": "acp-gateway",
     "observability": null
   },
-  "serviceOperations": [],
+  "serviceOperations": [
+    {
+      "service": "acp-gateway",
+      "interface": "official-api",
+      "allowedEnvironments": [
+        "local",
+        "staging",
+        "production"
+      ],
+      "allowedEffects": [
+        "read",
+        "authorize",
+        "report"
+      ],
+      "protectedEffects": [
+        "policy.modify",
+        "credential.modify"
+      ]
+    }
+  ],
   "authorityBindings": {
     "projectMutation": "agent-under-owner-direction",
     "qualification": "project.owner",
@@ -39,7 +58,8 @@
     "frontierReselection": true,
     "continueOnLocalizedBlocker": true,
     "maxConcurrentMutationClaims": 2,
-    "humanEscalation": "decision-boundaries-only"
+    "humanEscalation": "decision-boundaries-only",
+    "protectedEffectsRequireAcpDecision": true
   },
   "contextPolicy": {
     "compiledContextRequired": true,
@@ -48,5 +68,26 @@
     "refreshOnMaterialSourceChange": true
   },
   "profiles": [],
-  "formalResourceManifest": "FORMAL_RESOURCE_MANIFEST.json"
+  "formalResourceManifest": "FORMAL_RESOURCE_MANIFEST.json",
+  "authorizationProvider": {
+    "name": "acp-gateway",
+    "status": "bound",
+    "integrationRef": "docs/ACP_INTEGRATION.md",
+    "decisionSchema": "schemas/acp-decision.schema.json",
+    "actionMap": "contracts/acp-protected-effects.yaml",
+    "gatewayUrlEnv": "ACP_GATEWAY_URL",
+    "gatewayTokenEnv": "ACP_GATEWAY_TOKEN",
+    "boardEnvFile": ".agents/board.env",
+    "board": {
+      "owner": null,
+      "number": null
+    },
+    "authorizedEffectClassesMinimum": "E2",
+    "failClosed": true,
+    "reportOnSessionStart": true,
+    "reportBeforeProtectedEffect": true,
+    "checkScript": "scripts/acp-check.py",
+    "clientScript": "scripts/acp.py",
+    "externalEnforcement": "append-only records/*.jsonl convention plus declared protected effects; store-level grant enforcement arrives with the Canon plane"
+  }
 }

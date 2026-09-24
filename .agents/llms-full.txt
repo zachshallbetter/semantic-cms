@@ -1,6 +1,6 @@
 # PROJECT COMPILED CONTEXT
-Generator: 0.5.0
-Source digest: a7faf81580b14a1d1cc4a19267527c2073c41d749e3a6f457e7922567e90c881
+Generator: 0.5.3
+Source digest: e220d6aa53776e2cde8334c8486f45355f00f21224850e71ebbfa98fd3cb0328
 
 > Generated projection. Canonical sources remain authoritative.
 
@@ -3479,10 +3479,11 @@ description: Use to autonomously execute Ready work across a project. Handles se
 3. Claim and isolate.
 4. Compile issue context from current context lock.
 5. Execute the smallest correct change.
-6. On a local blocker: record, release/park, notify affected peers, reselect.
-7. On a global stop: prepare the smallest decision packet and stop.
-8. On candidate completion: submit for evaluation/qualification required by the issue.
-9. Record disposition, release claim and continue.
+6. Before any governed effect (leaving the isolated workspace, protected ref, deploy), run `authorize-protected-effect`; proceed only on `ALLOW`, exactly as authorized.
+7. On a local blocker (including a refused or unavailable authorization): record, release/park, notify affected peers, reselect.
+8. On a global stop (including `QUARANTINE`/`LOCKED` for the resource in scope): prepare the smallest decision packet and stop.
+9. On candidate completion: submit for evaluation/qualification required by the issue.
+10. Record disposition, release claim and continue.
 
 
 ========================================================================
@@ -3499,10 +3500,11 @@ description: Use at project/session start, after material source changes, after 
 1. Verify project/profile/formal-source identity.
 2. Verify repository, branch, commit, submodules and dirty state.
 3. Verify context lock and regenerate if stale.
-4. Refresh live work graph, claims, provider state, evidence and blockers.
-5. Record contradictions and null-result limitations.
-6. Do not repair in the reconciliation pass.
-7. Return the current lawful Ready frontier and global stop state.
+4. When the profile binds `acp-gateway`: run `scripts/acp-check.py` (health, authenticated owner read, board allowed, policy governs this repository) and, if `reportOnSessionStart`, `scripts/acp.py report --event SESSION_STARTED --checkpoint SESSION_START` (`SESSION_RESUMED`/`SESSION_RESUME` on resume) and `scripts/acp.py snapshot --checkpoint SESSION_START`. A refusal is a typed blocker on the work-graph read, not a reason to fall back to native credentials.
+5. Refresh live work graph (through ACP: `scripts/acp.py board` when bound), claims, provider state, evidence and blockers.
+6. Record contradictions and null-result limitations.
+7. Do not repair in the reconciliation pass.
+8. Return the current lawful Ready frontier and global stop state.
 
 
 ========================================================================
@@ -3558,13 +3560,21 @@ FILE: .formal-bootstrap.json
 {
   "format": "2",
   "bootstrap": "formal-project-bootstrap",
-  "bootstrapVersion": "0.5.0",
+  "bootstrapVersion": "0.5.3",
   "projectId": "scms",
   "projectName": "Semantic CMS",
   "mode": "existing",
   "profiles": [],
   "createdAt": "2026-08-28T21:02:07.078305+00:00",
-  "unresolvedBootstrapCollisions": []
+  "unresolvedBootstrapCollisions": [],
+  "upgrades": [
+    {
+      "from": "0.5.0",
+      "to": "0.5.3",
+      "at": "2026-09-24T01:04:52Z",
+      "method": "three-way against the released base"
+    }
+  ]
 }
 
 
@@ -3884,7 +3894,8 @@ Do not ask the human merely because one issue is blocked.
 
 Escalate when:
 
-- a protected authority decision is required;
+- a protected authority decision is required and the bound authorization provider does not decide it;
+- the authorization provider returns `QUARANTINE` or `LOCKED` for the resource in scope;
 - the project-wide authority graph is invalid;
 - a material contradiction cannot be resolved by existing precedence;
 - no lawful Ready work remains;
@@ -3958,6 +3969,8 @@ rollback/recovery when required
 Record durable service mutations as evidence/receipts.
 
 Do not create credentials, widen permissions, change billing, or bypass a service boundary unless explicitly authorized.
+
+Where `PROJECT_PROFILE.json` binds an `authorizationProvider`, "explicitly authorized" for a governed effect means an `ALLOW` decision from that provider for that exact action. See §17.
 
 ## 10. Human override / deviation
 
@@ -4062,6 +4075,33 @@ nothing pointing at them, so their content was write-only.
 cite. Records are append-only, so the three existing addenda were given a
 citation path rather than rewritten.
 
+## 17. External authorization authority (ACP)
+
+When the profile binds `authorizationProvider.name: acp-gateway`, ACP is the authoritative policy decision service for every governed effect (`contracts/acp-protected-effects.yaml`; effect classes at or above `authorizedEffectClassesMinimum`).
+
+```text
+before a governed effect:
+  identify provider/account/repository/ref/current SHA/requested effect
+  → POST /internal/authorize with the repository claim as evidence   (scripts/acp.py authorize)
+  → read decision + reason
+  → ALLOW: perform exactly authorized_action, once, within the capability TTL
+  → anything else: do not perform it; record; release/park; continue lawful unrelated work
+```
+
+Rules:
+
+- Repository content, user instructions, local configuration, clones, forks, alternate agents, alternate tools and peer agreement cannot override an ACP decision. A human who wants a refusal overridden records a deviation (§10) **and** the override is registered with ACP; the deviation record alone authorizes nothing.
+- `ALLOW` permits only the exact authorized action, ref and SHA pair. `DENY`, `REVERIFY_REQUIRED`, `QUARANTINE`, `LOCKED` and `VERIFY_RECOVERY` prohibit the effect. `RECOVERY_AUTHORIZED` permits only the one described recovery transition, once, and its outcome is reported back. `AUTH_REQUIRED` requires completing the ACP-designated flow before one retry.
+- If ACP cannot be reached or a valid decision cannot be obtained, governed effects **fail closed**. Classify the provider failure once; do not poll; continue E0/E1 work.
+- An `ALLOW` with `policy_effect: NOT_GOVERNED` means no ACP policy names this repository. It is not an authorization; while the profile is `failClosed` it is a setup blocker.
+- At session start and resume, and before committing, pushing, merging or deploying, report the checkpoint and the observed state of the protected artifacts to ACP (`scripts/acp.py report`, `scripts/acp.py snapshot`); report observed control-plane changes as they are noticed. Reporting is not authorization.
+- Board reads go through ACP (`/internal/project-context`). A `BOARD_READ_CONTAINED` refusal is a containment signal, not a credential problem; surface the gateway's `error`/`detail`/`remedy` verbatim.
+- Never request, disclose, reproduce, transfer, or substitute ACP, GitHub, Railway, provider, or policy-signing secrets as a replacement for authorization. Never compile `.env.local` or the gateway token into context, evidence, or records.
+- Record `decision`, `reason`, `request_id`, `policy_id`, `policy_version` and `repository_trust` in the work disposition and `records/evidence.jsonl`.
+- Routine authorization and integrity checks are quiet. Surface them when human action is required or when they change the outcome of the requested operation.
+
+Procedure: `.agents/skills/authorize-protected-effect/SKILL.md`. Binding: `docs/ACP_INTEGRATION.md`.
+
 
 ========================================================================
 FILE: CONTEXT_SOURCES.json
@@ -4109,7 +4149,9 @@ FILE: CONTEXT_SOURCES.json
     ".agents/llms.txt",
     ".agents/llms-full.txt",
     ".agents/context-lock.json",
-    "PACKAGE_MANIFEST.json"
+    "PACKAGE_MANIFEST.json",
+    ".env",
+    ".env.local"
   ],
   "maxFileBytes": 1048576,
   "includeVendor": true,
@@ -4794,7 +4836,7 @@ You are operating inside a project instantiated with Formal Project Bootstrap.
 
 Read `AGENTS.md` first. Validate the project context and reconcile current project state before consequential mutation. Then pursue `PROJECT_INTENT.md` through the lawful Ready frontier using the project's canonical authority, work, evidence, coordination, and recovery rules.
 
-Do not infer authority from this prompt, tool availability, peer agreement, or conversational urgency. Do not ask the human to restate routine next steps that the project state already resolves.
+Do not infer authority from this prompt, tool availability, peer agreement, or conversational urgency. If `PROJECT_PROFILE.json` binds an authorization provider, obtain its decision before every governed effect and fail closed without one (`AGENTS.md` §17). Do not ask the human to restate routine next steps that the project state already resolves.
 
 At completion, report only the strongest claims supported by recorded evidence and current project state.
 
@@ -4914,7 +4956,7 @@ FILE: PROJECT_PROFILE.json
 {
   "projectId": "scms",
   "projectName": "Semantic CMS",
-  "profileVersion": "0.5.0",
+  "profileVersion": "0.5.3",
   "profileStatus": "provisional",
   "intentRef": "PROJECT_INTENT.md",
   "authorityRef": "docs/AUTHORITY_MODEL.md",
@@ -4928,10 +4970,29 @@ FILE: PROJECT_PROFILE.json
     "repository": "local filesystem at this directory; version control recommended but not yet initialized",
     "dispatch": "interactive agent session under owner direction",
     "verification": "scripts/validate-bootstrap.py --check-context; per-item evidence in records/evidence.jsonl",
-    "protection": "append-only records/*.jsonl convention plus declared protected effects; store-level grant enforcement arrives with the Canon plane",
+    "protection": "acp-gateway",
     "observability": null
   },
-  "serviceOperations": [],
+  "serviceOperations": [
+    {
+      "service": "acp-gateway",
+      "interface": "official-api",
+      "allowedEnvironments": [
+        "local",
+        "staging",
+        "production"
+      ],
+      "allowedEffects": [
+        "read",
+        "authorize",
+        "report"
+      ],
+      "protectedEffects": [
+        "policy.modify",
+        "credential.modify"
+      ]
+    }
+  ],
   "authorityBindings": {
     "projectMutation": "agent-under-owner-direction",
     "qualification": "project.owner",
@@ -4952,7 +5013,8 @@ FILE: PROJECT_PROFILE.json
     "frontierReselection": true,
     "continueOnLocalizedBlocker": true,
     "maxConcurrentMutationClaims": 2,
-    "humanEscalation": "decision-boundaries-only"
+    "humanEscalation": "decision-boundaries-only",
+    "protectedEffectsRequireAcpDecision": true
   },
   "contextPolicy": {
     "compiledContextRequired": true,
@@ -4961,7 +5023,28 @@ FILE: PROJECT_PROFILE.json
     "refreshOnMaterialSourceChange": true
   },
   "profiles": [],
-  "formalResourceManifest": "FORMAL_RESOURCE_MANIFEST.json"
+  "formalResourceManifest": "FORMAL_RESOURCE_MANIFEST.json",
+  "authorizationProvider": {
+    "name": "acp-gateway",
+    "status": "bound",
+    "integrationRef": "docs/ACP_INTEGRATION.md",
+    "decisionSchema": "schemas/acp-decision.schema.json",
+    "actionMap": "contracts/acp-protected-effects.yaml",
+    "gatewayUrlEnv": "ACP_GATEWAY_URL",
+    "gatewayTokenEnv": "ACP_GATEWAY_TOKEN",
+    "boardEnvFile": ".agents/board.env",
+    "board": {
+      "owner": null,
+      "number": null
+    },
+    "authorizedEffectClassesMinimum": "E2",
+    "failClosed": true,
+    "reportOnSessionStart": true,
+    "reportBeforeProtectedEffect": true,
+    "checkScript": "scripts/acp-check.py",
+    "clientScript": "scripts/acp.py",
+    "externalEnforcement": "append-only records/*.jsonl convention plus declared protected effects; store-level grant enforcement arrives with the Canon plane"
+  }
 }
 
 
@@ -5099,7 +5182,7 @@ above its rung.
 FILE: VERSION
 ========================================================================
 
-0.5.0
+0.5.3
 
 
 ========================================================================
@@ -5315,6 +5398,21 @@ concept_bindings:
       plane's lossy verdict-only outward boundary (P13) is stricter than SSS requires
       and prevails; SSS attention-outputs (needs-attention etc.) remain surface
       interpretations, never promoted (matches SSS §16 and SSS-INV-006).
+  - local: "protected effect"
+    source: "acp-gateway"
+    imported: "protected action"
+    relation: "constrained"
+    authority: "docs/AUTHORITY_MODEL.md"
+    compatibility_effect: "none"
+    notes: "Projected through contracts/acp-protected-effects.yaml. ACP action names are the wire vocabulary; effect classes remain the project's."
+  - local: "authorization decision"
+    source: "acp-gateway"
+    imported: "decision (A0-A7)"
+    relation: "exact"
+    authority: "schemas/acp-decision.schema.json"
+    compatibility_effect: "authority-change"
+    notes: "ACP is the authorizing instrument for governed effects. Evidence, reports and claims observe; they do not authorize."
+
 
 authority_bindings:
   - effect: "project mutation (E0-E1 within this repository)"
@@ -5337,15 +5435,40 @@ authority_bindings:
     holder: "project.owner"
     scope: "all deviations from pinned resources or this substrate"
     expires: null
+  - effect: "git.protected_ref.update|production.deploy"
+    holder: "acp-gateway:decision"
+    scope: "this repository, per its ACP policy"
+    expires: null
+  - effect: "git.history.rewrite|git.default_branch.change|repository.transfer"
+    holder: "acp-gateway:recovery-authorization"
+    scope: "one exact ref/SHA transition per grant"
+    expires: "per grant"
+  - effect: "policy.modify|credential.modify"
+    holder: "acp-gateway:administrative-credential"
+    scope: "ACP itself; never held by a worker"
+    expires: null
+
 
 provider_bindings:
   work_graph: "work/ (GRAPH.md + SCMS-NNN.md issue contracts)"
   repository: "git — https://github.com/zachshallbetter/semantic-cms (board of record: issues; disposition: PRs)"
   dispatch: "interactive agent session"
   verification: "scripts/validate-bootstrap.py --check-context"
-  protection: "append-only records convention + protected effects in PROJECT_PROFILE.json"
+  protection: "acp-gateway"
+  authorization: "acp-gateway"
+  telemetry: "acp-gateway"
+  external_enforcement: "append-only records/*.jsonl convention plus declared protected effects; store-level grant enforcement arrives with the Canon plane"
 
 deviations: []
+
+acp:
+  gateway_url_env: "ACP_GATEWAY_URL"
+  gateway_token_env: "ACP_GATEWAY_TOKEN"
+  board_env_file: ".agents/board.env"
+  integration: "docs/ACP_INTEGRATION.md"
+  action_map: "contracts/acp-protected-effects.yaml"
+  client: "scripts/acp.py"
+  fail_closed: true
 
 
 ========================================================================
@@ -5578,6 +5701,10 @@ interface Deviation {
 ```
 
 A deviation does not rewrite the original rule. It is bounded, owned, visible and closable.
+
+## Bound authorizing instrument
+
+When `PROJECT_PROFILE.json` binds `authorizationProvider`, that provider's decision is the authorizing instrument for governed effects (E2 and above by default). Deviations, evidence, receipts and reports attach to the same effect but never authorize it. See `docs/ACP_INTEGRATION.md`.
 
 ## Failure
 
@@ -6112,6 +6239,10 @@ evidence capture
 protected-effect denial
 live reconciliation
 ```
+
+## Reference protection provider
+
+`acp-gateway` is the reference provider for `protection`, `authorization` and `telemetry`. It supplies protected-effect denial, live verification of repository identity, work-graph read without local GitHub credentials, and containment/recovery state. Its binding is defined in `docs/ACP_INTEGRATION.md`; any replacement must preserve the decision vocabulary in `schemas/acp-decision.schema.json` or record a compatibility event.
 
 ## Official operational interfaces
 
@@ -6828,6 +6959,33 @@ descriptive-to-normative contamination
   along with its essence; norms choose these, never inherit them
 ```
 
+## Enforcement
+
+Retention does not prevent rediscovery. A recorded result was re-run in an
+observed adoption, reproduced its documented failure, and was proposed as new
+work by the worker that had recorded it. `scripts/check-negative-results.py`
+refuses a change that reintroduces a gated row.
+
+A row is gated only when it carries `detect` patterns:
+
+```json
+{"id": "NR-007", "detect": ["<pattern>"], "allow": ["path/glob"], "gate": true}
+{"id": "NR-008", "gate": false, "gate_reason": "no signature distinct from the mechanism that legitimately ships"}
+```
+
+Three rules keep it usable:
+
+- **Gate the minority.** A marker must mean a retry and nothing else. A row
+  whose evidence is narrower than its pattern should not be gated at all.
+- **Read the diff, not the tree.** A retry is something a change adds. Scanning
+  a repository finds the intent document, the source comment and the ledger
+  entry that correctly name what is closed.
+- **Keep the override lawful.** A deviation naming the row waives it, so the
+  governing state changes explicitly.
+
+A gate that fires on documentation is switched off within a day, and takes the
+ledger's credibility with it.
+
 
 ========================================================================
 FILE: docs/RECOVERY.md
@@ -6901,6 +7059,7 @@ This file is navigational only. Each skill's own `SKILL.md` is authoritative for
 | `verify-outcome` | Evaluate a frozen candidate and state the supported maturity/evidence. |
 | `coordinate-workers` | Coordinate disjoint concurrent workers with evidence-bearing messages and explicit handoffs. |
 | `compile-context` | Regenerate and verify deterministic non-normative project context. |
+| `authorize-protected-effect` | Obtain the ACP decision before a governed effect; perform only what it authorizes; dispose of every other decision. |
 
 Do not copy skill bodies into this index or into other doctrine merely to make them easier to find.
 
@@ -33405,6 +33564,7 @@ COMMON = [
     "docs/EVIDENCE_METHOD.md",
     "docs/EXECUTION_PIPELINE.md",
     "docs/EXECUTION_PROVIDER_CONTRACT.md",
+    "docs/ACP_INTEGRATION.md",
     "docs/FORMAL_RESOURCES.md",
     "docs/LANDING_AND_PROMOTION.md",
     "docs/MULTI_AGENT_COORDINATION.md",
@@ -33413,11 +33573,18 @@ COMMON = [
     "docs/SKILLS_INDEX.md",
     "docs/WORK_GRAPH.md",
     "schemas/agent-message.schema.json",
+    "schemas/acp-decision.schema.json",
     "schemas/context-lock.schema.json",
     "schemas/formal-resource-manifest.schema.json",
     "schemas/work-disposition.schema.json",
+    "contracts/acp-protected-effects.yaml",
+    ".agents/skills/authorize-protected-effect/SKILL.md",
     "scripts/gen-context.py",
+    "scripts/acp-check.py",
+    "scripts/acp.py",
 ]
+ACP_DECISIONS = {"ALLOW", "DENY", "AUTH_REQUIRED", "REVERIFY_REQUIRED", "QUARANTINE",
+                 "LOCKED", "RECOVERY_AUTHORIZED", "VERIFY_RECOVERY"}
 REPOSITORY_ONLY = [
     "README.md",
     "AUTHORITY.md",
@@ -33446,6 +33613,90 @@ PROJECT_ONLY = [
 ]
 
 
+def validate_acp(profile: dict) -> int:
+    acp = profile.get("authorizationProvider")
+    if not isinstance(acp, dict):
+        print("INVALID: profile must declare authorizationProvider (see docs/ACP_INTEGRATION.md)", file=sys.stderr)
+        return 2
+    if acp.get("name") != "acp-gateway":
+        print("INVALID: authorizationProvider.name must be acp-gateway", file=sys.stderr)
+        return 2
+    if acp.get("status") not in ("declared", "bound", "declared|bound"):
+        print("INVALID: authorizationProvider.status must be declared or bound", file=sys.stderr)
+        return 2
+    if acp.get("failClosed") is not True:
+        print("INVALID: authorizationProvider.failClosed must be true", file=sys.stderr)
+        return 2
+    if acp.get("authorizedEffectClassesMinimum") not in ("E0", "E1", "E2", "E3"):
+        print("INVALID: authorizedEffectClassesMinimum must be E0..E3 (E4 is always governed)", file=sys.stderr)
+        return 2
+    for key in ("integrationRef", "decisionSchema", "actionMap", "checkScript"):
+        ref = acp.get(key)
+        if not ref or not (ROOT / ref).exists():
+            print(f"INVALID: authorizationProvider.{key} must reference an existing file ({ref})", file=sys.stderr)
+            return 2
+    # Optional until every adopting project has re-pinned to 0.5.3.
+    client = acp.get("clientScript")
+    if client is not None and not (ROOT / client).exists():
+        print(f"INVALID: authorizationProvider.clientScript must reference an existing file ({client})", file=sys.stderr)
+        return 2
+    schema = json.loads((ROOT / acp["decisionSchema"]).read_text(encoding="utf-8"))
+    decisions = set(schema["properties"]["decision"]["enum"])
+    if decisions != ACP_DECISIONS:
+        print("INVALID: acp-decision schema decision vocabulary drifted from A0-A7", file=sys.stderr)
+        return 2
+    action_map = (ROOT / acp["actionMap"]).read_text(encoding="utf-8")
+    try:
+        import yaml  # optional at runtime; the substring check below still runs without it
+    except ImportError:
+        yaml = None
+    if yaml is not None:
+        try:
+            parsed = yaml.safe_load(action_map)
+        except yaml.YAMLError as exc:
+            print(f"INVALID: {acp['actionMap']} is not valid YAML: {exc}".splitlines()[0], file=sys.stderr)
+            return 2
+        missing = ACP_DECISIONS - set((parsed or {}).get("decisions") or {})
+        if missing:
+            print(f"INVALID: {acp['actionMap']} lacks a disposition for {', '.join(sorted(missing))}", file=sys.stderr)
+            return 2
+    for decision in ACP_DECISIONS:
+        if decision + ":" not in action_map:
+            print(f"INVALID: {acp['actionMap']} lacks a disposition for {decision}", file=sys.stderr)
+            return 2
+    if profile.get("executionProvider", {}).get("protection") != "acp-gateway":
+        print("INVALID: executionProvider.protection must be acp-gateway", file=sys.stderr)
+        return 2
+    if acp.get("status") == "bound":
+        board_env = ROOT / acp.get("boardEnvFile", ".agents/board.env")
+        if not board_env.exists() or "ACP_GATEWAY_URL=" not in board_env.read_text(encoding="utf-8"):
+            print("INVALID: bound authorizationProvider requires ACP_GATEWAY_URL in " + str(board_env.relative_to(ROOT)), file=sys.stderr)
+            return 2
+        if "ACP_GATEWAY_TOKEN=" in board_env.read_text(encoding="utf-8"):
+            print("INVALID: ACP_GATEWAY_TOKEN must never be written to a committed file", file=sys.stderr)
+            return 2
+    return 0
+
+
+def ignored_required(paths: list[str]) -> list[str]:
+    """Required files git would silently leave out of every commit.
+
+    A global core.excludesFile that ignores AGENTS.md or .agents/ is a common
+    scaffolding default; `git add` then reports success while staging nothing,
+    and the project's authority exists on exactly one machine.
+    """
+    try:
+        inside = subprocess.run(["git", "-C", str(ROOT), "rev-parse", "--is-inside-work-tree"],
+                                capture_output=True, text=True).stdout.strip() == "true"
+    except OSError:
+        return []
+    if not inside:
+        return []
+    out = subprocess.run(["git", "-C", str(ROOT), "check-ignore", *paths],
+                         capture_output=True, text=True)
+    return [line for line in out.stdout.splitlines() if line.strip()]
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--check-context", action="store_true")
@@ -33458,6 +33709,13 @@ def main() -> int:
         print("MISSING:", *missing, sep="\n  ", file=sys.stderr)
         return 2
 
+    ignored = ignored_required(required + ([".agents/board.env"] if (ROOT / ".agents/board.env").exists() else []))
+    if ignored:
+        print("INVALID: git ignores required file(s); they would never be committed:",
+              *ignored, sep="\n  ", file=sys.stderr)
+        print("remedy: add a negation (e.g. '!AGENTS.md') to this repository's .gitignore", file=sys.stderr)
+        return 2
+
     version = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
     if not version or version.startswith("v"):
         print("INVALID: VERSION must contain bare SemVer", file=sys.stderr)
@@ -33465,6 +33723,7 @@ def main() -> int:
 
     json_paths = [
         "schemas/agent-message.schema.json",
+        "schemas/acp-decision.schema.json",
         "schemas/context-lock.schema.json",
         "schemas/formal-resource-manifest.schema.json",
         "schemas/work-disposition.schema.json",
@@ -33498,6 +33757,10 @@ def main() -> int:
     if resources.get("projectId") != expected_id:
         print("INVALID: formal resource manifest projectId != profile projectId", file=sys.stderr)
         return 2
+
+    rc = validate_acp(profile)
+    if rc:
+        return rc
 
     if args.check_context:
         rc = subprocess.call([sys.executable, str(ROOT / "scripts/gen-context.py"), "--check"])
