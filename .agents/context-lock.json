@@ -1,6 +1,6 @@
 {
   "format": "2",
-  "generatorVersion": "0.5.0",
+  "generatorVersion": "0.5.3",
   "root": ".",
   "validityBasis": "aggregate-source-digest",
   "repositoryState": {
@@ -9,15 +9,20 @@
     "repositories": [
       {
         "path": ".",
-        "commit": "4d5782f769476f9597b248deb343622b4e4f9e74",
-        "branch": "ctx-fix",
+        "commit": "99ae909ee5028f6df0518509168be5c303b71c13",
+        "branch": "fpb/upgrade-0.5.3",
         "dirty": false,
         "remote": "https://github.com/zachshallbetter/semantic-cms.git"
       }
     ]
   },
-  "aggregateSourceDigest": "a7faf81580b14a1d1cc4a19267527c2073c41d749e3a6f457e7922567e90c881",
+  "aggregateSourceDigest": "6bcad2fe4b0c488578ec96b74262b48b2520c38ca68848e37acae9e4e35c8c01",
   "sources": [
+    {
+      "path": ".agents/skills/authorize-protected-effect/SKILL.md",
+      "bytes": 2758,
+      "sha256": "480ffefc42bc4d9d744484149f26a86ddb9b19a8d6adb63053720f5fc0c7865f"
+    },
     {
       "path": ".agents/skills/compile-context/SKILL.md",
       "bytes": 561,
@@ -195,13 +200,13 @@
     },
     {
       "path": ".agents/skills/operate-frontier/SKILL.md",
-      "bytes": 725,
-      "sha256": "d3a6730cc1e450feb4840060025899d4a4d17d6c935a8b3ea57ee4302d651172"
+      "bytes": 1006,
+      "sha256": "96cb68e6961b5b043603ff3c08f3984f504d5075a6b7db64dfbaee6b0fd96c71"
     },
     {
       "path": ".agents/skills/reconcile-project/SKILL.md",
-      "bytes": 648,
-      "sha256": "ed45e3b970480a0bed390757fef2d9abe2471bf37835d764f939022600995333"
+      "bytes": 1161,
+      "sha256": "59f47ea393b477949a5e046a021e95032c3e3bf395842f82388c05ddde6d5c66"
     },
     {
       "path": ".agents/skills/verify-outcome/SKILL.md",
@@ -215,8 +220,8 @@
     },
     {
       "path": ".formal-bootstrap.json",
-      "bytes": 280,
-      "sha256": "7fa912028d7ee4ad128c719342834ec735a28354ad614a13cd9a91599d0e7c0d"
+      "bytes": 447,
+      "sha256": "b78ff1a7b0c86ce7e7882bf8524ba1fa63f118f981b17e4113297a5553e10233"
     },
     {
       "path": ".github/pull_request_template.md",
@@ -230,13 +235,13 @@
     },
     {
       "path": "AGENTS.md",
-      "bytes": 7498,
-      "sha256": "93362a4ff5f38de2e2352bc34499b880b5ba2cdcfef959189226229e5320fbd1"
+      "bytes": 10732,
+      "sha256": "cc2ab138db261e46bd204409234654bfe888255eb781c0ab93738a96ed6c8691"
     },
     {
       "path": "CONTEXT_SOURCES.json",
-      "bytes": 914,
-      "sha256": "1a0e0db180b061204f20b4a550f8b634fb2a220569592bd63fed13eb875dda0e"
+      "bytes": 944,
+      "sha256": "93b2b41f6f657b1635f2980b41e4fa50a6a7e39fdd3355bfe68eb4c505a4f51e"
     },
     {
       "path": "DESIGN.md",
@@ -250,8 +255,8 @@
     },
     {
       "path": "NEW_AGENT_PROMPT.md",
-      "bytes": 1021,
-      "sha256": "5df98ccb46c4e6511e59e10a2783a67454cbc29b3ee0af507061789592993cfc"
+      "bytes": 1177,
+      "sha256": "708147de57de20415b24a69346889d893a6efc8c20920d49162ed8a1a5c25565"
     },
     {
       "path": "PROJECT_INTENT.md",
@@ -260,8 +265,8 @@
     },
     {
       "path": "PROJECT_PROFILE.json",
-      "bytes": 1921,
-      "sha256": "a2e82bd569b5897551b55fe21f099baf1d8f7217feaf1fc8e9d7e9d9239b1e81"
+      "bytes": 3028,
+      "sha256": "fee29d6523ce56e7684bdee80e5caa9a1620a3c51cbeb897bdf8e925e6adc221"
     },
     {
       "path": "README.md",
@@ -276,17 +281,27 @@
     {
       "path": "VERSION",
       "bytes": 6,
-      "sha256": "a0ad50640139a524f86591157145bf1d4674ea9c065bfea21558f0f7b04430c8"
+      "sha256": "27ecff1fcdaf65ab46c1bb99c1072d6d134a0e8dd97dd95cfa88696b9ed453b2"
     },
     {
       "path": "bindings/PROJECT_BINDINGS.yaml",
-      "bytes": 13060,
-      "sha256": "7141154bb8cbcfd25e7a96003cb731538aae1a36c70888f401a12b29ff28d04e"
+      "bytes": 14687,
+      "sha256": "3e8c35b8b67aa94f7e63f8812412c435425e3717550d75d4b3d6ed8a6b266d3f"
     },
     {
       "path": "contracts/README.md",
       "bytes": 387,
       "sha256": "574c6218c0c957efb2eb3bfa4bf51fbf3ab0165cc81a033a249d4ba4cc2af78e"
+    },
+    {
+      "path": "contracts/acp-protected-effects.yaml",
+      "bytes": 4146,
+      "sha256": "6fd132dc67c4213fecb65461f0ee70987cfe41b765a55ab89c11d3f1a8a1a7dd"
+    },
+    {
+      "path": "docs/ACP_INTEGRATION.md",
+      "bytes": 15964,
+      "sha256": "8b5bf32e3040581e842718942f52cfd0f00ce1c37f6cc76498b127e4f5f449d9"
     },
     {
       "path": "docs/AGENT_CAPABILITIES.md",
@@ -300,8 +315,8 @@
     },
     {
       "path": "docs/AUTHORITY_MODEL.md",
-      "bytes": 2592,
-      "sha256": "abc1aac1d90b78a5e084549ef4f15e3a299f0894e521040f85261ea55acf5fc0"
+      "bytes": 2912,
+      "sha256": "1d371d913fee51b89da6b2b39a587c9e143ff4146a484edd79eb3210bd938e62"
     },
     {
       "path": "docs/BOOTSTRAP_SEQUENCE.md",
@@ -330,8 +345,8 @@
     },
     {
       "path": "docs/EXECUTION_PROVIDER_CONTRACT.md",
-      "bytes": 1669,
-      "sha256": "e9587fea1bd67229f6588600512e6b9539d510ba000c0190b2c05f67eda0cf19"
+      "bytes": 2134,
+      "sha256": "f8884fe13ab6503ddc5fdb53264001b24a6bf846b00473e3f8deca5d018d5ee5"
     },
     {
       "path": "docs/EXISTING_PROJECT_ADOPTION.md",
@@ -365,8 +380,8 @@
     },
     {
       "path": "docs/NEGATIVE_KNOWLEDGE.md",
-      "bytes": 1005,
-      "sha256": "cb1e5e5b1f3748fc9f879ca9e5e3914a043c44c707ee082dc3fee1878a79889f"
+      "bytes": 2169,
+      "sha256": "01ef93bc7c5b75ce991d6ed0cd78faba1d8e6cdc8f1b43b10231025a0975a91e"
     },
     {
       "path": "docs/RECOVERY.md",
@@ -375,8 +390,8 @@
     },
     {
       "path": "docs/SKILLS_INDEX.md",
-      "bytes": 763,
-      "sha256": "05da80f8e5564e351603f467963cf5820c5ddaf78187566c2da7d1abae2754a5"
+      "bytes": 914,
+      "sha256": "2c763122a98e23607adf52f4029b3559b779bf2d3bb3a575b7a11f1ebf1f7874"
     },
     {
       "path": "docs/UI/01-SEMANTIC-CMS.md",
@@ -974,6 +989,11 @@
       "sha256": "86e28f2f9ae323e1feb4221439874efd7b5d27c46967c7a624d0303351e765c9"
     },
     {
+      "path": "schemas/acp-decision.schema.json",
+      "bytes": 5605,
+      "sha256": "2a870190e4a3d208b765054b04de35819570770639e93e16ebb52d4365e8c76c"
+    },
+    {
       "path": "schemas/agent-message.schema.json",
       "bytes": 2269,
       "sha256": "88c346d6ce2cf34d3bba9f35e2ef54e77776707b125b22bbc4ecc910ac33bedc"
@@ -1002,6 +1022,16 @@
       "path": "schemas/work-disposition.schema.json",
       "bytes": 2062,
       "sha256": "a0426bb2095e37891627c5b3de78266863522bf36e5305dc0ba525e9617d2987"
+    },
+    {
+      "path": "scripts/acp-check.py",
+      "bytes": 11196,
+      "sha256": "ef1863692a470634adae144c0b6f3aadfc375543915c7b9c428b6b99f4c9225a"
+    },
+    {
+      "path": "scripts/acp.py",
+      "bytes": 25341,
+      "sha256": "296df59154eeb8c0b9fc60dfe61f5b31639f090974d494f7c058dbd93749d321"
     },
     {
       "path": "scripts/check-canon-write-boundary.py",
@@ -1055,8 +1085,8 @@
     },
     {
       "path": "scripts/validate-bootstrap.py",
-      "bytes": 4120,
-      "sha256": "b3881974ac4d1259a0fa084c1aa80bfcdc1af4b3873f05c9057697e61bb1fb95"
+      "bytes": 9360,
+      "sha256": "c0be496cc05f360f64891fc69466835b5aa04cbeec6f89f32fc8b079dfc9845d"
     },
     {
       "path": "scripts/verify-pins.py",

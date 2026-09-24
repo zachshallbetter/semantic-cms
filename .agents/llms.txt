@@ -1,9 +1,10 @@
 # Project Context Index
-> Generator: 0.5.0
-> Source digest: `a7faf81580b14a1d1cc4a19267527c2073c41d749e3a6f457e7922567e90c881`
+> Generator: 0.5.3
+> Source digest: `6bcad2fe4b0c488578ec96b74262b48b2520c38ca68848e37acae9e4e35c8c01`
 
 > Generated projection. Canonical sources remain authoritative.
 
+- `.agents/skills/authorize-protected-effect/SKILL.md` | 2758 bytes | `480ffefc42bc4d9d744484149f26a86ddb9b19a8d6adb63053720f5fc0c7865f`
 - `.agents/skills/compile-context/SKILL.md` | 561 bytes | `10c8156d05da083eddb606769183d8cabf4f924c241a3e3b462ef76f7aecf28d`
 - `.agents/skills/coordinate-workers/SKILL.md` | 593 bytes | `6be105841accc1f67dc11e12541b3b343fa2029a0ff6e5085c907b36381ba57b`
 - `.agents/skills/github-projects/SKILL.md` | 20314 bytes | `008a6b6384a5aedf42565565d6b23c982c02fe4fba6f5870f59923137a374211`
@@ -39,43 +40,45 @@
 - `.agents/skills/github-projects/scripts/webhook_receiver.py` | 9009 bytes | `ad5065b70b576465cb303cac603b620925f1b16fe0daea172a8edd6c7feffb6f`
 - `.agents/skills/github-projects/tests/test_acp_context.sh` | 3976 bytes | `23044f6707aaf64bf66e30cc794f39300b52bf875f2d251aa94f620a36b0bd5c`
 - `.agents/skills/github-projects/tests/test_webhook_receiver.py` | 1123 bytes | `8af54930fdebd4eb996cca2a16e5faab57537609af331a63eeeb4ba6bca4728e`
-- `.agents/skills/operate-frontier/SKILL.md` | 725 bytes | `d3a6730cc1e450feb4840060025899d4a4d17d6c935a8b3ea57ee4302d651172`
-- `.agents/skills/reconcile-project/SKILL.md` | 648 bytes | `ed45e3b970480a0bed390757fef2d9abe2471bf37835d764f939022600995333`
+- `.agents/skills/operate-frontier/SKILL.md` | 1006 bytes | `96cb68e6961b5b043603ff3c08f3984f504d5075a6b7db64dfbaee6b0fd96c71`
+- `.agents/skills/reconcile-project/SKILL.md` | 1161 bytes | `59f47ea393b477949a5e046a021e95032c3e3bf395842f82388c05ddde6d5c66`
 - `.agents/skills/verify-outcome/SKILL.md` | 599 bytes | `331bcc9c5179eef021d9edf48e76bedcaaef6fed17f97e91c6d20a20f1199117`
 - `.claude/launch.json` | 374 bytes | `0cdc9f914c5b663b01ecc7867b4f82ea38d2b0394d9034d0b6b2701033d8c544`
-- `.formal-bootstrap.json` | 280 bytes | `7fa912028d7ee4ad128c719342834ec735a28354ad614a13cd9a91599d0e7c0d`
+- `.formal-bootstrap.json` | 447 bytes | `b78ff1a7b0c86ce7e7882bf8524ba1fa63f118f981b17e4113297a5553e10233`
 - `.github/pull_request_template.md` | 1320 bytes | `008c2ede60632b5bbf6ffaa97a95b9972b3ca10804eb712afbf3c436f5651963`
 - `.github/workflows/gates.yml` | 6478 bytes | `9232dc063ff26f399c84a5c498b7815c458fb4d5e465b4f406cd217540c0af7f`
-- `AGENTS.md` | 7498 bytes | `93362a4ff5f38de2e2352bc34499b880b5ba2cdcfef959189226229e5320fbd1`
-- `CONTEXT_SOURCES.json` | 914 bytes | `1a0e0db180b061204f20b4a550f8b634fb2a220569592bd63fed13eb875dda0e`
+- `AGENTS.md` | 10732 bytes | `cc2ab138db261e46bd204409234654bfe888255eb781c0ab93738a96ed6c8691`
+- `CONTEXT_SOURCES.json` | 944 bytes | `93b2b41f6f657b1635f2980b41e4fa50a6a7e39fdd3355bfe68eb4c505a4f51e`
 - `DESIGN.md` | 35290 bytes | `62603e98c3ac16360001e13396a40e54b671ce4545a5a9cd654f5257a56760c5`
 - `FORMAL_RESOURCE_MANIFEST.json` | 14629 bytes | `34721692f8b95cf5a6d03c267ea34ab7f2fb3e553951ef7af71f75426adf92ae`
-- `NEW_AGENT_PROMPT.md` | 1021 bytes | `5df98ccb46c4e6511e59e10a2783a67454cbc29b3ee0af507061789592993cfc`
+- `NEW_AGENT_PROMPT.md` | 1177 bytes | `708147de57de20415b24a69346889d893a6efc8c20920d49162ed8a1a5c25565`
 - `PROJECT_INTENT.md` | 6430 bytes | `aa9fa7805702ad934d0920ef4f6445845b787c0b6a5c5545032ede47ab305989`
-- `PROJECT_PROFILE.json` | 1921 bytes | `a2e82bd569b5897551b55fe21f099baf1d8f7217feaf1fc8e9d7e9d9239b1e81`
+- `PROJECT_PROFILE.json` | 3028 bytes | `fee29d6523ce56e7684bdee80e5caa9a1620a3c51cbeb897bdf8e925e6adc221`
 - `README.md` | 1802 bytes | `a844d7c44767ce1053af3c2ce427061208bae53c67415cc6a7c285e3a649b996`
 - `SPEC_HEALTH.md` | 27176 bytes | `749b0742bee3b2acc5f9e3693e3582a686f8df2c357c10a7b9ac9916b1769380`
-- `VERSION` | 6 bytes | `a0ad50640139a524f86591157145bf1d4674ea9c065bfea21558f0f7b04430c8`
-- `bindings/PROJECT_BINDINGS.yaml` | 13060 bytes | `7141154bb8cbcfd25e7a96003cb731538aae1a36c70888f401a12b29ff28d04e`
+- `VERSION` | 6 bytes | `27ecff1fcdaf65ab46c1bb99c1072d6d134a0e8dd97dd95cfa88696b9ed453b2`
+- `bindings/PROJECT_BINDINGS.yaml` | 14687 bytes | `3e8c35b8b67aa94f7e63f8812412c435425e3717550d75d4b3d6ed8a6b266d3f`
 - `contracts/README.md` | 387 bytes | `574c6218c0c957efb2eb3bfa4bf51fbf3ab0165cc81a033a249d4ba4cc2af78e`
+- `contracts/acp-protected-effects.yaml` | 4146 bytes | `6fd132dc67c4213fecb65461f0ee70987cfe41b765a55ab89c11d3f1a8a1a7dd`
+- `docs/ACP_INTEGRATION.md` | 15964 bytes | `8b5bf32e3040581e842718942f52cfd0f00ce1c37f6cc76498b127e4f5f449d9`
 - `docs/AGENT_CAPABILITIES.md` | 1095 bytes | `9dd7e5efd745a85880c8b428ab41d25c994c033e7f5d1376a6defd343cbfdb68`
 - `docs/ALIGNMENT.md` | 1588 bytes | `9e241f47e102b9feeb3b8e6bff3c95a146d69384f196eefc2327b363a96bf7a0`
-- `docs/AUTHORITY_MODEL.md` | 2592 bytes | `abc1aac1d90b78a5e084549ef4f15e3a299f0894e521040f85261ea55acf5fc0`
+- `docs/AUTHORITY_MODEL.md` | 2912 bytes | `1d371d913fee51b89da6b2b39a587c9e143ff4146a484edd79eb3210bd938e62`
 - `docs/BOOTSTRAP_SEQUENCE.md` | 6140 bytes | `82d04fa96aa477837c64b61a7c5f9e7617d0e325ef3e205dbd037f6ff1e91d51`
 - `docs/CONFORMANCE.md` | 3027 bytes | `91a89475f94537685db35af38306d5455ee9bb30488fb5247527293a2e0320ba`
 - `docs/CONTEXT_COMPILATION.md` | 1601 bytes | `214a8af8fa1e25b6488f293d43842efce0225cf40aba460a8ae99d5c850d3599`
 - `docs/EVIDENCE_METHOD.md` | 1039 bytes | `a7422b9cc99adfc462a8c6d44ee883f9483c1127fbcaf0f44b1328d1d30fd4c9`
 - `docs/EXECUTION_PIPELINE.md` | 1861 bytes | `529c01ec25ac7d0552a19d591514244ec7bbe3f1966f1dd38d2c2f69494ba2db`
-- `docs/EXECUTION_PROVIDER_CONTRACT.md` | 1669 bytes | `e9587fea1bd67229f6588600512e6b9539d510ba000c0190b2c05f67eda0cf19`
+- `docs/EXECUTION_PROVIDER_CONTRACT.md` | 2134 bytes | `f8884fe13ab6503ddc5fdb53264001b24a6bf846b00473e3f8deca5d018d5ee5`
 - `docs/EXISTING_PROJECT_ADOPTION.md` | 4530 bytes | `6cfaf7daa1669ed717571ecd43e3b5950151d39641d1adaff6a16843a954c6c7`
 - `docs/FORMAL_RESOURCES.md` | 2845 bytes | `bf93374182ba0212c7e64328a751c9dc3cfacd816779f983eca50f9157851289`
 - `docs/HANDOFF-2026-08-30.md` | 11533 bytes | `8a0463c0ae7280272e7b4938a48dbc8831aaefeab9cf695e55765c009cf78692`
 - `docs/INITIAL_EPICS_TEMPLATE.md` | 1234 bytes | `c3e6414393bbfb7905b4113f10571a695204538c19bbab90b5a486e7ae6a3039`
 - `docs/LANDING_AND_PROMOTION.md` | 1135 bytes | `675a228edb135427a399e08c7fdf3a983a7802da5a20d63deb83af40fe366a23`
 - `docs/MULTI_AGENT_COORDINATION.md` | 2078 bytes | `c27fc5594ef31ff4574582b4c6f2e69dc684bb897b9f9455fce1b50ca44f968a`
-- `docs/NEGATIVE_KNOWLEDGE.md` | 1005 bytes | `cb1e5e5b1f3748fc9f879ca9e5e3914a043c44c707ee082dc3fee1878a79889f`
+- `docs/NEGATIVE_KNOWLEDGE.md` | 2169 bytes | `01ef93bc7c5b75ce991d6ed0cd78faba1d8e6cdc8f1b43b10231025a0975a91e`
 - `docs/RECOVERY.md` | 1115 bytes | `b084f0a4bbad4012bd9d2525a07239e38ff4f563bbdefbd8491518fec14882e9`
-- `docs/SKILLS_INDEX.md` | 763 bytes | `05da80f8e5564e351603f467963cf5820c5ddaf78187566c2da7d1abae2754a5`
+- `docs/SKILLS_INDEX.md` | 914 bytes | `2c763122a98e23607adf52f4029b3559b779bf2d3bb3a575b7a11f1ebf1f7874`
 - `docs/UI/01-SEMANTIC-CMS.md` | 5152 bytes | `1d0e4dfd01fc33d224d0f57cb45c4bb82d61b1de0e6971cc0f82538a07ba5ab2`
 - `docs/UI/02-MENTAL-MODEL.md` | 1986 bytes | `a63caba2b79118138fd53d2e372a9f93c284ca9be4b6a54311fb22d3c817a081`
 - `docs/UI/03-IN-USE.md` | 2712 bytes | `1d0fe92ba08b7265300711c10e527e8698c1ec9ff158f28b99b867c94e497946`
@@ -195,12 +198,15 @@
 - `research/upstream/fpb-pin-digest-procedure/docs/FORMAL_RESOURCES.pinning.md` | 1704 bytes | `be652fbc83cbdb9a353ded05dab54dcf3c9ab7f47e29faf23e5281205ad698c0`
 - `research/upstream/fpb-pin-digest-procedure/schemas/resource-fields.md` | 904 bytes | `3145f6c957500405128558fa42ca53de3c8c1cd22382a54246e0138d3d269e50`
 - `research/upstream/fpb-pin-digest-procedure/scripts/verify-pins.py` | 10840 bytes | `86e28f2f9ae323e1feb4221439874efd7b5d27c46967c7a624d0303351e765c9`
+- `schemas/acp-decision.schema.json` | 5605 bytes | `2a870190e4a3d208b765054b04de35819570770639e93e16ebb52d4365e8c76c`
 - `schemas/agent-message.schema.json` | 2269 bytes | `88c346d6ce2cf34d3bba9f35e2ef54e77776707b125b22bbc4ecc910ac33bedc`
 - `schemas/context-lock.schema.json` | 2526 bytes | `395e44e6dcc74b3169463d96e5db4836befdd1cae8ffc19857645c4e8ea5993b`
 - `schemas/formal-resource-manifest.schema.json` | 1676 bytes | `465c3eae445d530087e1149d7f14e267400b32df00fa5b506e0b3af278a9b928`
 - `schemas/scms/envelope.schema.json` | 3053 bytes | `ee103a203c4b09cb8770ed9ab67930f9c8c5c03504cd9afb59e1e6252806fa77`
 - `schemas/scms/golden/canonicalization.json` | 4487 bytes | `92a7f51bdac1aaeb503cd9fd1c65af38c43531bdd6d38bac9e140eb71d7bf8fa`
 - `schemas/work-disposition.schema.json` | 2062 bytes | `a0426bb2095e37891627c5b3de78266863522bf36e5305dc0ba525e9617d2987`
+- `scripts/acp-check.py` | 11196 bytes | `ef1863692a470634adae144c0b6f3aadfc375543915c7b9c428b6b99f4c9225a`
+- `scripts/acp.py` | 25341 bytes | `296df59154eeb8c0b9fc60dfe61f5b31639f090974d494f7c058dbd93749d321`
 - `scripts/check-canon-write-boundary.py` | 3233 bytes | `b9873a1a0d1e923db2801fed29d2e5c8fc8bfebb47202f618dca0351e663f66c`
 - `scripts/check-claim-register.py` | 8775 bytes | `fdc0ce23b837728667aff394904cf0d855ce76174f90c9eec8fce0395ce550af`
 - `scripts/check-declaration-parity.py` | 5253 bytes | `f65a6df45fb5a7d0a46d38e149dd7855ebd0a83c2a875d25e3678e29a7f0b01c`
@@ -211,7 +217,7 @@
 - `scripts/gen-context.py` | 8036 bytes | `819eb2f67a5ec3943bae509d78eebfd690febff6b157a75fafa05f1b047848fa`
 - `scripts/next-id.py` | 5685 bytes | `ab97cb462db8ae3850b778efe400df47c751180742723deeafd67d84073dcadf`
 - `scripts/run-ci-steps.sh` | 3107 bytes | `8037ce51e5cd66dcf943456a7f0ca58f5c3efb64a5b2098f7bfcd4b7f4cc8b03`
-- `scripts/validate-bootstrap.py` | 4120 bytes | `b3881974ac4d1259a0fa084c1aa80bfcdc1af4b3873f05c9057697e61bb1fb95`
+- `scripts/validate-bootstrap.py` | 9360 bytes | `c0be496cc05f360f64891fc69466835b5aa04cbeec6f89f32fc8b079dfc9845d`
 - `scripts/verify-pins.py` | 10371 bytes | `06cf24b02b016a40ee20a0669ae04915cffdf4a366b0bfc0ff4722bc174dbc67`
 - `work/GRAPH.md` | 21183 bytes | `b18c1ce4d3906bf3a272fda56bc84c301594a0c53ac33016c8091c5560dbb2a8`
 - `work/SCMS-001.md` | 2155 bytes | `99c5bc6ed57cfd3b84eb813d1aadee333af8e706120003d34285cc6e20beffd9`
