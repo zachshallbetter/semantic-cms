@@ -1,11 +1,44 @@
 # Project Context Index
 > Generator: 0.5.0
-> Source digest: `d9187c112ac48e9fcbc5a48a7bced2298bd0205ee50c8ceaa07138f9199c6f24`
+> Source digest: `a7faf81580b14a1d1cc4a19267527c2073c41d749e3a6f457e7922567e90c881`
 
 > Generated projection. Canonical sources remain authoritative.
 
 - `.agents/skills/compile-context/SKILL.md` | 561 bytes | `10c8156d05da083eddb606769183d8cabf4f924c241a3e3b462ef76f7aecf28d`
 - `.agents/skills/coordinate-workers/SKILL.md` | 593 bytes | `6be105841accc1f67dc11e12541b3b343fa2029a0ff6e5085c907b36381ba57b`
+- `.agents/skills/github-projects/SKILL.md` | 20314 bytes | `008a6b6384a5aedf42565565d6b23c982c02fe4fba6f5870f59923137a374211`
+- `.agents/skills/github-projects/assets/roles/pr-merge-analyzer.md` | 2152 bytes | `6601403f398b4ad5327e55112e82a69b77dc37da03de5a83d6a45c5119c859ce`
+- `.agents/skills/github-projects/assets/roles/resolver.md` | 1524 bytes | `5997cbcc50c7825f46e686b0f60c3d0d91ef38076c348132d33d9ebadda0c21f`
+- `.agents/skills/github-projects/assets/roles/triage-agent.md` | 2613 bytes | `c897de8026af3bc92043e3859cb7b7947e3c9ac3c23e7166b89df7392b947aea`
+- `.agents/skills/github-projects/assets/roles/triager.md` | 813 bytes | `436a8fc2ddcf90131d846e186fd7567f1d84e03592682cfd8297ad9d244051c4`
+- `.agents/skills/github-projects/assets/roles/verifier.md` | 710 bytes | `7a4e1145f353d8e6707070db23b19e4f5e695eaa4e1d92d38d4f43e7c99fce6a`
+- `.agents/skills/github-projects/references/cli.md` | 7219 bytes | `6fadc23522f6889b6b9abff6087925f63e2425f582855820e12d4a0ef50cb7f1`
+- `.agents/skills/github-projects/references/conventions.md` | 6722 bytes | `8ada73d9c7bcfba983789cab62e9ed51a9bec9a93a4ae0a62e06647de4ad8f76`
+- `.agents/skills/github-projects/references/coordinator.md` | 10590 bytes | `ae781183a9ada4cedee7ed253fd06445e83e0d84c17af16e07271848871e2658`
+- `.agents/skills/github-projects/references/gotchas.md` | 9716 bytes | `e776475c3e5cae703560c23f64e98bea99b725250e07e5408a58213b532638cc`
+- `.agents/skills/github-projects/references/graphql.md` | 11646 bytes | `2f6f892a66278fe63a98732ee2d06711e9e0e4b7e1bf7db3891a9eea3a5691c5`
+- `.agents/skills/github-projects/references/recipes.md` | 6130 bytes | `ed254c3b6c2942cd49506a91d2ccdf1f1d5bda3560e2475c75db4a03a70329e2`
+- `.agents/skills/github-projects/scripts/add-item.sh` | 1384 bytes | `04550f2f774d23f31281f5a6ecb278068e884da57bc6bd018ff6ab57e17d0df2`
+- `.agents/skills/github-projects/scripts/claim.sh` | 3534 bytes | `4d2715aff9f8d11bcd7526980655b17afc1d9097bed945e7eb8271426fb6c156`
+- `.agents/skills/github-projects/scripts/claims.sh` | 3289 bytes | `35c0c83734590546f1cc820409554f4c9d68cf656bd6f3052cda5fb3a0315148`
+- `.agents/skills/github-projects/scripts/coord.sh` | 4016 bytes | `4e2fff08d0feb8553095961e6bd2963b9e035b605541736aab080c7681e177f4`
+- `.agents/skills/github-projects/scripts/coordinator-bridge.sh` | 1878 bytes | `d1a5cbdf2e4cd280192e1e83a16691fb67e5138c8e48806464e2ced12ce7defb`
+- `.agents/skills/github-projects/scripts/coordinator.sh` | 15520 bytes | `9c0a61fa29f10a96fc0dc023e3a1838f8242f3232bd2c47f1bca6b808402ebf1`
+- `.agents/skills/github-projects/scripts/github_app.py` | 1695 bytes | `4a200f5149390fa4cc694a086e0b348ca39bcdbd53a0c4a3f94e41315139a227`
+- `.agents/skills/github-projects/scripts/lib.sh` | 13516 bytes | `6028d78de247daf9355a5a570419543797a85527be268ae73b8f2c8dd59e4aac`
+- `.agents/skills/github-projects/scripts/new-item.sh` | 2864 bytes | `6fe62ffb07edcca5bc8d409855f4723535fc8efcb4733dd1095055fa2c89d464`
+- `.agents/skills/github-projects/scripts/project-ids.sh` | 3249 bytes | `d8336a49392bcbdabe6a8b957b6d3e6d89957b20fb5befa19f7fc0c9b56fde23`
+- `.agents/skills/github-projects/scripts/project.sh` | 3035 bytes | `33d712860181294aefd6a43fbe3a0d3f1360cde0cee300bd3c0c8b64ca6ef98f`
+- `.agents/skills/github-projects/scripts/protect.sh` | 1620 bytes | `773bd3c6a4097e3e69e2bd4de84cc1e490dac771ff7b68aa781713dd140d5876`
+- `.agents/skills/github-projects/scripts/rate-limit.sh` | 1259 bytes | `3edf8021420a1e2daa998c638d0990b843b576fbc5d8010f3611ac7e1361ab81`
+- `.agents/skills/github-projects/scripts/release.sh` | 1161 bytes | `1b31ae119f85717b3c4b8d61cf736e8bc6fa3c4f0e8c1cf02dbd87c4629873fd`
+- `.agents/skills/github-projects/scripts/repo-map.sh` | 4581 bytes | `f9b64ceea4b2d4c7345043b1f086c4470c4a016ba55f62f6bbff997bbe030a18`
+- `.agents/skills/github-projects/scripts/set-field.sh` | 6084 bytes | `43c9e7f634dede9f30c3d40299d41d7f373f42ab3f211f9a5f7377f3e573a8a5`
+- `.agents/skills/github-projects/scripts/snapshot.sh` | 7358 bytes | `604bc4f84328c9ac6e6c23cf15d3fc5f09246411f0dbfcc2eadd0bcad14ae35e`
+- `.agents/skills/github-projects/scripts/spawn.sh` | 3846 bytes | `486b35e4f74dddbaee2a35520c212fd1daea3ffbdd9d16086c5ec8a1464eda1a`
+- `.agents/skills/github-projects/scripts/webhook_receiver.py` | 9009 bytes | `ad5065b70b576465cb303cac603b620925f1b16fe0daea172a8edd6c7feffb6f`
+- `.agents/skills/github-projects/tests/test_acp_context.sh` | 3976 bytes | `23044f6707aaf64bf66e30cc794f39300b52bf875f2d251aa94f620a36b0bd5c`
+- `.agents/skills/github-projects/tests/test_webhook_receiver.py` | 1123 bytes | `8af54930fdebd4eb996cca2a16e5faab57537609af331a63eeeb4ba6bca4728e`
 - `.agents/skills/operate-frontier/SKILL.md` | 725 bytes | `d3a6730cc1e450feb4840060025899d4a4d17d6c935a8b3ea57ee4302d651172`
 - `.agents/skills/reconcile-project/SKILL.md` | 648 bytes | `ed45e3b970480a0bed390757fef2d9abe2471bf37835d764f939022600995333`
 - `.agents/skills/verify-outcome/SKILL.md` | 599 bytes | `331bcc9c5179eef021d9edf48e76bedcaaef6fed17f97e91c6d20a20f1199117`
