@@ -9,14 +9,14 @@
     "repositories": [
       {
         "path": ".",
-        "commit": "0c1fdea47094f4279c4f6bbcbff4190d11f669eb",
-        "branch": "main",
-        "dirty": true,
+        "commit": "4d5782f769476f9597b248deb343622b4e4f9e74",
+        "branch": "ctx-fix",
+        "dirty": false,
         "remote": "https://github.com/zachshallbetter/semantic-cms.git"
       }
     ]
   },
-  "aggregateSourceDigest": "d9187c112ac48e9fcbc5a48a7bced2298bd0205ee50c8ceaa07138f9199c6f24",
+  "aggregateSourceDigest": "a7faf81580b14a1d1cc4a19267527c2073c41d749e3a6f457e7922567e90c881",
   "sources": [
     {
       "path": ".agents/skills/compile-context/SKILL.md",
@@ -27,6 +27,171 @@
       "path": ".agents/skills/coordinate-workers/SKILL.md",
       "bytes": 593,
       "sha256": "6be105841accc1f67dc11e12541b3b343fa2029a0ff6e5085c907b36381ba57b"
+    },
+    {
+      "path": ".agents/skills/github-projects/SKILL.md",
+      "bytes": 20314,
+      "sha256": "008a6b6384a5aedf42565565d6b23c982c02fe4fba6f5870f59923137a374211"
+    },
+    {
+      "path": ".agents/skills/github-projects/assets/roles/pr-merge-analyzer.md",
+      "bytes": 2152,
+      "sha256": "6601403f398b4ad5327e55112e82a69b77dc37da03de5a83d6a45c5119c859ce"
+    },
+    {
+      "path": ".agents/skills/github-projects/assets/roles/resolver.md",
+      "bytes": 1524,
+      "sha256": "5997cbcc50c7825f46e686b0f60c3d0d91ef38076c348132d33d9ebadda0c21f"
+    },
+    {
+      "path": ".agents/skills/github-projects/assets/roles/triage-agent.md",
+      "bytes": 2613,
+      "sha256": "c897de8026af3bc92043e3859cb7b7947e3c9ac3c23e7166b89df7392b947aea"
+    },
+    {
+      "path": ".agents/skills/github-projects/assets/roles/triager.md",
+      "bytes": 813,
+      "sha256": "436a8fc2ddcf90131d846e186fd7567f1d84e03592682cfd8297ad9d244051c4"
+    },
+    {
+      "path": ".agents/skills/github-projects/assets/roles/verifier.md",
+      "bytes": 710,
+      "sha256": "7a4e1145f353d8e6707070db23b19e4f5e695eaa4e1d92d38d4f43e7c99fce6a"
+    },
+    {
+      "path": ".agents/skills/github-projects/references/cli.md",
+      "bytes": 7219,
+      "sha256": "6fadc23522f6889b6b9abff6087925f63e2425f582855820e12d4a0ef50cb7f1"
+    },
+    {
+      "path": ".agents/skills/github-projects/references/conventions.md",
+      "bytes": 6722,
+      "sha256": "8ada73d9c7bcfba983789cab62e9ed51a9bec9a93a4ae0a62e06647de4ad8f76"
+    },
+    {
+      "path": ".agents/skills/github-projects/references/coordinator.md",
+      "bytes": 10590,
+      "sha256": "ae781183a9ada4cedee7ed253fd06445e83e0d84c17af16e07271848871e2658"
+    },
+    {
+      "path": ".agents/skills/github-projects/references/gotchas.md",
+      "bytes": 9716,
+      "sha256": "e776475c3e5cae703560c23f64e98bea99b725250e07e5408a58213b532638cc"
+    },
+    {
+      "path": ".agents/skills/github-projects/references/graphql.md",
+      "bytes": 11646,
+      "sha256": "2f6f892a66278fe63a98732ee2d06711e9e0e4b7e1bf7db3891a9eea3a5691c5"
+    },
+    {
+      "path": ".agents/skills/github-projects/references/recipes.md",
+      "bytes": 6130,
+      "sha256": "ed254c3b6c2942cd49506a91d2ccdf1f1d5bda3560e2475c75db4a03a70329e2"
+    },
+    {
+      "path": ".agents/skills/github-projects/scripts/add-item.sh",
+      "bytes": 1384,
+      "sha256": "04550f2f774d23f31281f5a6ecb278068e884da57bc6bd018ff6ab57e17d0df2"
+    },
+    {
+      "path": ".agents/skills/github-projects/scripts/claim.sh",
+      "bytes": 3534,
+      "sha256": "4d2715aff9f8d11bcd7526980655b17afc1d9097bed945e7eb8271426fb6c156"
+    },
+    {
+      "path": ".agents/skills/github-projects/scripts/claims.sh",
+      "bytes": 3289,
+      "sha256": "35c0c83734590546f1cc820409554f4c9d68cf656bd6f3052cda5fb3a0315148"
+    },
+    {
+      "path": ".agents/skills/github-projects/scripts/coord.sh",
+      "bytes": 4016,
+      "sha256": "4e2fff08d0feb8553095961e6bd2963b9e035b605541736aab080c7681e177f4"
+    },
+    {
+      "path": ".agents/skills/github-projects/scripts/coordinator-bridge.sh",
+      "bytes": 1878,
+      "sha256": "d1a5cbdf2e4cd280192e1e83a16691fb67e5138c8e48806464e2ced12ce7defb"
+    },
+    {
+      "path": ".agents/skills/github-projects/scripts/coordinator.sh",
+      "bytes": 15520,
+      "sha256": "9c0a61fa29f10a96fc0dc023e3a1838f8242f3232bd2c47f1bca6b808402ebf1"
+    },
+    {
+      "path": ".agents/skills/github-projects/scripts/github_app.py",
+      "bytes": 1695,
+      "sha256": "4a200f5149390fa4cc694a086e0b348ca39bcdbd53a0c4a3f94e41315139a227"
+    },
+    {
+      "path": ".agents/skills/github-projects/scripts/lib.sh",
+      "bytes": 13516,
+      "sha256": "6028d78de247daf9355a5a570419543797a85527be268ae73b8f2c8dd59e4aac"
+    },
+    {
+      "path": ".agents/skills/github-projects/scripts/new-item.sh",
+      "bytes": 2864,
+      "sha256": "6fe62ffb07edcca5bc8d409855f4723535fc8efcb4733dd1095055fa2c89d464"
+    },
+    {
+      "path": ".agents/skills/github-projects/scripts/project-ids.sh",
+      "bytes": 3249,
+      "sha256": "d8336a49392bcbdabe6a8b957b6d3e6d89957b20fb5befa19f7fc0c9b56fde23"
+    },
+    {
+      "path": ".agents/skills/github-projects/scripts/project.sh",
+      "bytes": 3035,
+      "sha256": "33d712860181294aefd6a43fbe3a0d3f1360cde0cee300bd3c0c8b64ca6ef98f"
+    },
+    {
+      "path": ".agents/skills/github-projects/scripts/protect.sh",
+      "bytes": 1620,
+      "sha256": "773bd3c6a4097e3e69e2bd4de84cc1e490dac771ff7b68aa781713dd140d5876"
+    },
+    {
+      "path": ".agents/skills/github-projects/scripts/rate-limit.sh",
+      "bytes": 1259,
+      "sha256": "3edf8021420a1e2daa998c638d0990b843b576fbc5d8010f3611ac7e1361ab81"
+    },
+    {
+      "path": ".agents/skills/github-projects/scripts/release.sh",
+      "bytes": 1161,
+      "sha256": "1b31ae119f85717b3c4b8d61cf736e8bc6fa3c4f0e8c1cf02dbd87c4629873fd"
+    },
+    {
+      "path": ".agents/skills/github-projects/scripts/repo-map.sh",
+      "bytes": 4581,
+      "sha256": "f9b64ceea4b2d4c7345043b1f086c4470c4a016ba55f62f6bbff997bbe030a18"
+    },
+    {
+      "path": ".agents/skills/github-projects/scripts/set-field.sh",
+      "bytes": 6084,
+      "sha256": "43c9e7f634dede9f30c3d40299d41d7f373f42ab3f211f9a5f7377f3e573a8a5"
+    },
+    {
+      "path": ".agents/skills/github-projects/scripts/snapshot.sh",
+      "bytes": 7358,
+      "sha256": "604bc4f84328c9ac6e6c23cf15d3fc5f09246411f0dbfcc2eadd0bcad14ae35e"
+    },
+    {
+      "path": ".agents/skills/github-projects/scripts/spawn.sh",
+      "bytes": 3846,
+      "sha256": "486b35e4f74dddbaee2a35520c212fd1daea3ffbdd9d16086c5ec8a1464eda1a"
+    },
+    {
+      "path": ".agents/skills/github-projects/scripts/webhook_receiver.py",
+      "bytes": 9009,
+      "sha256": "ad5065b70b576465cb303cac603b620925f1b16fe0daea172a8edd6c7feffb6f"
+    },
+    {
+      "path": ".agents/skills/github-projects/tests/test_acp_context.sh",
+      "bytes": 3976,
+      "sha256": "23044f6707aaf64bf66e30cc794f39300b52bf875f2d251aa94f620a36b0bd5c"
+    },
+    {
+      "path": ".agents/skills/github-projects/tests/test_webhook_receiver.py",
+      "bytes": 1123,
+      "sha256": "8af54930fdebd4eb996cca2a16e5faab57537609af331a63eeeb4ba6bca4728e"
     },
     {
       "path": ".agents/skills/operate-frontier/SKILL.md",
